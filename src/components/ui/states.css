@@ -1,0 +1,104 @@
+.empty-state,
+.inline-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-medium);
+  background: var(--background-surface);
+  padding: var(--space-3);
+}
+
+.empty-state > svg,
+.inline-error > svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.empty-state > svg {
+  color: var(--text-muted);
+}
+
+.inline-error {
+  border-color: color-mix(in srgb, var(--status-warning) 45%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--status-warning) 8%,
+    var(--background-surface)
+  );
+}
+
+.inline-error > svg {
+  color: var(--status-warning);
+}
+
+.empty-state > div,
+.inline-error > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.empty-state h2 {
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+
+.empty-state p,
+.inline-error p {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.skeleton-row {
+  display: grid;
+  min-height: 62px;
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: 36px 1fr 52px;
+  padding: 8px;
+}
+
+.skeleton-row > span {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    90deg,
+    var(--background-surface-hover),
+    var(--background-surface-active),
+    var(--background-surface-hover)
+  );
+  background-size: 200% 100%;
+  animation: skeleton 1.4s linear infinite;
+}
+
+.skeleton-row > span:first-child {
+  height: 36px;
+  border-radius: 50%;
+}
+
+.research-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.research-progress > svg {
+  width: 16px;
+  animation: spin 1s linear infinite;
+  color: var(--accent-primary);
+}
+
+@keyframes skeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,457 @@
+import type {
+  LeagueFormat,
+  Player,
+  Recommendation,
+  ScoreComponent,
+  Strategy,
+} from "@/types/domain";
+
+export type ValuationInputs = {
+  importedRank?: number;
+  importedTier?: number;
+  adp?: number;
+  projectedPoints?: number;
+  redraftValue?: number;
+  dynastyValue?: number;
+  rookieValue?: number;
+  historicalProduction?: number;
+  recentProduction?: number;
+  injuryRisk?: number;
+  researchAdjustment?: number;
+};
+
+export type RankingContext = {
+  format: LeagueFormat;
+  strategy: Strategy;
+  riskTolerance: number;
+  currentPick: number;
+  nextUserPick: number;
+  rosterNeeds: Partial<Record<Player["position"], number>>;
+  positionDemand: Partial<Record<Player["position"], number>>;
+  remainingInTier: Partial<Record<Player["position"], number>>;
+};
+
+type PlayerScore = {
+  player: Player;
+  localScore: number;
+  researchAdjustment: number;
+  contextualScore: number;
+  components: ScoreComponent[];
+};
+
+export function calculatePlayerScore(
+  player: Player,
+  inputs: ValuationInputs,
+  context: RankingContext,
+): PlayerScore {
+  const baseline = baselineScore(player, inputs, context);
+  const components: ScoreComponent[] = [
+    {
+      key: "baseline",
+      label: "Baseline value",
+      value: baseline,
+      reason: "Imported ranks, projections, ADP, and local fallback value.",
+    },
+  ];
+
+  const ageValue = ageCurveScore(player, context.strategy, context.format.mode);
+  components.push({
+    key: "age_curve",
+    label: "Age curve",
+    value: ageValue,
+    reason: ageReason(player, ageValue),
+  });
+
+  const scarcity = scarcityScore(player, context);
+  components.push({
+    key: "scarcity",
+    label: "Positional scarcity",
+    value: scarcity,
+    reason: `${context.remainingInTier[player.position] ?? 0} players remain in the current tier.`,
+  });
+
+  const rosterFit = clamp(
+    (context.rosterNeeds[player.position] ?? 0) * 4,
+    -8,
+    8,
+  );
+  components.push({
+    key: "roster_fit",
+    label: "Roster fit",
+    value: rosterFit,
+    reason:
+      rosterFit > 2
+        ? "The roster has a meaningful need at this position."
+        : "Roster construction does not force this position.",
+  });
+
+  const draftCapital = draftCapitalScore(player);
+  components.push({
+    key: "draft_capital",
+    label: "NFL draft capital",
+    value: draftCapital,
+    reason:
+      player.nflDraftPick === undefined
+        ? "Verified NFL draft capital is unavailable."
+        : `Selected at NFL pick ${player.nflDraftPick}.`,
+  });
+
+  const injuryPenalty = -clamp(
+    (inputs.injuryRisk ?? statusRisk(player)) * (1 - context.riskTolerance),
+    0,
+    8,
+  );
+  components.push({
+    key: "risk",
+    label: "Risk tolerance",
+    value: injuryPenalty,
+    reason: "Applies injury and status risk using the selected risk tolerance.",
+  });
+
+  const localScore = clamp(
+    baseline + ageValue + scarcity + rosterFit + draftCapital + injuryPenalty,
+    0,
+    100,
+  );
+  const researchAdjustment = clamp(inputs.researchAdjustment ?? 0, -8, 8);
+  return {
+    player,
+    localScore: round(localScore),
+    researchAdjustment: round(researchAdjustment),
+    contextualScore: round(clamp(localScore + researchAdjustment, 0, 100)),
+    components: components.map((component) => ({
+      ...component,
+      value: round(component.value),
+    })),
+  };
+}
+
+export function rankPlayers(
+  players: Array<{ player: Player; inputs: ValuationInputs }>,
+  context: RankingContext,
+): Recommendation[] {
+  const scored = players
+    .map(({ player, inputs }) => calculatePlayerScore(player, inputs, context))
+    .toSorted((a, b) => b.contextualScore - a.contextualScore);
+  const tiers = generateTiers(scored.map((entry) => entry.contextualScore));
+  const replacement = calculateReplacementLevels(
+    scored.map((entry) => ({ player: entry.player, score: entry.localScore })),
+    context.format,
+  );
+
+  return scored.map((entry, index) => {
+    const availability = estimateAvailability({
+      playerScore: entry.contextualScore,
+      adp: players.find((item) => item.player.id === entry.player.id)?.inputs
+        .adp,
+      currentPick: context.currentPick,
+      nextPick: context.nextUserPick,
+      positionDemand: context.positionDemand[entry.player.position] ?? 0.5,
+      remainingTier: context.remainingInTier[entry.player.position] ?? 1,
+    });
+    const need = context.rosterNeeds[entry.player.position] ?? 0;
+    const vor =
+      entry.localScore -
+      (replacement.get(entry.player.position) ?? entry.localScore);
+    return {
+      player: entry.player,
+      rank: index + 1,
+      tier: tiers[index] ?? 1,
+      localScore: entry.localScore,
+      researchAdjustment: entry.researchAdjustment,
+      contextualScore: entry.contextualScore,
+      confidence: round(0.55 + availability.confidence * 0.35),
+      valueOverReplacement: round(vor),
+      rosterFit: need > 1 ? "strong" : need < -0.5 ? "weak" : "neutral",
+      scarcity: round(scarcityScore(entry.player, context)),
+      nextPickAvailability: availability.probability,
+      risk: riskLabel(entry.components),
+      rationale: buildRationale(
+        entry.player,
+        entry.components,
+        availability.probability,
+      ),
+      cited: entry.researchAdjustment === 0,
+      components: entry.components,
+    };
+  });
+}
+
+export function generateTiers(scores: number[], minimumGap = 2.25): number[] {
+  let tier = 1;
+  return scores.map((score, index) => {
+    if (index > 0 && (scores[index - 1] ?? score) - score >= minimumGap)
+      tier += 1;
+    return tier;
+  });
+}
+
+export function calculateReplacementLevels(
+  players: Array<{ player: Player; score: number }>,
+  format: LeagueFormat,
+): Map<Player["position"], number> {
+  const positions = new Map<Player["position"], number[]>();
+  for (const { player, score } of players) {
+    const list = positions.get(player.position) ?? [];
+    list.push(score);
+    positions.set(player.position, list);
+  }
+  const levels = new Map<Player["position"], number>();
+  for (const [position, scores] of positions) {
+    const directStarters = format.starters[position] ?? 0;
+    const flexDemand = ["RB", "WR", "TE"].includes(position)
+      ? (format.starters["FLEX"] ?? 0) + (format.starters["REC_FLEX"] ?? 0)
+      : 0;
+    const superflexDemand =
+      position === "QB" && format.superflex
+        ? (format.starters["SUPER_FLEX"] ?? 1)
+        : 0;
+    const benchDemand = Math.ceil((format.bench * format.teams) / 5);
+    const demand = Math.max(
+      1,
+      directStarters * format.teams +
+        flexDemand * format.teams +
+        superflexDemand * format.teams +
+        benchDemand,
+    );
+    const ordered = scores.toSorted((a, b) => b - a);
+    levels.set(
+      position,
+      ordered[Math.min(demand - 1, ordered.length - 1)] ?? 0,
+    );
+  }
+  return levels;
+}
+
+type AvailabilityInput = {
+  playerScore: number;
+  adp?: number;
+  currentPick: number;
+  nextPick: number;
+  positionDemand: number;
+  remainingTier: number;
+};
+
+export function estimateAvailability(input: AvailabilityInput): {
+  probability: number;
+  confidenceInterval: [number, number];
+  confidence: number;
+  factors: string[];
+  warning?: string;
+} {
+  const picksAway = Math.max(1, input.nextPick - input.currentPick);
+  const adpGap = input.adp === undefined ? 0 : input.adp - input.nextPick;
+  const scorePressure = (input.playerScore - 75) / 8;
+  const demandPressure = clamp(input.positionDemand, 0, 1.5) * 1.4;
+  const tierPressure =
+    input.remainingTier <= 2 ? 1.2 : input.remainingTier <= 5 ? 0.5 : 0;
+  const survival =
+    1 /
+    (1 +
+      Math.exp(
+        scorePressure +
+          demandPressure +
+          tierPressure -
+          picksAway / 7 -
+          adpGap / 12,
+      ));
+  const probability = Math.round(clamp(survival * 100, 2, 98));
+  const confidence = input.adp === undefined ? 0.46 : 0.74;
+  const margin = input.adp === undefined ? 24 : 13;
+  return {
+    probability,
+    confidenceInterval: [
+      Math.max(0, probability - margin),
+      Math.min(100, probability + margin),
+    ],
+    confidence,
+    factors: [
+      `${picksAway} selections before the next owned pick`,
+      `${input.remainingTier} players remain in the tier`,
+      input.adp === undefined ? "No imported ADP" : `Imported ADP ${input.adp}`,
+    ],
+    ...(input.adp === undefined
+      ? { warning: "Availability is lower confidence without imported ADP." }
+      : {}),
+  };
+}
+
+export function detectPositionRun(
+  positions: Player["position"][],
+  windowSize = 6,
+): {
+  position: Player["position"] | null;
+  picksInWindow: number;
+  strength: "none" | "emerging" | "strong";
+} {
+  const window = positions.slice(-Math.max(2, windowSize));
+  const counts = new Map<Player["position"], number>();
+  for (const position of window) {
+    counts.set(position, (counts.get(position) ?? 0) + 1);
+  }
+  const leader = [...counts.entries()].toSorted((a, b) => b[1] - a[1])[0];
+  if (!leader || leader[1] < 3) {
+    return {
+      position: leader?.[0] ?? null,
+      picksInWindow: leader?.[1] ?? 0,
+      strength: "none",
+    };
+  }
+  return {
+    position: leader[0],
+    picksInWindow: leader[1],
+    strength:
+      leader[1] >= Math.ceil(window.length * 0.6) ? "strong" : "emerging",
+  };
+}
+
+function baselineScore(
+  player: Player,
+  inputs: ValuationInputs,
+  context: RankingContext,
+): number {
+  const values: Array<{ value: number | undefined; weight: number }> = [
+    {
+      value:
+        inputs.importedRank === undefined
+          ? undefined
+          : 100 - Math.min(inputs.importedRank, 300) / 3,
+      weight: 0.28,
+    },
+    {
+      value:
+        inputs.adp === undefined
+          ? undefined
+          : 100 - Math.min(inputs.adp, 300) / 3,
+      weight: 0.17,
+    },
+    {
+      value:
+        inputs.projectedPoints === undefined
+          ? undefined
+          : clamp(inputs.projectedPoints / 4, 0, 100),
+      weight: 0.22,
+    },
+    {
+      value:
+        context.format.mode === "redraft"
+          ? inputs.redraftValue
+          : context.format.mode === "dynasty_rookie"
+            ? inputs.rookieValue
+            : inputs.dynastyValue,
+      weight: 0.28,
+    },
+    { value: inputs.recentProduction, weight: 0.08 },
+    { value: inputs.historicalProduction, weight: 0.06 },
+  ];
+  let total = 0;
+  let weight = 0;
+  for (const item of values) {
+    if (item.value === undefined) continue;
+    total += clamp(item.value, 0, 100) * item.weight;
+    weight += item.weight;
+  }
+  if (weight === 0) {
+    const searchRank = player.searchRank ?? 180;
+    return clamp(88 - searchRank / 4, 30, 88);
+  }
+  return total / weight;
+}
+
+function ageCurveScore(
+  player: Player,
+  strategy: Strategy,
+  mode: LeagueFormat["mode"],
+): number {
+  if (player.age === undefined || ["redraft", "best_ball"].includes(mode))
+    return 0;
+  const peak: Partial<Record<Player["position"], number>> = {
+    QB: 28,
+    RB: 24,
+    WR: 26,
+    TE: 27,
+  };
+  const target = peak[player.position] ?? 26;
+  const difference = player.age - target;
+  const strategyMultiplier =
+    strategy === "rebuild"
+      ? 1.4
+      : strategy === "productive_struggle"
+        ? 1.2
+        : strategy === "contender"
+          ? 0.65
+          : 1;
+  return clamp(-difference * 0.9 * strategyMultiplier, -10, 7);
+}
+
+function ageReason(player: Player, value: number): string {
+  if (player.age === undefined) return "Verified age is unavailable.";
+  if (value > 1)
+    return `${player.age.toFixed(1)} years old with age-curve upside.`;
+  if (value < -1)
+    return `${player.age.toFixed(1)} years old with age-curve decline risk.`;
+  return `${player.age.toFixed(1)} years old and near the positional peak.`;
+}
+
+function scarcityScore(player: Player, context: RankingContext): number {
+  const remaining = context.remainingInTier[player.position] ?? 8;
+  const demand = context.positionDemand[player.position] ?? 0.5;
+  const superflex =
+    player.position === "QB" &&
+    (context.format.superflex || context.format.twoQuarterback)
+      ? 3.5
+      : 0;
+  const tightEndPremium =
+    player.position === "TE" && context.format.tightEndPremium ? 2.5 : 0;
+  return clamp(
+    (6 - remaining) * 0.85 + demand * 3 + superflex + tightEndPremium,
+    -3,
+    10,
+  );
+}
+
+function draftCapitalScore(player: Player): number {
+  if (player.nflDraftPick === undefined) return 0;
+  if (player.nflDraftPick <= 10) return 5;
+  if (player.nflDraftPick <= 32) return 3.5;
+  if (player.nflDraftPick <= 64) return 2;
+  if (player.nflDraftPick <= 100) return 0.8;
+  return -0.5;
+}
+
+function statusRisk(player: Player): number {
+  if (player.status === "injured") return 8;
+  if (player.status === "inactive") return 6;
+  if (player.injuryStatus) return 3;
+  return 0.5;
+}
+
+function riskLabel(components: ScoreComponent[]): Recommendation["risk"] {
+  const penalty =
+    components.find((component) => component.key === "risk")?.value ?? 0;
+  if (penalty <= -4.5) return "high";
+  if (penalty <= -1.5) return "moderate";
+  return "low";
+}
+
+function buildRationale(
+  player: Player,
+  components: ScoreComponent[],
+  availability: number,
+): string {
+  const best = components
+    .filter((component) => component.key !== "baseline")
+    .toSorted((a, b) => b.value - a.value)[0];
+  if (availability < 30) {
+    return `${player.fullName} is unlikely to reach the next pick, with ${best?.label.toLowerCase() ?? "strong local value"} supporting the selection.`;
+  }
+  return `${player.fullName} offers ${best?.label.toLowerCase() ?? "strong local value"} and may remain available at the next pick.`;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function round(value: number): number {
+  return Math.round(value * 10) / 10;
+}

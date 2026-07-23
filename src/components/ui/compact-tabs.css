@@ -1,0 +1,43 @@
+.compact-tabs {
+  display: flex;
+  min-width: 0;
+  gap: 2px;
+  border-bottom: 1px solid var(--border-default);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.compact-tab {
+  position: relative;
+  min-height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 0 10px;
+}
+
+.compact-tab::after {
+  position: absolute;
+  right: 8px;
+  bottom: -1px;
+  left: 8px;
+  height: 2px;
+  background: transparent;
+  content: "";
+}
+
+.compact-tab:hover {
+  color: var(--text-primary);
+}
+
+.compact-tab[data-state="active"] {
+  color: var(--accent-primary);
+}
+
+.compact-tab[data-state="active"]::after {
+  background: var(--accent-primary);
+}
