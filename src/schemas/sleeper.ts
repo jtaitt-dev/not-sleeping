@@ -127,7 +127,7 @@ export const sleeperPlayerSchema = z
     espn_id: z.union([z.string(), z.number()]).nullable().optional(),
     yahoo_id: z.union([z.string(), z.number()]).nullable().optional(),
     fantasy_data_id: z.union([z.string(), z.number()]).nullable().optional(),
-    metadata: flexibleRecord.optional(),
+    metadata: flexibleRecord.nullable().optional(),
   })
   .loose();
 

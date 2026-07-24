@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { OpenAIProvider } from "@/providers/openai/openai-provider";
 import { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
+import { sleeperPlayersSchema } from "@/schemas/sleeper";
 import { DEFAULT_SETTINGS } from "@/services/storage/settings";
 
 function jsonResponse(value: unknown, status = 200, headers?: HeadersInit) {
@@ -56,6 +57,20 @@ describe("Sleeper provider", () => {
       configurable: true,
       value: true,
     });
+  });
+
+  it("accepts null metadata in the public Sleeper player feed", () => {
+    expect(
+      sleeperPlayersSchema.parse({
+        "4046": {
+          player_id: "4046",
+          full_name: "Patrick Mahomes",
+          position: "QB",
+          fantasy_positions: ["QB"],
+          metadata: null,
+        },
+      }),
+    ).toHaveProperty("4046.metadata", null);
   });
 });
 
