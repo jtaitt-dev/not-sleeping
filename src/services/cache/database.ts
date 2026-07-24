@@ -72,6 +72,10 @@ export class NotSleepingDatabase extends Dexie {
       imports: "id, name, type, importedAt",
       diagnostics: "id, timestamp, level, code",
     });
+    this.version(2).stores({
+      players:
+        "id, sleeperId, normalizedName, fullName, team, position, college, searchRank, [position+team]",
+    });
   }
 }
 

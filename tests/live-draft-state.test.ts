@@ -13,13 +13,21 @@ const players: Player[] = [
 describe("buildLiveDraftState", () => {
   it("normalizes an unstarted league-less Sleeper mock draft", () => {
     const draft = sleeperDraftSchema.parse({
-      draft_id: "mock-draft-1234",
+      created: 1_784_849_939_866,
+      creators: ["user_c"],
+      draft_id: "1386164751989485568",
       league_id: null,
       type: "snake",
       status: "pre_draft",
       season: "2026",
       sport: "nfl",
+      start_time: null,
+      last_picked: null,
+      last_message_time: 1_784_849_939_866,
       settings: {
+        autostart: 0,
+        cpu_autopick: 1,
+        pick_timer: 120,
         teams: 10,
         rounds: 15,
         slots_qb: 1,
@@ -27,11 +35,22 @@ describe("buildLiveDraftState", () => {
         slots_wr: 2,
         slots_te: 1,
         slots_flex: 2,
-        slots_bn: 7,
+        slots_k: 1,
       },
-      metadata: { name: "Regression Mock" },
-      draft_order: { user_a: 1, user_c: 3 },
-      slot_to_roster_id: null,
+      metadata: { description: "", name: "", scoring_type: "std" },
+      draft_order: null,
+      slot_to_roster_id: {
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5,
+        "6": 6,
+        "7": 7,
+        "8": 8,
+        "9": 9,
+        "10": 10,
+      },
     });
 
     const state = buildLiveDraftState({
@@ -49,21 +68,20 @@ describe("buildLiveDraftState", () => {
 
     expect(state.context).toMatchObject({
       source: "sleeper",
-      leagueName: "Regression Mock",
-      draftId: "mock-draft-1234",
+      leagueName: "Sleeper mock draft",
+      draftId: "1386164751989485568",
       status: "pre_draft",
       currentPick: 1,
       currentRound: 1,
-      nextUserPick: 3,
-      picksUntilUser: 2,
-      currentDrafter: "Draft slot 1",
+      secondsRemaining: 120,
+      currentDrafter: "Waiting to start",
       connected: true,
     });
     expect(state.format).toMatchObject({
       teams: 10,
       mode: "redraft",
       superflex: false,
-      bench: 7,
+      bench: 0,
     });
     expect(state.players).toHaveLength(3);
     expect(state.fetchedAt).toBe(1_700_000_000_000);
