@@ -17,6 +17,9 @@ test("live draft workspace visual baseline", async () => {
   await page.goto(
     `chrome-extension://${loaded.extensionId}/sidepanel.html#/draft`,
   );
+  await expect(
+    page.getByRole("heading", { name: "Malik Nabers" }),
+  ).toBeVisible();
   await expect(page).toHaveScreenshot("live-draft-workspace.png", {
     animations: "disabled",
     caret: "hide",
@@ -29,6 +32,9 @@ test("secure options visual baseline", async () => {
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.goto(`chrome-extension://${loaded.extensionId}/options.html`);
   await page.getByRole("button", { name: "OpenAI key", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Bring your own OpenAI key" }),
+  ).toBeVisible();
   await expect(page).toHaveScreenshot("secure-key-settings.png", {
     animations: "disabled",
     caret: "hide",

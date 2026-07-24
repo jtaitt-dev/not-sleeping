@@ -21,6 +21,7 @@ import { CompactTabs } from "@/components/ui/compact-tabs";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
 import {
   getActiveFixture,
+  getLiveRecommendations,
   getRecommendations,
   getVisiblePicks,
   useAppStore,
@@ -39,6 +40,9 @@ const strategyLabels: Record<Strategy, string> = {
 export function DraftWorkspace() {
   const {
     fixtureId,
+    demoEnabled,
+    liveState,
+    runtimeError,
     draftStep,
     demoPaused,
     demoSpeed,
@@ -62,30 +66,57 @@ export function DraftWorkspace() {
   const [activeTab, setActiveTab] = useState("recommendations");
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
   const fixture = getActiveFixture(fixtureId);
+  const context =
+    !demoEnabled && liveState ? liveState.context : fixture.context;
 
   useEffect(() => {
-    if (demoPaused || fixture.context.status === "complete") return;
+    if (!demoEnabled || demoPaused || fixture.context.status === "complete")
+      return;
     const timer = window.setInterval(nextDemoPick, 2800 / demoSpeed);
     return () => window.clearInterval(timer);
-  }, [demoPaused, demoSpeed, fixture.context.status, nextDemoPick]);
+  }, [
+    demoEnabled,
+    demoPaused,
+    demoSpeed,
+    fixture.context.status,
+    nextDemoPick,
+  ]);
 
-  const recommendations = useMemo(
-    () =>
-      getRecommendations(
-        fixtureId,
-        draftStep,
+  const recommendations = useMemo(() => {
+    if (!demoEnabled && !liveState) return [];
+    if (!demoEnabled && liveState) {
+      return getLiveRecommendations(
+        liveState,
         strategy,
         riskTolerance,
         hiddenPlayers,
-      ),
-    [draftStep, fixtureId, hiddenPlayers, riskTolerance, strategy],
-  );
-  const picks = getVisiblePicks(fixtureId, draftStep);
+      );
+    }
+    return getRecommendations(
+      fixtureId,
+      draftStep,
+      strategy,
+      riskTolerance,
+      hiddenPlayers,
+    );
+  }, [
+    demoEnabled,
+    draftStep,
+    fixtureId,
+    hiddenPlayers,
+    liveState,
+    riskTolerance,
+    strategy,
+  ]);
+  const picks =
+    !demoEnabled && liveState
+      ? liveState.picks
+      : getVisiblePicks(fixtureId, draftStep);
   const top = recommendations[0];
-  const picksUntil = Math.max(
-    0,
-    (fixture.context.picksUntilUser ?? 0) - draftStep,
-  );
+  const picksUntil =
+    (!demoEnabled && !liveState) || context.picksUntilUser === undefined
+      ? undefined
+      : Math.max(0, context.picksUntilUser - (demoEnabled ? draftStep : 0));
 
   return (
     <section className="draft-workspace">
@@ -93,11 +124,19 @@ export function DraftWorkspace() {
         <div className="on-clock">
           <span className="section-label">On the clock</span>
           <strong className="tabular">
-            {fixture.context.currentDrafter ?? "Draft room"}
+            {!demoEnabled && !liveState
+              ? "Sleeper refresh"
+              : (context.currentDrafter ?? "Draft room")}
           </strong>
           <span>
             <Clock3 aria-hidden="true" />
-            {picksUntil === 0 ? "You are up" : `${picksUntil} picks until you`}
+            {picksUntil === undefined
+              ? context.status === "pre_draft"
+                ? "Waiting to start"
+                : "Manager slot not linked"
+              : picksUntil === 0
+                ? "You are up"
+                : `${picksUntil} picks until you`}
           </span>
         </div>
         <label>
@@ -126,27 +165,41 @@ export function DraftWorkspace() {
             onChange={(event) => setRiskTolerance(Number(event.target.value))}
           />
         </label>
-        <div className="demo-controls">
-          <StatusBadge tone="info">Demo</StatusBadge>
-          <IconButton
-            label={demoPaused ? "Play demo draft" : "Pause demo draft"}
-            onClick={() => setDemoPaused(!demoPaused)}
+        {demoEnabled ? (
+          <div className="demo-controls">
+            <StatusBadge tone="info">Demo</StatusBadge>
+            <IconButton
+              label={demoPaused ? "Play demo draft" : "Pause demo draft"}
+              onClick={() => setDemoPaused(!demoPaused)}
+            >
+              {demoPaused ? <Play /> : <Pause />}
+            </IconButton>
+            <select
+              aria-label="Demo playback speed"
+              value={demoSpeed}
+              onChange={(event) => setDemoSpeed(Number(event.target.value))}
+            >
+              <option value="0.5">0.5×</option>
+              <option value="1">1×</option>
+              <option value="2">2×</option>
+            </select>
+            <IconButton label="Reset demo" onClick={resetDemo}>
+              <RotateCcw />
+            </IconButton>
+          </div>
+        ) : (
+          <StatusBadge
+            tone={
+              !liveState || liveState.playerIndexStale ? "warning" : "success"
+            }
           >
-            {demoPaused ? <Play /> : <Pause />}
-          </IconButton>
-          <select
-            aria-label="Demo playback speed"
-            value={demoSpeed}
-            onChange={(event) => setDemoSpeed(Number(event.target.value))}
-          >
-            <option value="0.5">0.5×</option>
-            <option value="1">1×</option>
-            <option value="2">2×</option>
-          </select>
-          <IconButton label="Reset demo" onClick={resetDemo}>
-            <RotateCcw />
-          </IconButton>
-        </div>
+            {!liveState
+              ? "Retry needed"
+              : liveState.playerIndexStale
+                ? "Cached player index"
+                : "Sleeper live"}
+          </StatusBadge>
+        )}
       </div>
 
       {top ? (
@@ -166,14 +219,26 @@ export function DraftWorkspace() {
         <div className="surface draft-complete">
           <Sparkles aria-hidden="true" />
           <div>
-            <h2>Board complete</h2>
+            <h2>
+              {context.status === "complete"
+                ? "Draft complete"
+                : !demoEnabled && !liveState
+                  ? "Live draft unavailable"
+                  : "Player board unavailable"}
+            </h2>
             <p>
-              Every available player in this demo fixture has been selected.
+              {demoEnabled
+                ? "Every available player in this demo fixture has been selected."
+                : runtimeError
+                  ? `${runtimeError.safeDetail} ${runtimeError.suggestedAction}`
+                  : "Refresh the Sleeper player index to restore recommendations."}
             </p>
           </div>
-          <Button size="small" onClick={resetDemo}>
-            Reset draft
-          </Button>
+          {demoEnabled ? (
+            <Button size="small" onClick={resetDemo}>
+              Reset draft
+            </Button>
+          ) : null}
         </div>
       )}
 

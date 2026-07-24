@@ -89,6 +89,21 @@ export type DraftContext = {
   connected: boolean;
 };
 
+export type LiveDraftState = {
+  context: DraftContext;
+  format: LeagueFormat;
+  picks: DraftPick[];
+  players: Player[];
+  fetchedAt: number;
+  playerIndexStale: boolean;
+};
+
+export type KeyStatus = {
+  available: boolean;
+  mode: KeyMode | null;
+  masked: string | null;
+};
+
 export type ScoreComponent = {
   key: string;
   label: string;

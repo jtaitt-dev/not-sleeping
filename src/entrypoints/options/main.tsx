@@ -25,7 +25,10 @@ import ReactDOM from "react-dom/client";
 import { StatusBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
 import { InlineError } from "@/components/ui/states";
-import { sendRuntimeMessage } from "@/services/messaging/protocol";
+import {
+  requestRuntime,
+  safeRuntimeError,
+} from "@/services/messaging/runtime-client";
 import {
   getKeyStatus,
   removeKeyFromTrustedOptions,
@@ -169,26 +172,20 @@ function OptionsApp() {
     setBusy(true);
     setError("");
     try {
-      const response = (await sendRuntimeMessage({
+      const response = await requestRuntime<{
+        ok: true;
+        modelCount: number;
+      }>({
         type: "TEST_OPENAI",
         payload: {},
-      })) as {
-        ok?: boolean;
-        data?: { ok?: boolean; model?: string };
-        error?: { message?: string };
-      };
-      if (!response.ok)
-        throw new Error(
-          response.error?.message ?? "The connection test failed.",
-        );
+      });
       setNotice(
-        `Connection succeeded${response.data?.model ? ` with ${response.data.model}` : ""}.`,
+        `Connection succeeded · ${response.modelCount} models visible.`,
       );
     } catch (caught) {
+      const safe = safeRuntimeError(caught);
       setError(
-        caught instanceof Error
-          ? caught.message
-          : "The connection test failed.",
+        `${safe.message} ${safe.safeDetail} ${safe.suggestedAction} (${safe.diagnosticCode})`,
       );
     } finally {
       setBusy(false);
@@ -199,23 +196,18 @@ function OptionsApp() {
     setBusy(true);
     setError("");
     try {
-      const response = (await sendRuntimeMessage({
+      const response = await requestRuntime<unknown[]>({
         type: "LIST_MODELS",
         payload: { force: true },
-      })) as { ok?: boolean; data?: unknown[]; error?: { message?: string } };
-      if (!response.ok)
-        throw new Error(
-          response.error?.message ?? "Models could not be loaded.",
-        );
-      setModelCount(response.data?.length ?? 0);
+      });
+      setModelCount(response.length);
       setNotice(
-        `Loaded ${response.data?.length ?? 0} compatible model records from OpenAI.`,
+        `Loaded ${response.length} compatible model records from OpenAI.`,
       );
     } catch (caught) {
+      const safe = safeRuntimeError(caught);
       setError(
-        caught instanceof Error
-          ? caught.message
-          : "Models could not be loaded.",
+        `${safe.message} ${safe.safeDetail} ${safe.suggestedAction} (${safe.diagnosticCode})`,
       );
     } finally {
       setBusy(false);

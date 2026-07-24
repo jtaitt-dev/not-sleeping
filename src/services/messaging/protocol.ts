@@ -81,6 +81,11 @@ export const messageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...messageBase,
+    type: z.literal("GET_LIVE_DRAFT"),
+    payload: z.object({ draftId: id }),
+  }),
+  z.object({
+    ...messageBase,
     type: z.literal("GET_RECOMMENDATIONS"),
     payload: z.object({
       draftId: id.optional(),
@@ -98,6 +103,7 @@ export const messageSchema = z.discriminatedUnion("type", [
     type: z.literal("RESEARCH_PLAYER"),
     payload: z.object({
       playerId: id,
+      playerName: z.string().min(1).max(160),
       depth: z.enum(["quick", "standard", "deep"]),
       format: z.string().min(1).max(120),
     }),
@@ -203,9 +209,12 @@ export function validateSender(
       retryable: false,
     });
   }
+  const senderUrl = sender.url ?? sender.tab?.url ?? "";
+  if (senderUrl.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
+    return;
+  }
   if (sender.tab) {
-    const url = sender.url ?? sender.tab.url ?? "";
-    const hostname = safeHostname(url);
+    const hostname = safeHostname(senderUrl);
     if (
       !CONTENT_MESSAGE_TYPES.has(message.type) ||
       !isSupportedSleeperHost(hostname)
@@ -220,16 +229,13 @@ export function validateSender(
     }
     return;
   }
-  const senderUrl = sender.url ?? "";
-  if (!senderUrl.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
-    throw new AppError({
-      code: "PERMISSION_FAILURE",
-      message: "The extension context is not trusted.",
-      safeDetail: "The sender was not an extension page.",
-      suggestedAction: "Reload the extension.",
-      retryable: false,
-    });
-  }
+  throw new AppError({
+    code: "PERMISSION_FAILURE",
+    message: "The extension context is not trusted.",
+    safeDetail: "The sender was not an extension page.",
+    suggestedAction: "Reload the extension.",
+    retryable: false,
+  });
 }
 
 function safeHostname(url: string): string {

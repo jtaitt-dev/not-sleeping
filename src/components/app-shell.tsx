@@ -17,6 +17,7 @@ import {
   Users,
   WalletCards,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { IconButton } from "@/components/ui/button";
@@ -50,12 +51,41 @@ export function AppShell() {
   const fixtureId = useAppStore((state) => state.fixtureId);
   const draftStep = useAppStore((state) => state.draftStep);
   const demoEnabled = useAppStore((state) => state.demoEnabled);
+  const liveState = useAppStore((state) => state.liveState);
+  const keyStatus = useAppStore((state) => state.keyStatus);
+  const [now, setNow] = useState(0);
   const fixture = getActiveFixture(fixtureId);
-  const currentPick = fixture.context.currentPick + draftStep;
-  const picksUntil = Math.max(
+  const liveUnavailable = !demoEnabled && !liveState;
+  const context =
+    !demoEnabled && liveState ? liveState.context : fixture.context;
+  const format = !demoEnabled && liveState ? liveState.format : fixture.format;
+  const currentPick = liveUnavailable
+    ? 1
+    : context.currentPick + (demoEnabled ? draftStep : 0);
+  const picksUntil =
+    context.picksUntilUser === undefined
+      ? undefined
+      : Math.max(0, context.picksUntilUser - (demoEnabled ? draftStep : 0));
+  const leagueName = liveUnavailable
+    ? "Sleeper draft unavailable"
+    : (context.leagueName ?? context.draftName ?? "Sleeper draft");
+  const initials = leagueName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  const updatedSeconds = Math.max(
     0,
-    (fixture.context.picksUntilUser ?? 0) - draftStep,
+    Math.round((now - context.lastUpdatedAt) / 1000),
   );
+
+  useEffect(() => {
+    const update = () => setNow(Date.now());
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return (
     <div className="app-shell">
@@ -69,25 +99,38 @@ export function AppShell() {
         </div>
         <div className="league-context">
           <div className="league-avatar" aria-hidden="true">
-            SS
+            {initials || "NS"}
           </div>
           <div className="league-copy">
-            <strong>{fixture.context.leagueName}</strong>
-            <span>{fixture.context.mode.replaceAll("_", " ")} · Superflex</span>
+            <strong>{leagueName}</strong>
+            <span>
+              {context.mode.replaceAll("_", " ")}
+              {format.superflex ? " · Superflex" : ""}
+            </span>
           </div>
           <ChevronDown aria-hidden="true" />
         </div>
         <div className="pick-context" aria-live="polite">
           <span className="live-label">
             <i />
-            {fixture.context.connected ? "Live" : "Cached"}
+            {liveUnavailable
+              ? "Retry needed"
+              : context.connected
+                ? "Live"
+                : "Cached"}
           </span>
           <strong className="tabular">
-            Pick {Math.ceil(currentPick / 12)}.
-            {String(((currentPick - 1) % 12) + 1).padStart(2, "0")}
+            Pick {Math.ceil(currentPick / format.teams)}.
+            {String(((currentPick - 1) % format.teams) + 1).padStart(2, "0")}
           </strong>
           <span>
-            {picksUntil === 0 ? "Your turn" : `${picksUntil} picks until you`}
+            {liveUnavailable
+              ? "Live data unavailable"
+              : picksUntil === undefined
+                ? draftStatusLabel(context.status)
+                : picksUntil === 0
+                  ? "Your turn"
+                  : `${picksUntil} picks until you`}
           </span>
         </div>
         <div className="header-actions">
@@ -107,8 +150,10 @@ export function AppShell() {
         <div className="freshness-row">
           <RefreshCw aria-hidden="true" />
           <span>
-            {demoEnabled ? "Demo data · " : ""}Updated{" "}
-            {Math.max(1, 8 - draftStep)}s ago
+            {demoEnabled ? "Demo data · " : ""}
+            {updatedSeconds < 2
+              ? "Updated now"
+              : `Updated ${updatedSeconds}s ago`}
           </span>
         </div>
       </header>
@@ -132,17 +177,40 @@ export function AppShell() {
 
       <footer className="bottom-status">
         <span>
-          <i className={fixture.context.connected ? "online" : "offline"} />
-          {fixture.context.connected ? "Connection live" : "Using cached data"}
+          <i
+            className={
+              !liveUnavailable && context.connected ? "online" : "offline"
+            }
+          />
+          {liveUnavailable
+            ? "Live refresh failed"
+            : context.connected
+              ? "Connection live"
+              : "Using cached data"}
         </span>
         <span>
           <Sparkles aria-hidden="true" />
           Analysis local-first
         </span>
-        <span className="tabular">Usage 2 / 20</span>
+        <span className="tabular">
+          {keyStatus.available ? "OpenAI ready" : "OpenAI optional"}
+        </span>
       </footer>
     </div>
   );
+}
+
+function draftStatusLabel(status: string): string {
+  switch (status) {
+    case "pre_draft":
+      return "Waiting to start";
+    case "complete":
+      return "Draft complete";
+    case "paused":
+      return "Draft paused";
+    default:
+      return "Live draft";
+  }
 }
 
 export function MoreWorkspace() {

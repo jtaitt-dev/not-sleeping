@@ -1,6 +1,6 @@
-import type { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
 import { normalizeError } from "@/services/errors/app-error";
 import { logger } from "@/services/security/logger";
+import type { LiveDraftState } from "@/types/domain";
 
 type LiveContext = {
   draftId?: string;
@@ -14,7 +14,9 @@ export class LiveDraftController {
   private pageVisible = true;
   private activeRefresh: Promise<void> | null = null;
 
-  constructor(private readonly sleeper: SleeperProvider) {}
+  constructor(
+    private readonly loadDraft: (draftId: string) => Promise<LiveDraftState>,
+  ) {}
 
   connect(port: chrome.runtime.Port) {
     if (port.name !== "not-sleeping-live") return;
@@ -70,21 +72,12 @@ export class LiveDraftController {
 
   private async refresh(draftId: string) {
     try {
-      const [draft, picks, tradedPicks] = await Promise.all([
-        this.sleeper.getDraft(draftId),
-        this.sleeper.getDraftPicks(draftId),
-        this.sleeper.getDraftTradedPicks(draftId),
-      ]);
-      this.context.status = draft.status;
+      const state = await this.loadDraft(draftId);
+      this.context.status = state.context.status;
       for (const port of this.ports) {
         port.postMessage({
           type: "DRAFT_REFRESH",
-          data: {
-            draft,
-            picks,
-            tradedPicks,
-            fetchedAt: Date.now(),
-          },
+          data: state,
         });
       }
       this.reconcile();

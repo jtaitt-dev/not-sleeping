@@ -1,8 +1,20 @@
 import { create } from "zustand";
 
 import { DEMO_FIXTURES } from "@/services/demo/fixtures";
+import {
+  requestRuntime,
+  safeRuntimeError,
+  type SafeRuntimeError,
+} from "@/services/messaging/runtime-client";
 import { rankPlayers } from "@/services/ranking/valuation";
-import type { DraftPick, Recommendation, Strategy } from "@/types/domain";
+import type {
+  DraftPick,
+  KeyStatus,
+  LiveDraftState,
+  Player,
+  Recommendation,
+  Strategy,
+} from "@/types/domain";
 
 type SimulationAction = {
   type: "draft" | "wait" | "remove";
@@ -13,6 +25,11 @@ type SimulationAction = {
 type AppState = {
   demoEnabled: boolean;
   fixtureId: string;
+  hydrationStatus: "idle" | "loading" | "ready" | "error";
+  liveState: LiveDraftState | null;
+  keyStatus: KeyStatus;
+  extensionVersion: string | null;
+  runtimeError: SafeRuntimeError | null;
   draftStep: number;
   demoPaused: boolean;
   demoSpeed: number;
@@ -21,6 +38,10 @@ type AppState = {
   watchlist: string[];
   hiddenPlayers: string[];
   simulation: SimulationAction[];
+  hydrate: () => Promise<void>;
+  refreshLiveDraft: () => Promise<void>;
+  setLiveState: (liveState: LiveDraftState) => void;
+  setRuntimeError: (runtimeError: SafeRuntimeError | null) => void;
   setDemoEnabled: (enabled: boolean) => void;
   setFixture: (fixtureId: string) => void;
   nextDemoPick: () => void;
@@ -39,6 +60,11 @@ type AppState = {
 export const useAppStore = create<AppState>((set) => ({
   demoEnabled: true,
   fixtureId: "startup",
+  hydrationStatus: "idle",
+  liveState: null,
+  keyStatus: { available: false, mode: null, masked: null },
+  extensionVersion: null,
+  runtimeError: null,
   draftStep: 0,
   demoPaused: true,
   demoSpeed: 1,
@@ -47,6 +73,108 @@ export const useAppStore = create<AppState>((set) => ({
   watchlist: ["4046", "11565", "11560"],
   hiddenPlayers: [],
   simulation: [],
+  hydrate: async () => {
+    set({ hydrationStatus: "loading", runtimeError: null });
+    try {
+      const status = await requestRuntime<RuntimeStatus>({
+        type: "GET_STATUS",
+        payload: {},
+      });
+      const route = asRecord(status.context);
+      const draftId =
+        typeof route["draftId"] === "string" ? route["draftId"] : undefined;
+      const supported = route["supported"] === true;
+      const explicitDemo = status.demo?.enabled === true;
+      if (supported && draftId && !explicitDemo) {
+        try {
+          const liveState = await requestRuntime<LiveDraftState>({
+            type: "GET_LIVE_DRAFT",
+            payload: { draftId },
+          });
+          set({
+            demoEnabled: false,
+            liveState,
+            hydrationStatus: "ready",
+            keyStatus: status.keyStatus,
+            extensionVersion: status.extensionVersion,
+          });
+        } catch (error) {
+          set({
+            demoEnabled: false,
+            liveState: null,
+            hydrationStatus: "error",
+            runtimeError: safeRuntimeError(error),
+            keyStatus: status.keyStatus,
+            extensionVersion: status.extensionVersion,
+          });
+        }
+        return;
+      }
+      set({
+        demoEnabled: true,
+        liveState: null,
+        fixtureId: status.demo?.fixture ?? "startup",
+        hydrationStatus: "ready",
+        keyStatus: status.keyStatus,
+        extensionVersion: status.extensionVersion,
+      });
+    } catch (error) {
+      set({
+        demoEnabled: true,
+        liveState: null,
+        hydrationStatus: "error",
+        runtimeError: safeRuntimeError(error),
+      });
+    }
+  },
+  refreshLiveDraft: async () => {
+    const draftId = useAppStore.getState().liveState?.context.draftId;
+    if (!draftId) return;
+    try {
+      const liveState = await requestRuntime<LiveDraftState>({
+        type: "GET_LIVE_DRAFT",
+        payload: { draftId },
+      });
+      set({
+        liveState,
+        demoEnabled: false,
+        hydrationStatus: "ready",
+        runtimeError: null,
+      });
+    } catch (error) {
+      const runtimeError = safeRuntimeError(error);
+      set((state) => ({
+        runtimeError,
+        ...(state.liveState
+          ? {
+              liveState: {
+                ...state.liveState,
+                context: { ...state.liveState.context, connected: false },
+              },
+            }
+          : {}),
+      }));
+    }
+  },
+  setLiveState: (liveState) =>
+    set({
+      liveState,
+      demoEnabled: false,
+      hydrationStatus: "ready",
+      runtimeError: null,
+    }),
+  setRuntimeError: (runtimeError) =>
+    set((state) => ({
+      runtimeError,
+      ...(runtimeError && state.liveState
+        ? {
+            liveState: {
+              ...state.liveState,
+              context: { ...state.liveState.context, connected: false },
+            },
+          }
+        : {}),
+    })),
   setDemoEnabled: (demoEnabled) => set({ demoEnabled }),
   setFixture: (fixtureId) => set({ fixtureId, draftStep: 0 }),
   nextDemoPick: () => set((state) => ({ draftStep: state.draftStep + 1 })),
@@ -73,6 +201,13 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({ simulation: state.simulation.slice(0, -1) })),
   resetSimulation: () => set({ simulation: [] }),
 }));
+
+type RuntimeStatus = {
+  extensionVersion: string;
+  context: unknown;
+  keyStatus: KeyStatus;
+  demo?: { enabled?: boolean; fixture?: string };
+};
 
 export function getActiveFixture(fixtureId: string) {
   const fixture =
@@ -138,4 +273,59 @@ export function getRecommendations(
     positionDemand: { QB: 0.8, RB: 0.7, WR: 1.1, TE: 0.65 },
     remainingInTier: { QB: 3, RB: 4, WR: 2, TE: 2 },
   });
+}
+
+export function getLiveRecommendations(
+  liveState: LiveDraftState,
+  strategy: Strategy,
+  riskTolerance: number,
+  hiddenPlayers: string[],
+): Recommendation[] {
+  const recent = liveState.picks.slice(-8);
+  const positionDemand = recent.reduce<
+    Partial<Record<Player["position"], number>>
+  >((demand, pick) => {
+    demand[pick.position] = (demand[pick.position] ?? 0) + 1 / 4;
+    return demand;
+  }, {});
+  const remainingInTier = liveState.players
+    .slice(0, 36)
+    .reduce<Partial<Record<Player["position"], number>>>(
+      (remaining, player) => {
+        remaining[player.position] = (remaining[player.position] ?? 0) + 1;
+        return remaining;
+      },
+      {},
+    );
+  const candidates = liveState.players
+    .filter((player) => !hiddenPlayers.includes(player.id))
+    .map((player) => ({
+      player,
+      inputs: {
+        ...(player.searchRank === undefined
+          ? {}
+          : {
+              importedRank: player.searchRank,
+              adp: player.searchRank,
+            }),
+      },
+    }));
+  return rankPlayers(candidates, {
+    format: liveState.format,
+    strategy,
+    riskTolerance,
+    currentPick: liveState.context.currentPick,
+    nextUserPick:
+      liveState.context.nextUserPick ??
+      liveState.context.currentPick + liveState.format.teams,
+    rosterNeeds: { QB: 0.5, RB: 0.5, WR: 0.5, TE: 0.5, FLEX: 0.25 },
+    positionDemand,
+    remainingInTier,
+  });
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
 }

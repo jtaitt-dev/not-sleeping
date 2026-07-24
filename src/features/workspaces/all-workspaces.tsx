@@ -24,7 +24,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
@@ -39,9 +39,20 @@ import {
   type ImportValidation,
   readImportFile,
 } from "@/services/imports/import-service";
+import {
+  requestRuntime,
+  safeRuntimeError,
+  type SafeRuntimeError,
+} from "@/services/messaging/runtime-client";
 import { type TradeAsset, evaluateTrade } from "@/services/ranking/trade";
+import {
+  DEFAULT_SETTINGS,
+  getSettings,
+  saveSettings,
+} from "@/services/storage/settings";
 import { getRecommendations, useAppStore } from "@/stores/app-store";
-import type { Player, Strategy } from "@/types/domain";
+import type { PlayerResearchOutput } from "@/schemas/openai";
+import type { AppSettings, KeyStatus, Player, Strategy } from "@/types/domain";
 
 import "./all-workspaces.css";
 
@@ -62,21 +73,80 @@ const demoAssets: TradeAsset[] = DEMO_PLAYERS.slice(0, 10).map(
 export function PlayersWorkspace() {
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState("ALL");
+  const [results, setResults] = useState<Player[]>(DEMO_PLAYERS);
   const [selected, setSelected] = useState<Player | null>(
     DEMO_PLAYERS[0] ?? null,
   );
   const [researching, setResearching] = useState(false);
+  const [research, setResearch] = useState<PlayerResearchOutput | null>(null);
+  const [researchError, setResearchError] = useState<SafeRuntimeError | null>(
+    null,
+  );
+  const liveState = useAppStore((state) => state.liveState);
   const watchlist = useAppStore((state) => state.watchlist);
   const toggleWatch = useAppStore((state) => state.toggleWatch);
-  const results = DEMO_PLAYERS.filter(
-    (player) =>
-      (position === "ALL" || player.position === position) &&
-      player.fullName.toLowerCase().includes(query.trim().toLowerCase()),
-  );
 
-  function research() {
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      if (!hasRuntimeApi()) {
+        const normalized = query.trim().toLowerCase();
+        setResults(
+          DEMO_PLAYERS.filter(
+            (player) =>
+              (position === "ALL" || player.position === position) &&
+              player.fullName.toLowerCase().includes(normalized),
+          ),
+        );
+        return;
+      }
+      void requestRuntime<Player[]>({
+        type: "SEARCH_PLAYERS",
+        payload: {
+          query,
+          positions: position === "ALL" ? [] : [position],
+          limit: 50,
+        },
+      })
+        .then((players) => {
+          if (!active) return;
+          setResults(players);
+          setSelected((current) => current ?? players[0] ?? null);
+        })
+        .catch(() => {
+          if (active) setResults([]);
+        });
+    }, 140);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [position, query]);
+
+  async function runResearch() {
+    if (!selected) return;
     setResearching(true);
-    window.setTimeout(() => setResearching(false), 900);
+    setResearch(null);
+    setResearchError(null);
+    try {
+      const storedSettings = await getSettings();
+      const response = await requestRuntime<{ data: PlayerResearchOutput }>({
+        type: "RESEARCH_PLAYER",
+        payload: {
+          playerId: selected.id,
+          playerName: selected.fullName,
+          depth: storedSettings.researchDepth,
+          format: liveState
+            ? `${liveState.format.teams}-team ${liveState.context.mode.replaceAll("_", " ")} ${liveState.format.scoring}`
+            : "General fantasy football",
+        },
+      });
+      setResearch(response.data);
+    } catch (error) {
+      setResearchError(safeRuntimeError(error));
+    } finally {
+      setResearching(false);
+    }
   }
 
   return (
@@ -119,7 +189,11 @@ export function PlayersWorkspace() {
                 type="button"
                 key={player.id}
                 className={selected?.id === player.id ? "selected" : ""}
-                onClick={() => setSelected(player)}
+                onClick={() => {
+                  setSelected(player);
+                  setResearch(null);
+                  setResearchError(null);
+                }}
               >
                 <PositionBadge position={player.position} />
                 <span>
@@ -192,6 +266,45 @@ export function PlayersWorkspace() {
             </dl>
             {researching ? (
               <ResearchProgress step="Checking current role, injuries, and recent reports…" />
+            ) : researchError ? (
+              <InlineError
+                title={`${researchError.message} (${researchError.diagnosticCode})`}
+                detail={`${researchError.safeDetail} ${researchError.suggestedAction}`}
+                onRetry={() => void runResearch()}
+              />
+            ) : research ? (
+              <div className="research-card" aria-live="polite">
+                <span className="section-label">
+                  Current research · {Math.round(research.confidence * 100)}%
+                  confidence
+                </span>
+                <h3>Role and outlook</h3>
+                <p>{research.currentRole}</p>
+                <p>
+                  <strong>Injury status:</strong> {research.injuryStatus}
+                </p>
+                <p>{research.redraftOutlook}</p>
+                {research.citations.length ? (
+                  <ul>
+                    {research.citations.slice(0, 5).map((citation) => (
+                      <li key={citation.id}>
+                        <a href={citation.url} target="_blank" rel="noreferrer">
+                          {citation.title} · {citation.publisher}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No validated source citations were returned.</p>
+                )}
+                <Button
+                  size="small"
+                  icon={<RefreshCw />}
+                  onClick={() => void runResearch()}
+                >
+                  Refresh research
+                </Button>
+              </div>
             ) : (
               <div className="research-card">
                 <span className="section-label">Research preview</span>
@@ -204,7 +317,7 @@ export function PlayersWorkspace() {
                   size="small"
                   variant="primary"
                   icon={<Sparkles />}
-                  onClick={research}
+                  onClick={() => void runResearch()}
                 >
                   Research player
                 </Button>
@@ -909,8 +1022,50 @@ export function UsageWorkspace() {
 }
 
 export function SettingsWorkspace() {
-  const [automatic, setAutomatic] = useState(false);
-  const [publicData, setPublicData] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [keyStatus, setKeyStatus] = useState<KeyStatus>({
+    available: false,
+    mode: null,
+    masked: null,
+  });
+  const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      getSettings(),
+      requestRuntime<{ keyStatus: KeyStatus }>({
+        type: "GET_STATUS",
+        payload: {},
+      }),
+    ])
+      .then(([stored, status]) => {
+        if (!active) return;
+        setSettings(stored);
+        setKeyStatus(status.keyStatus);
+      })
+      .catch((error: unknown) => {
+        if (active) setSaveError(safeRuntimeError(error).message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function updateSetting<K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K],
+  ) {
+    const updated = { ...settings, [key]: value };
+    setSettings(updated);
+    setSaveError("");
+    void saveSettings(updated).catch((error: unknown) => {
+      setSaveError(
+        error instanceof Error ? error.message : "The setting was not saved.",
+      );
+    });
+  }
+
   return (
     <Workspace
       title="Settings"
@@ -924,7 +1079,11 @@ export function SettingsWorkspace() {
               <h2>OpenAI key</h2>
               <p>Keys never pass through extension messages.</p>
             </div>
-            <StatusBadge tone="warning">Not configured</StatusBadge>
+            <StatusBadge tone={keyStatus.available ? "success" : "warning"}>
+              {keyStatus.available
+                ? `${keyStatus.masked ?? "Configured"} · ${keyStatus.mode}`
+                : "Not configured"}
+            </StatusBadge>
           </header>
           <p>
             The default is session-only storage. Remembering a key requires
@@ -949,15 +1108,18 @@ export function SettingsWorkspace() {
           <Toggle
             label="Automatic analysis"
             detail="Run when draft context changes"
-            checked={automatic}
-            onChange={setAutomatic}
+            checked={settings.automaticAnalysis}
+            onChange={(value) => updateSetting("automaticAnalysis", value)}
           />
           <Toggle
             label="Public data enrichment"
             detail="Opt in to verified nflverse roster metadata"
-            checked={publicData}
-            onChange={setPublicData}
+            checked={settings.enablePublicData}
+            onChange={(value) => updateSetting("enablePublicData", value)}
           />
+          {saveError ? (
+            <InlineError title="Setting not saved" detail={saveError} />
+          ) : null}
         </section>
         <section className="surface settings-card">
           <header>
@@ -984,31 +1146,109 @@ export function SettingsWorkspace() {
 export function DiagnosticsWorkspace() {
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [copied, setCopied] = useState(false);
-  const checks = [
-    ["Service worker", "Responsive", "success"],
-    ["Sleeper API", "Reachable", "success"],
-    ["Player cache", "24 entries", "success"],
-    ["OpenAI", "Key not configured", "warning"],
-    ["Browser storage", "Trusted contexts", "success"],
-  ] as const;
-  function runChecks() {
+  const [checks, setChecks] = useState<DiagnosticCheck[]>([
+    { name: "Service worker", result: "Not checked", tone: "warning" },
+    { name: "Sleeper context", result: "Not checked", tone: "warning" },
+    { name: "Player cache", result: "Not checked", tone: "warning" },
+    { name: "OpenAI", result: "Not checked", tone: "warning" },
+    { name: "Browser storage", result: "Not checked", tone: "warning" },
+  ]);
+
+  async function runChecks() {
     setStatus("running");
-    window.setTimeout(() => setStatus("done"), 800);
-  }
-  function copyReport() {
-    void navigator.clipboard.writeText(
-      JSON.stringify(
+    try {
+      const extension = await requestRuntime<DiagnosticStatus>({
+        type: "GET_STATUS",
+        payload: {},
+      });
+      let openAI: DiagnosticCheck = {
+        name: "OpenAI",
+        result: "Key not configured",
+        tone: "warning",
+      };
+      if (extension.keyStatus.available) {
+        try {
+          const test = await requestRuntime<{ modelCount: number }>({
+            type: "TEST_OPENAI",
+            payload: {},
+          });
+          openAI = {
+            name: "OpenAI",
+            result: `Connected · ${test.modelCount} models`,
+            tone: "success",
+          };
+        } catch (error) {
+          const safe = safeRuntimeError(error);
+          openAI = {
+            name: "OpenAI",
+            result: `${safe.message} · ${safe.diagnosticCode}`,
+            tone: "warning",
+          };
+        }
+      }
+      const route = asUnknownRecord(extension.context);
+      setChecks([
         {
-          generatedAt: new Date().toISOString(),
-          extension: "0.1.0",
-          checks: checks.map(([name, result]) => ({ name, result })),
+          name: "Service worker",
+          result: `Responsive · v${extension.extensionVersion}`,
+          tone: "success",
         },
-        null,
-        2,
-      ),
-    );
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1000);
+        {
+          name: "Sleeper context",
+          result:
+            route["supported"] === true
+              ? typeof route["draftId"] === "string"
+                ? "Draft detected"
+                : "Supported page detected"
+              : "Open a Sleeper league or draft",
+          tone: route["supported"] === true ? "success" : "warning",
+        },
+        {
+          name: "Player cache",
+          result: `${extension.players} indexed`,
+          tone: extension.players > 0 ? "success" : "warning",
+        },
+        openAI,
+        {
+          name: "Browser storage",
+          result: "Trusted extension contexts",
+          tone: "success",
+        },
+      ]);
+    } catch (error) {
+      const safe = safeRuntimeError(error);
+      setChecks([
+        {
+          name: "Service worker",
+          result: `${safe.message} · ${safe.diagnosticCode}`,
+          tone: "warning",
+        },
+      ]);
+    } finally {
+      setStatus("done");
+    }
+  }
+
+  async function copyReport() {
+    try {
+      const report = await requestRuntime<unknown>({
+        type: "EXPORT_DIAGNOSTICS",
+        payload: {},
+      });
+      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1000);
+    } catch (error) {
+      const safe = safeRuntimeError(error);
+      setChecks((current) => [
+        ...current,
+        {
+          name: "Diagnostics export",
+          result: `${safe.message} · ${safe.diagnosticCode}`,
+          tone: "warning",
+        },
+      ]);
+    }
   }
   return (
     <Workspace
@@ -1033,11 +1273,11 @@ export function DiagnosticsWorkspace() {
           </Button>
         </header>
         <div className="diagnostic-list">
-          {checks.map(([name, result, tone]) => (
-            <div key={name}>
-              <CheckCircle2 data-tone={tone} />
-              <strong>{name}</strong>
-              <span>{result}</span>
+          {checks.map((check) => (
+            <div key={check.name}>
+              <CheckCircle2 data-tone={check.tone} />
+              <strong>{check.name}</strong>
+              <span>{check.result}</span>
             </div>
           ))}
         </div>
@@ -1051,7 +1291,7 @@ export function DiagnosticsWorkspace() {
             full URLs, and usernames are removed.
           </p>
         </div>
-        <Button size="small" icon={<Copy />} onClick={copyReport}>
+        <Button size="small" icon={<Copy />} onClick={() => void copyReport()}>
           {copied ? "Copied" : "Copy report"}
         </Button>
       </section>
@@ -1268,4 +1508,31 @@ function Toggle({
       <i aria-hidden="true" />
     </label>
   );
+}
+
+type DiagnosticCheck = {
+  name: string;
+  result: string;
+  tone: "success" | "warning";
+};
+
+type DiagnosticStatus = {
+  extensionVersion: string;
+  context: unknown;
+  keyStatus: KeyStatus;
+  players: number;
+};
+
+function hasRuntimeApi(): boolean {
+  return (
+    typeof chrome !== "undefined" &&
+    Boolean(chrome.runtime.id) &&
+    typeof chrome.runtime.sendMessage === "function"
+  );
+}
+
+function asUnknownRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
 }

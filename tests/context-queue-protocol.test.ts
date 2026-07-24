@@ -84,6 +84,16 @@ describe("runtime protocol", () => {
         status,
       ),
     ).not.toThrow();
+    expect(() =>
+      validateSender(
+        {
+          id: chrome.runtime.id,
+          tab: { id: 1 } as chrome.tabs.Tab,
+          url: `chrome-extension://${chrome.runtime.id}/sidepanel.html`,
+        },
+        status,
+      ),
+    ).not.toThrow();
     expect(() => validateSender({ id: "foreign" }, status)).toThrow();
     const content = createMessage({ type: "OPEN_SIDE_PANEL", payload: {} });
     expect(() =>

@@ -2,7 +2,8 @@ import { OpenAIProvider } from "@/providers/openai/openai-provider";
 import { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
 import { db } from "@/services/cache/database";
 import { LiveDraftController } from "@/services/context/live-draft-controller";
-import { normalizeError } from "@/services/errors/app-error";
+import { buildLiveDraftState } from "@/services/context/live-draft-state";
+import { AppError, normalizeError } from "@/services/errors/app-error";
 import {
   validateMessage,
   validateSender,
@@ -16,7 +17,7 @@ import {
   restrictSecretStorage,
 } from "@/services/storage/key-vault";
 import { getSettings } from "@/services/storage/settings";
-import type { Position } from "@/types/domain";
+import type { LiveDraftState, Position } from "@/types/domain";
 
 const CONTEXT_KEY = "currentSleeperContext";
 const DEMO_KEY = "demoMode";
@@ -25,7 +26,7 @@ const openai = new OpenAIProvider({
   getKey: async () => (await readKeyInServiceWorker()).key,
   getSettings,
 });
-const liveDraft = new LiveDraftController(sleeper);
+const liveDraft = new LiveDraftController(loadLiveDraft);
 const activeRequests = new Map<string, AbortController>();
 
 export default defineBackground(() => {
@@ -170,6 +171,9 @@ async function routeMessage(
       return demo;
     }
     case "SEARCH_PLAYERS": {
+      if ((await db.players.count()) === 0) {
+        await sleeper.refreshPlayers();
+      }
       return sleeper.searchPlayers(
         message.payload.query,
         (message.payload.positions ?? []) as Position[],
@@ -184,6 +188,8 @@ async function routeMessage(
       ]);
       return { draft, picks, tradedPicks, fetchedAt: Date.now() };
     }
+    case "GET_LIVE_DRAFT":
+      return loadLiveDraft(message.payload.draftId);
     case "GET_RECOMMENDATIONS": {
       return {
         source: "local",
@@ -192,6 +198,7 @@ async function routeMessage(
       };
     }
     case "RESEARCH_PLAYER": {
+      await assertOpenAIPermission();
       const settings = await getSettings();
       const controller = new AbortController();
       activeRequests.set(message.requestId, controller);
@@ -199,7 +206,7 @@ async function routeMessage(
         const result = await openai.researchPlayer({
           model: settings.researchModel,
           playerId: message.payload.playerId,
-          playerName: message.payload.playerId,
+          playerName: message.payload.playerName,
           leagueContext: message.payload.format,
           depth: message.payload.depth,
           signal: controller.signal,
@@ -218,14 +225,82 @@ async function routeMessage(
       return { cancelled: Boolean(controller) };
     }
     case "TEST_OPENAI":
+      await assertOpenAIPermission();
       return openai.testKey();
     case "LIST_MODELS":
+      await assertOpenAIPermission();
       return openai.listModels(message.payload.force);
     case "CLEAR_CACHE":
       await clearCache(message.payload.scope);
       return { cleared: message.payload.scope };
     case "EXPORT_DIAGNOSTICS":
       return exportRedactedDiagnostics();
+  }
+}
+
+async function loadLiveDraft(draftId: string): Promise<LiveDraftState> {
+  const playerRefresh = sleeper.refreshPlayers().catch(() => ({
+    players: 0,
+    stale: true,
+    fetchedAt: 0,
+  }));
+  const [draft, picks, settings, refresh, storedContext] = await Promise.all([
+    sleeper.getDraft(draftId),
+    sleeper.getDraftPicks(draftId),
+    getSettings(),
+    playerRefresh,
+    chrome.storage.session.get(CONTEXT_KEY),
+  ]);
+  const leagueId = draft.league_id ?? undefined;
+  const [league, users, rosters, players] = await Promise.all([
+    leagueId ? optionalSleeper(() => sleeper.getLeague(leagueId)) : null,
+    leagueId ? optionalSleeper(() => sleeper.getLeagueUsers(leagueId)) : [],
+    leagueId ? optionalSleeper(() => sleeper.getRosters(leagueId)) : [],
+    sleeper.searchPlayers("", [], 100),
+  ]);
+  const routeContext = asRecord(storedContext[CONTEXT_KEY]);
+  return buildLiveDraftState({
+    draft,
+    picks,
+    players,
+    settings,
+    ...(typeof routeContext["url"] === "string"
+      ? { routeUrl: routeContext["url"] }
+      : {}),
+    league,
+    users: users ?? [],
+    rosters: rosters ?? [],
+    playerIndexStale: refresh.stale,
+  });
+}
+
+async function optionalSleeper<T>(
+  request: () => Promise<T>,
+): Promise<T | null> {
+  try {
+    return await request();
+  } catch (error) {
+    logger.warning("optional_sleeper_context_unavailable", {
+      code: normalizeError(error).code,
+    });
+    return null;
+  }
+}
+
+async function assertOpenAIPermission(): Promise<void> {
+  const permitted = await chrome.permissions.contains({
+    origins: ["https://api.openai.com/*"],
+  });
+  if (!permitted) {
+    throw new AppError({
+      code: "PERMISSION_FAILURE",
+      message: "OpenAI access is disabled for this extension.",
+      safeDetail:
+        "Chrome has not granted the extension access to api.openai.com.",
+      suggestedAction:
+        "Open the extension details, allow api.openai.com access, and retry.",
+      retryable: false,
+    });
   }
 }
 

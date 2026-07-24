@@ -87,3 +87,74 @@ test("renders at the 320px minimum without horizontal overflow", async () => {
   );
   expect(overflow).toBe(false);
 });
+
+test("propagates a Sleeper route and never disguises a live error as demo data", async () => {
+  const { context, page, extensionId } = loaded;
+  const draftId = "integration-draft-1234";
+  await context.route("https://sleeper.com/**", async (route) => {
+    await route.fulfill({
+      contentType: "text/html",
+      body: "<!doctype html><html><body><main><h1>Sleeper draft fixture</h1></main></body></html>",
+    });
+  });
+  const sleeperPage = await context.newPage();
+  await sleeperPage.goto(`https://sleeper.com/draft/nfl/${draftId}`);
+  await expect(
+    sleeperPage.getByRole("button", {
+      name: "Open Not Sleeping side panel",
+    }),
+  ).toBeVisible();
+
+  await page.setViewportSize({ width: 420, height: 900 });
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const stored = await chrome.storage.session.get(
+          "currentSleeperContext",
+        );
+        const route = stored["currentSleeperContext"] as
+          { draftId?: string } | undefined;
+        return route?.draftId;
+      }),
+    )
+    .toBe(draftId);
+  const runtimeStatus = await page.evaluate(async () => {
+    const result: unknown = await chrome.runtime.sendMessage({
+      v: 1,
+      requestId: crypto.randomUUID(),
+      timestamp: Date.now(),
+      type: "GET_STATUS",
+      payload: {},
+    });
+    return result;
+  });
+  if (
+    !runtimeStatus ||
+    typeof runtimeStatus !== "object" ||
+    !("ok" in runtimeStatus) ||
+    runtimeStatus.ok !== true
+  ) {
+    throw new Error(JSON.stringify(runtimeStatus));
+  }
+  expect(runtimeStatus).toMatchObject({
+    ok: true,
+    data: {
+      context: { supported: true, draftId },
+      demo: { enabled: false },
+    },
+  });
+  await page.goto(
+    `chrome-extension://${extensionId}/sidepanel.html?context=${draftId}#/draft`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Live draft unavailable" }),
+  ).toBeVisible();
+  await expect(page.getByText("Retry needed").first()).toBeVisible();
+  await expect(page.getByText("Demo", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Malik Nabers" })).toHaveCount(
+    0,
+  );
+
+  await sleeperPage.close();
+  await context.unrouteAll({ behavior: "wait" });
+});

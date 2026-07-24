@@ -86,7 +86,7 @@ export class OpenAIProvider {
     const key = await this.requireKey();
     const response = await this.fetchWithRetry(`${API_ROOT}/models`, {
       method: "GET",
-      headers: this.headers(key, crypto.randomUUID()),
+      headers: this.headers(key, false),
     });
     const parsed = openAIModelsSchema.parse(await response.json());
     const models = parsed.data
@@ -208,7 +208,6 @@ export class OpenAIProvider {
     key: string,
     parentSignal: AbortSignal,
   ): Promise<OpenAIResponse> {
-    const requestId = crypto.randomUUID();
     const timeout = AbortSignal.timeout(request.timeoutMs);
     const signal = combineSignals(parentSignal, timeout);
     const jsonSchema = z.toJSONSchema(request.schema, {
@@ -238,7 +237,7 @@ export class OpenAIProvider {
     };
     const response = await this.fetchWithRetry(`${API_ROOT}/responses`, {
       method: "POST",
-      headers: this.headers(key, requestId),
+      headers: this.headers(key, true),
       body: JSON.stringify(body),
       signal,
     });
@@ -281,12 +280,11 @@ export class OpenAIProvider {
     throw normalizeNetworkError(lastError);
   }
 
-  private headers(key: string, requestId: string): HeadersInit {
+  private headers(key: string, json: boolean): HeadersInit {
     return {
       Accept: "application/json",
       Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      "X-Client-Request-Id": requestId,
+      ...(json ? { "Content-Type": "application/json" } : {}),
     };
   }
 
@@ -576,9 +574,12 @@ function normalizeNetworkError(error: unknown): AppError {
     message: navigator.onLine
       ? "OpenAI could not be reached."
       : "You are offline.",
-    safeDetail:
-      "The network request failed before a safe response was received.",
-    suggestedAction: "Local analysis remains available. Retry later.",
+    safeDetail: navigator.onLine
+      ? "The browser failed the HTTPS request before OpenAI returned a response."
+      : "The browser reports that the device is offline.",
+    suggestedAction: navigator.onLine
+      ? "Confirm Chrome allows this extension to access api.openai.com, then retry. Local analysis remains available."
+      : "Reconnect to the internet and retry. Local analysis remains available.",
     retryable: true,
     cause: error,
   });
