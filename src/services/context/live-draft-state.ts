@@ -104,24 +104,19 @@ export function buildLiveDraftState(
       user.display_name ?? user.username ?? `Manager ${user.user_id.slice(-4)}`,
     ]),
   );
+  const userId = resolveDraftUserId(input.settings, input.draft);
   const userRoster = input.rosters?.find(
-    (roster) => roster.owner_id === input.settings.sleeperUserId,
+    (roster) => roster.owner_id === userId,
   );
   const picks = input.picks
     .toSorted((a, b) => a.pick_no - b.pick_no)
     .map((pick) =>
-      normalizePick(
-        pick,
-        playerById,
-        userNames,
-        input.settings.sleeperUserId,
-        userRoster,
-      ),
+      normalizePick(pick, playerById, userNames, userId, userRoster),
     );
   const currentPick = nextPickNumber(picks, input.draft.status);
   const userSlot =
-    input.settings.sleeperUserId && input.draft.draft_order
-      ? input.draft.draft_order[input.settings.sleeperUserId]
+    userId && input.draft.draft_order
+      ? input.draft.draft_order[userId]
       : undefined;
   const nextUserPick =
     userSlot === undefined
@@ -130,6 +125,7 @@ export function buildLiveDraftState(
   const currentSlot = slotForPick(currentPick, teams);
   const currentDrafterId = userAtSlot(input.draft.draft_order, currentSlot);
   const status = normalizeDraftStatus(input.draft.status);
+  const leagueId = resolveDraftLeagueId(input.draft);
   const rosterId =
     userRoster?.roster_id ??
     (userSlot === undefined
@@ -139,13 +135,11 @@ export function buildLiveDraftState(
     supported: true,
     source: "sleeper",
     ...(input.routeUrl ? { url: input.routeUrl } : {}),
-    ...(input.settings.sleeperUserId
-      ? { userId: input.settings.sleeperUserId }
+    ...(userId ? { userId } : {}),
+    ...(input.settings.sleeperUsername || userNames.get(userId)
+      ? { username: input.settings.sleeperUsername || userNames.get(userId) }
       : {}),
-    ...(input.settings.sleeperUsername
-      ? { username: input.settings.sleeperUsername }
-      : {}),
-    ...(input.draft.league_id ? { leagueId: input.draft.league_id } : {}),
+    ...(leagueId ? { leagueId } : {}),
     leagueName:
       input.league?.name ??
       stringValue(input.draft.metadata["name"]) ??
@@ -164,7 +158,7 @@ export function buildLiveDraftState(
       ? {
           currentDrafter:
             userNames.get(currentDrafterId) ??
-            (currentDrafterId === input.settings.sleeperUserId
+            (currentDrafterId === userId
               ? input.settings.sleeperUsername || "You"
               : `Draft slot ${currentSlot}`),
         }
@@ -316,6 +310,10 @@ function rosterPositionsFromDraftSettings(
     ["slots_te", "TE"],
     ["slots_flex", "FLEX"],
     ["slots_super_flex", "SUPER_FLEX"],
+    ["slots_dl", "DL"],
+    ["slots_lb", "LB"],
+    ["slots_db", "DB"],
+    ["slots_idp_flex", "IDP_FLEX"],
     ["slots_k", "K"],
     ["slots_def", "DEF"],
     ["slots_bn", "BN"],
@@ -323,6 +321,19 @@ function rosterPositionsFromDraftSettings(
   return mapping.flatMap(([key, position]) =>
     Array.from({ length: positiveInteger(settings[key]) ?? 0 }, () => position),
   );
+}
+
+export function resolveDraftLeagueId(draft: SleeperDraft): string | undefined {
+  return draft.league_id ?? stringValue(draft.metadata["league_id"]);
+}
+
+function resolveDraftUserId(
+  settings: AppSettings,
+  draft: SleeperDraft,
+): string {
+  if (settings.sleeperUserId) return settings.sleeperUserId;
+  const managers = Object.keys(draft.draft_order ?? {});
+  return managers.length === 1 ? (managers[0] ?? "") : "";
 }
 
 function playerPoolSignals(draft: SleeperDraft): string[] {

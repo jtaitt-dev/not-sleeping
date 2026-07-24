@@ -2,7 +2,10 @@ import { OpenAIProvider } from "@/providers/openai/openai-provider";
 import { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
 import { db } from "@/services/cache/database";
 import { LiveDraftController } from "@/services/context/live-draft-controller";
-import { buildLiveDraftState } from "@/services/context/live-draft-state";
+import {
+  buildLiveDraftState,
+  resolveDraftLeagueId,
+} from "@/services/context/live-draft-state";
 import { AppError, normalizeError } from "@/services/errors/app-error";
 import {
   validateMessage,
@@ -251,12 +254,13 @@ async function loadLiveDraft(draftId: string): Promise<LiveDraftState> {
     playerRefresh,
     chrome.storage.session.get(CONTEXT_KEY),
   ]);
-  const leagueId = draft.league_id ?? undefined;
+  const leagueId = resolveDraftLeagueId(draft);
+  const playerLimit = liveDraftPlayerLimit(draft.settings);
   const [league, users, rosters, players] = await Promise.all([
     leagueId ? optionalSleeper(() => sleeper.getLeague(leagueId)) : null,
     leagueId ? optionalSleeper(() => sleeper.getLeagueUsers(leagueId)) : [],
     leagueId ? optionalSleeper(() => sleeper.getRosters(leagueId)) : [],
-    sleeper.searchPlayers("", [], 100),
+    sleeper.searchPlayers("", [], playerLimit),
   ]);
   const routeContext = asRecord(storedContext[CONTEXT_KEY]);
   return buildLiveDraftState({
@@ -272,6 +276,16 @@ async function loadLiveDraft(draftId: string): Promise<LiveDraftState> {
     rosters: rosters ?? [],
     playerIndexStale: refresh.stale,
   });
+}
+
+function liveDraftPlayerLimit(settings: Record<string, unknown>): number {
+  const teams = typeof settings["teams"] === "number" ? settings["teams"] : 12;
+  const rounds =
+    typeof settings["rounds"] === "number" ? settings["rounds"] : 20;
+  return Math.min(
+    1_000,
+    Math.max(300, Math.ceil(teams) * Math.ceil(rounds) + 200),
+  );
 }
 
 async function optionalSleeper<T>(

@@ -113,11 +113,13 @@ export function AppShell() {
         <div className="pick-context" aria-live="polite">
           <span className="live-label">
             <i />
-            {liveUnavailable
-              ? "Retry needed"
-              : context.connected
-                ? "Live"
-                : "Cached"}
+            {context.status === "complete"
+              ? "Complete"
+              : liveUnavailable
+                ? "Retry needed"
+                : context.connected
+                  ? "Live"
+                  : "Cached"}
           </span>
           <strong className="tabular">
             Pick {Math.ceil(currentPick / format.teams)}.

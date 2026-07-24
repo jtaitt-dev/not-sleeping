@@ -1,4 +1,5 @@
 import type {
+  DraftPick,
   LeagueFormat,
   Player,
   Recommendation,
@@ -30,6 +31,18 @@ export type RankingContext = {
   positionDemand: Partial<Record<Player["position"], number>>;
   remainingInTier: Partial<Record<Player["position"], number>>;
 };
+
+const DIRECT_ROSTER_POSITIONS: Player["position"][] = [
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  "K",
+  "DEF",
+  "DL",
+  "LB",
+  "DB",
+];
 
 type PlayerScore = {
   player: Player;
@@ -175,6 +188,56 @@ export function rankPlayers(
       components: entry.components,
     };
   });
+}
+
+export function deriveRosterNeeds(
+  format: LeagueFormat,
+  picks: DraftPick[],
+  currentPick: number,
+): Partial<Record<Player["position"], number>> {
+  const currentSlot = slotForPick(currentPick, format.teams);
+  const rosterCounts = picks
+    .filter((pick) => pick.pickInRound === currentSlot)
+    .reduce<Partial<Record<Player["position"], number>>>((counts, pick) => {
+      counts[pick.position] = (counts[pick.position] ?? 0) + 1;
+      return counts;
+    }, {});
+  const needs: Partial<Record<Player["position"], number>> = {};
+
+  for (const position of DIRECT_ROSTER_POSITIONS) {
+    const missing = Math.max(
+      0,
+      (format.starters[position] ?? 0) - (rosterCounts[position] ?? 0),
+    );
+    if (missing > 0) needs[position] = missing;
+  }
+
+  addFlexibleNeed(
+    needs,
+    rosterCounts,
+    format,
+    ["RB", "WR", "TE"],
+    (format.starters["FLEX"] ?? 0) + (format.starters["REC_FLEX"] ?? 0),
+    0.5,
+  );
+  addFlexibleNeed(
+    needs,
+    rosterCounts,
+    format,
+    ["QB", "RB", "WR", "TE"],
+    format.starters["SUPER_FLEX"] ?? 0,
+    0.5,
+  );
+  addFlexibleNeed(
+    needs,
+    rosterCounts,
+    format,
+    ["DL", "LB", "DB"],
+    (format.starters["IDP_FLEX"] ?? 0) + (format.starters["IDP"] ?? 0),
+    0.5,
+  );
+
+  return needs;
 }
 
 export function generateTiers(scores: number[], minimumGap = 2.25): number[] {
@@ -424,6 +487,37 @@ function statusRisk(player: Player): number {
   if (player.status === "inactive") return 6;
   if (player.injuryStatus) return 3;
   return 0.5;
+}
+
+function addFlexibleNeed(
+  needs: Partial<Record<Player["position"], number>>,
+  rosterCounts: Partial<Record<Player["position"], number>>,
+  format: LeagueFormat,
+  positions: Player["position"][],
+  flexSlots: number,
+  boost: number,
+): void {
+  if (flexSlots <= 0) return;
+  const surplus = positions.reduce(
+    (total, position) =>
+      total +
+      Math.max(
+        0,
+        (rosterCounts[position] ?? 0) - (format.starters[position] ?? 0),
+      ),
+    0,
+  );
+  const unfilled = Math.max(0, flexSlots - surplus);
+  if (unfilled <= 0) return;
+  for (const position of positions) {
+    needs[position] = (needs[position] ?? 0) + unfilled * boost;
+  }
+}
+
+function slotForPick(pickNumber: number, teams: number): number {
+  const round = Math.max(1, Math.ceil(pickNumber / teams));
+  const inRound = ((Math.max(1, pickNumber) - 1) % teams) + 1;
+  return round % 2 === 0 ? teams - inRound + 1 : inRound;
 }
 
 function riskLabel(components: ScoreComponent[]): Recommendation["risk"] {

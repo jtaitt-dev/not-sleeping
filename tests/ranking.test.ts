@@ -15,6 +15,7 @@ import { evaluateTrade, type TradeAsset } from "@/services/ranking/trade";
 import {
   calculatePlayerScore,
   calculateReplacementLevels,
+  deriveRosterNeeds,
   detectPositionRun,
   estimateAvailability,
   generateTiers,
@@ -168,6 +169,55 @@ describe("deterministic valuation", () => {
     expect(result[0]!.components.length).toBeGreaterThan(4);
     expect(result[0]!.rationale).toContain(result[0]!.player.fullName);
     expect(result.every((entry) => entry.researchAdjustment <= 8)).toBe(true);
+  });
+
+  it("derives snake-slot needs for direct and flexible IDP starters", () => {
+    const format = {
+      ...fixture.format,
+      teams: 12,
+      idp: true,
+      superflex: true,
+      starters: {
+        QB: 1,
+        RB: 2,
+        WR: 2,
+        TE: 1,
+        FLEX: 1,
+        SUPER_FLEX: 1,
+        DL: 2,
+        LB: 3,
+        DB: 2,
+        IDP_FLEX: 1,
+      },
+    };
+    const picks = [
+      {
+        pickNumber: 1,
+        round: 1,
+        pickInRound: 1,
+        playerId: "qb",
+        playerName: "Quarterback",
+        position: "QB" as const,
+        isKeeper: false,
+        isUserPick: true,
+      },
+      {
+        pickNumber: 24,
+        round: 2,
+        pickInRound: 1,
+        playerId: "lb",
+        playerName: "Linebacker",
+        position: "LB" as const,
+        isKeeper: false,
+        isUserPick: true,
+      },
+    ];
+
+    const needs = deriveRosterNeeds(format, picks, 25);
+
+    expect(needs.DL).toBeGreaterThanOrEqual(2);
+    expect(needs.DB).toBeGreaterThanOrEqual(2);
+    expect(needs.LB).toBeGreaterThan(needs.QB ?? 0);
   });
 
   it("bounds research adjustments, risk, and unknown baselines", () => {

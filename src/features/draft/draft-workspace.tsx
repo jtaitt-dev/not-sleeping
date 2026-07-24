@@ -113,6 +113,8 @@ export function DraftWorkspace() {
       ? liveState.picks
       : getVisiblePicks(fixtureId, draftStep);
   const top = recommendations[0];
+  const draftComplete = context.status === "complete";
+  const visibleTab = draftComplete ? "recent" : activeTab;
   const picksUntil =
     (!demoEnabled && !liveState) || context.picksUntilUser === undefined
       ? undefined
@@ -122,21 +124,27 @@ export function DraftWorkspace() {
     <section className="draft-workspace">
       <div className="draft-control-strip" aria-label="Draft controls">
         <div className="on-clock">
-          <span className="section-label">On the clock</span>
+          <span className="section-label">
+            {draftComplete ? "Draft complete" : "On the clock"}
+          </span>
           <strong className="tabular">
-            {!demoEnabled && !liveState
-              ? "Sleeper refresh"
-              : (context.currentDrafter ?? "Draft room")}
+            {draftComplete
+              ? `${picks.length} picks recorded`
+              : !demoEnabled && !liveState
+                ? "Sleeper refresh"
+                : (context.currentDrafter ?? "Draft room")}
           </strong>
           <span>
             <Clock3 aria-hidden="true" />
-            {picksUntil === undefined
-              ? context.status === "pre_draft"
-                ? "Waiting to start"
-                : "Manager slot not linked"
-              : picksUntil === 0
-                ? "You are up"
-                : `${picksUntil} picks until you`}
+            {draftComplete
+              ? "Final board synced"
+              : picksUntil === undefined
+                ? context.status === "pre_draft"
+                  ? "Waiting to start"
+                  : "Manager slot not linked"
+                : picksUntil === 0
+                  ? "You are up"
+                  : `${picksUntil} picks until you`}
           </span>
         </div>
         <label>
@@ -197,12 +205,14 @@ export function DraftWorkspace() {
               ? "Retry needed"
               : liveState.playerIndexStale
                 ? "Cached player index"
-                : "Sleeper live"}
+                : draftComplete
+                  ? "Sleeper complete"
+                  : "Sleeper live"}
           </StatusBadge>
         )}
       </div>
 
-      {top ? (
+      {!draftComplete && top ? (
         <TopRecommendation
           recommendation={top}
           isWatched={watchlist.includes(top.player.id)}
@@ -227,11 +237,13 @@ export function DraftWorkspace() {
                   : "Player board unavailable"}
             </h2>
             <p>
-              {demoEnabled
-                ? "Every available player in this demo fixture has been selected."
-                : runtimeError
-                  ? `${runtimeError.safeDetail} ${runtimeError.suggestedAction}`
-                  : "Refresh the Sleeper player index to restore recommendations."}
+              {draftComplete
+                ? `All ${picks.length} selections are synced. Review the final board under Recent picks.`
+                : demoEnabled
+                  ? "Every available player in this demo fixture has been selected."
+                  : runtimeError
+                    ? `${runtimeError.safeDetail} ${runtimeError.suggestedAction}`
+                    : "Refresh the Sleeper player index to restore recommendations."}
             </p>
           </div>
           {demoEnabled ? (
@@ -245,17 +257,21 @@ export function DraftWorkspace() {
       <div className="draft-tabs-row">
         <CompactTabs
           label="Draft workspace"
-          value={activeTab}
+          value={visibleTab}
           onValueChange={setActiveTab}
-          items={[
-            { value: "recommendations", label: "Recommendations" },
-            { value: "recent", label: `Recent picks (${picks.length})` },
-            { value: "simulator", label: "Simulator" },
-          ]}
+          items={
+            draftComplete
+              ? [{ value: "recent", label: `Recent picks (${picks.length})` }]
+              : [
+                  { value: "recommendations", label: "Recommendations" },
+                  { value: "recent", label: `Recent picks (${picks.length})` },
+                  { value: "simulator", label: "Simulator" },
+                ]
+          }
         />
       </div>
 
-      {activeTab === "recommendations" ? (
+      {visibleTab === "recommendations" ? (
         <div className="recommendation-board">
           <div className="board-heading">
             <div>
@@ -300,7 +316,7 @@ export function DraftWorkspace() {
         </div>
       ) : null}
 
-      {activeTab === "recent" ? (
+      {visibleTab === "recent" ? (
         <div className="recent-picks-grid" aria-label="Recent draft picks">
           {picks
             .toReversed()
@@ -326,7 +342,7 @@ export function DraftWorkspace() {
         </div>
       ) : null}
 
-      {activeTab === "simulator" ? (
+      {visibleTab === "simulator" ? (
         <div className="surface simulator-panel">
           <header>
             <div>

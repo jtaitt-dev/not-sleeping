@@ -21,6 +21,7 @@ import type { Player, Position } from "@/types/domain";
 const API_ROOT = "https://api.sleeper.app/v1";
 const PLAYER_CACHE_KEY = "sleeper:nfl-players";
 const PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
+const PLAYER_SCHEMA_VERSION = 2;
 const ALLOWED_POSITIONS = new Set<Position>([
   "QB",
   "RB",
@@ -33,6 +34,18 @@ const ALLOWED_POSITIONS = new Set<Position>([
   "LB",
   "DB",
 ]);
+const POSITION_ALIASES: Partial<Record<string, Position>> = {
+  DE: "DL",
+  DT: "DL",
+  NT: "DL",
+  EDGE: "DL",
+  ILB: "LB",
+  OLB: "LB",
+  CB: "DB",
+  S: "DB",
+  FS: "DB",
+  SS: "DB",
+};
 
 export const SLEEPER_TTLS = {
   nflState: 15 * 60_000,
@@ -145,7 +158,7 @@ export class SleeperProvider {
     const metadata = await db.cacheMetadata.get(PLAYER_CACHE_KEY);
     if (
       !force &&
-      metadata &&
+      metadata?.schemaVersion === PLAYER_SCHEMA_VERSION &&
       metadata.expiresAt > this.now() &&
       (await db.players.count()) > 0
     ) {
@@ -169,8 +182,8 @@ export class SleeperProvider {
           key: PLAYER_CACHE_KEY,
           fetchedAt: this.now(),
           expiresAt: this.now() + PLAYER_TTL_MS,
-          schemaVersion: 1,
-          sourceVersion: "sleeper-v1",
+          schemaVersion: PLAYER_SCHEMA_VERSION,
+          sourceVersion: "sleeper-v2",
           sizeBytes: JSON.stringify(raw).length,
         });
       });
@@ -194,17 +207,22 @@ export class SleeperProvider {
     limit = 30,
   ): Promise<Player[]> {
     const normalized = normalizePlayerName(query);
+    const boundedLimit = Math.min(1_000, Math.max(1, limit));
+    const readLimit =
+      normalized.length === 0
+        ? boundedLimit
+        : Math.min(1_000, boundedLimit * 4);
     const collection =
       normalized.length === 0
         ? db.players.orderBy("searchRank")
         : db.players.where("normalizedName").startsWithIgnoreCase(normalized);
-    const results = await collection.limit(Math.min(100, limit * 4)).toArray();
+    const results = await collection.limit(readLimit).toArray();
     const positionSet = new Set(positions);
     return results
       .filter(
         (player) => positionSet.size === 0 || positionSet.has(player.position),
       )
-      .slice(0, limit);
+      .slice(0, boundedLimit);
   }
 
   private async request<T>(path: string, schema: ZodType<T>): Promise<T> {
@@ -258,15 +276,18 @@ export class SleeperProvider {
   }
 }
 
-function normalizeSleeperPlayer(
+export function normalizeSleeperPlayer(
   id: string,
   record: SleeperPlayerRecord,
 ): Player | null {
   const fullName =
     record.full_name ??
     [record.first_name, record.last_name].filter(Boolean).join(" ");
-  const position = record.position?.toUpperCase() as Position | undefined;
-  if (!fullName || !position || !ALLOWED_POSITIONS.has(position)) return null;
+  const position = normalizeSupportedPosition(
+    record.position,
+    record.fantasy_positions,
+  );
+  if (!fullName || !position) return null;
   const status =
     record.injury_status || record.status === "Injured Reserve"
       ? "injured"
@@ -296,8 +317,34 @@ function normalizeSleeperPlayer(
     ...(record.search_rank !== null && record.search_rank !== undefined
       ? { searchRank: record.search_rank }
       : {}),
-    fantasyPositions: (record.fantasy_positions ?? [])
-      .map((value) => value.toUpperCase() as Position)
-      .filter((value) => ALLOWED_POSITIONS.has(value)),
+    fantasyPositions: [
+      ...new Set(
+        (record.fantasy_positions ?? [])
+          .map((value) => normalizePosition(value))
+          .filter((value): value is Position => value !== undefined),
+      ),
+    ],
   };
+}
+
+function normalizeSupportedPosition(
+  primary: string | null | undefined,
+  fantasyPositions: string[] | null | undefined,
+): Position | undefined {
+  const primaryPosition = normalizePosition(primary);
+  if (primaryPosition) return primaryPosition;
+  return (fantasyPositions ?? [])
+    .map((value) => normalizePosition(value))
+    .find((value): value is Position => value !== undefined);
+}
+
+function normalizePosition(
+  value: string | null | undefined,
+): Position | undefined {
+  if (!value) return undefined;
+  const normalized = value.toUpperCase();
+  if (ALLOWED_POSITIONS.has(normalized as Position)) {
+    return normalized as Position;
+  }
+  return POSITION_ALIASES[normalized];
 }

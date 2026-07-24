@@ -2,7 +2,10 @@ import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 
 import { OpenAIProvider } from "@/providers/openai/openai-provider";
-import { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
+import {
+  normalizeSleeperPlayer,
+  SleeperProvider,
+} from "@/providers/sleeper/sleeper-provider";
 import { sleeperPlayersSchema } from "@/schemas/sleeper";
 import { DEFAULT_SETTINGS } from "@/services/storage/settings";
 
@@ -71,6 +74,32 @@ describe("Sleeper provider", () => {
         },
       }),
     ).toHaveProperty("4046.metadata", null);
+  });
+
+  it("normalizes granular defensive positions into fantasy IDP groups", () => {
+    const records = sleeperPlayersSchema.parse({
+      edge: {
+        player_id: "edge",
+        full_name: "Example Edge",
+        position: "DE",
+        fantasy_positions: ["DL"],
+      },
+      corner: {
+        player_id: "corner",
+        full_name: "Example Corner",
+        position: "CB",
+        fantasy_positions: ["DB"],
+      },
+    });
+
+    expect(normalizeSleeperPlayer("edge", records.edge!)).toMatchObject({
+      position: "DL",
+      fantasyPositions: ["DL"],
+    });
+    expect(normalizeSleeperPlayer("corner", records.corner!)).toMatchObject({
+      position: "DB",
+      fantasyPositions: ["DB"],
+    });
   });
 });
 

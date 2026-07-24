@@ -6,7 +6,7 @@ import {
   safeRuntimeError,
   type SafeRuntimeError,
 } from "@/services/messaging/runtime-client";
-import { rankPlayers } from "@/services/ranking/valuation";
+import { deriveRosterNeeds, rankPlayers } from "@/services/ranking/valuation";
 import type {
   DraftPick,
   KeyStatus,
@@ -281,6 +281,7 @@ export function getLiveRecommendations(
   riskTolerance: number,
   hiddenPlayers: string[],
 ): Recommendation[] {
+  if (liveState.context.status === "complete") return [];
   const recent = liveState.picks.slice(-8);
   const positionDemand = recent.reduce<
     Partial<Record<Player["position"], number>>
@@ -298,7 +299,11 @@ export function getLiveRecommendations(
       {},
     );
   const candidates = liveState.players
-    .filter((player) => !hiddenPlayers.includes(player.id))
+    .filter(
+      (player) =>
+        Boolean(player.team && player.team !== "FA") &&
+        !hiddenPlayers.includes(player.id),
+    )
     .map((player) => ({
       player,
       inputs: {
@@ -318,7 +323,11 @@ export function getLiveRecommendations(
     nextUserPick:
       liveState.context.nextUserPick ??
       liveState.context.currentPick + liveState.format.teams,
-    rosterNeeds: { QB: 0.5, RB: 0.5, WR: 0.5, TE: 0.5, FLEX: 0.25 },
+    rosterNeeds: deriveRosterNeeds(
+      liveState.format,
+      liveState.picks,
+      liveState.context.currentPick,
+    ),
     positionDemand,
     remainingInTier,
   });

@@ -1,4 +1,8 @@
-import { sleeperDraftPickSchema, sleeperDraftSchema } from "@/schemas/sleeper";
+import {
+  sleeperDraftPickSchema,
+  sleeperDraftSchema,
+  sleeperLeagueSchema,
+} from "@/schemas/sleeper";
 import { buildLiveDraftState } from "@/services/context/live-draft-state";
 import { DEFAULT_SETTINGS } from "@/services/storage/settings";
 import type { Player } from "@/types/domain";
@@ -85,6 +89,76 @@ describe("buildLiveDraftState", () => {
     });
     expect(state.players).toHaveLength(3);
     expect(state.fetchedAt).toBe(1_700_000_000_000);
+  });
+
+  it("uses a mock draft's source league and preserves IDP roster slots", () => {
+    const draft = sleeperDraftSchema.parse({
+      draft_id: "idp-best-ball-mock",
+      league_id: null,
+      type: "snake",
+      status: "pre_draft",
+      season: "2026",
+      settings: {
+        teams: 12,
+        rounds: 27,
+        slots_qb: 1,
+        slots_dl: 2,
+        slots_lb: 3,
+        slots_db: 2,
+        slots_idp_flex: 1,
+      },
+      metadata: {
+        league_id: "source-league",
+        name: "IDP Best Ball Mock",
+      },
+      draft_order: { mock_user: 1 },
+    });
+    const league = sleeperLeagueSchema.parse({
+      league_id: "source-league",
+      name: "IDP Best Ball",
+      season: "2026",
+      total_rosters: 12,
+      settings: { best_ball: 1, num_teams: 12 },
+      scoring_settings: { rec: 1, bonus_rec_te: 0.5 },
+      roster_positions: [
+        "QB",
+        "DL",
+        "DL",
+        "LB",
+        "LB",
+        "LB",
+        "DB",
+        "DB",
+        "IDP_FLEX",
+        "BN",
+      ],
+    });
+
+    const state = buildLiveDraftState({
+      draft,
+      league,
+      picks: [],
+      players,
+      settings: DEFAULT_SETTINGS,
+    });
+
+    expect(state.context).toMatchObject({
+      leagueId: "source-league",
+      userId: "mock_user",
+      nextUserPick: 1,
+      picksUntilUser: 0,
+    });
+    expect(state.format).toMatchObject({
+      mode: "best_ball",
+      bestBall: true,
+      idp: true,
+      starters: {
+        DL: 2,
+        LB: 3,
+        DB: 2,
+        IDP_FLEX: 1,
+      },
+    });
   });
 
   it("maps picks, removes drafted players, and calculates the snake turn", () => {
