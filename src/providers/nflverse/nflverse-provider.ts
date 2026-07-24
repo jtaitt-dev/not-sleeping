@@ -26,7 +26,7 @@ export class NflverseProvider {
       throw invalidSeason();
     }
     const url = `${RELEASE_BASE}/rosters/roster_${season}.csv`;
-    const response = await this.fetcher(url);
+    const response = await this.fetcher.call(globalThis, url);
     if (!response.ok) {
       throw new AppError({
         code: "SLEEPER_UNAVAILABLE",

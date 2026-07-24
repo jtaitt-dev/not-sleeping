@@ -210,7 +210,7 @@ export class SleeperProvider {
   private async request<T>(path: string, schema: ZodType<T>): Promise<T> {
     let response: Response;
     try {
-      response = await this.fetcher(`${API_ROOT}${path}`, {
+      response = await this.fetcher.call(globalThis, `${API_ROOT}${path}`, {
         method: "GET",
         headers: { Accept: "application/json" },
       });

@@ -25,6 +25,7 @@ describe("Sleeper provider", () => {
       "https://api.sleeper.app/v1/user/name%20with%20space",
       expect.objectContaining({ method: "GET" }),
     );
+    expect(fetcher.mock.contexts[0]).toBe(globalThis);
   });
 
   it.each([
@@ -112,6 +113,7 @@ describe("OpenAI provider", () => {
     });
     await provider.listModels();
     expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.contexts[0]).toBe(globalThis);
   });
 
   it("sends Responses API requests with store false and strict schema", async () => {

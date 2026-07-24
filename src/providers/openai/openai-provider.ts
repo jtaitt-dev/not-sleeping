@@ -253,7 +253,7 @@ export class OpenAIProvider {
     let lastError: unknown;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
-        const response = await this.fetcher(url, init);
+        const response = await this.fetcher.call(globalThis, url, init);
         if (response.ok) return response;
         const safeError = await parseErrorResponse(response);
         const mapped = mapOpenAIError(response.status, safeError);
