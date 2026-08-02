@@ -1,0 +1,37 @@
+name: Phase 2 exhaustive validation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 7 * * 3"
+
+permissions:
+  contents: read
+
+jobs:
+  exhaustive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:simulations:exhaustive
+      - run: pnpm test:backtest:start-sit
+      - run: pnpm test:backtest:draft
+      - run: pnpm test:backtest:waivers
+      - name: Provider contracts and schema drift
+        run: pnpm exec vitest run tests/providers.test.ts tests/phase2-core.test.ts
+      - name: Upload validation reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase2-exhaustive-reports
+          path: artifacts/*report*
+          if-no-files-found: ignore

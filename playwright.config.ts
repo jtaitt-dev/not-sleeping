@@ -16,12 +16,17 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: /visual\.spec\.ts/,
+      testIgnore: /(visual|phase2-screenshots)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "visual",
       testMatch: /visual\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "screenshots",
+      testMatch: /phase2-screenshots\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

@@ -5,6 +5,19 @@ semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Universal multi-season league switcher with favorite/recent sorting, isolated per-league state, and atomic rapid switching.
+- Today, Start & Sit/Best Ball, Matchup, Chopped Survival, Waiver, Trade, Dynasty, Rookie, Taxi, IDP, Auction, Mock Draft Lab, Research, and Deadline workspaces.
+- Exact ordered-slot lineup optimizer, arbitrary scoring translation, deterministic weather, evidence provenance, configurable source policy, and opt-in local alerts.
+- Full Sleeper matchup, transaction, bracket, traded-pick, league-draft, player, and trending coverage.
+- Seeded smoke/exhaustive simulation harness and leakage-safe nflverse walk-forward backtests with generated reports.
+- Manual per-league capability overrides, configurable freshness thresholds, source preferences, and persisted workspace/scroll state.
+
+### Security
+
+- Added prompt-injection rejection, source URL classification, cross-league epoch isolation, notification privacy defaults, and bounded uncited-AI effects.
+
 ## [0.1.0] - 2026-07-23
 
 ### Added

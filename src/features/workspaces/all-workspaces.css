@@ -966,6 +966,15 @@
   padding: 10px;
 }
 
+.capability-override-field {
+  display: grid;
+  gap: 6px;
+}
+
+.capability-override-field input {
+  width: 100%;
+}
+
 .settings-card:first-child {
   grid-column: 1 / -1;
 }
@@ -996,6 +1005,32 @@
 .settings-card ul {
   margin: 0;
   padding-left: 17px;
+}
+
+.source-preference-grid {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.source-preference-grid label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.source-preference-grid textarea {
+  width: 100%;
+  min-height: 48px;
+  resize: vertical;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--background-canvas);
+  color: var(--text-secondary);
+  padding: 6px;
 }
 
 .toggle-row {
@@ -1054,6 +1089,52 @@
 
 .toggle-row input:checked + i::after {
   transform: translateX(13px);
+}
+
+.league-alert-settings {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.alert-type-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.alert-type-grid .button {
+  min-height: 26px;
+  padding: 0 7px;
+  font-size: 8px;
+}
+
+.freshness-settings-card {
+  grid-column: 1 / -1;
+}
+
+.freshness-setting-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.freshness-setting-grid label {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 8px;
+}
+
+.freshness-setting-grid input {
+  min-height: 30px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--background-canvas);
+  color: var(--text-primary);
+  padding: 0 7px;
 }
 
 .diagnostic-list {
@@ -1169,6 +1250,14 @@
   .data-grid,
   .settings-sections {
     grid-template-columns: 1fr;
+  }
+
+  .source-preference-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .freshness-setting-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .insight-strip {

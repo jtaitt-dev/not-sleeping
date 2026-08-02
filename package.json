@@ -24,8 +24,16 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test --project=chromium",
     "test:visual": "playwright test --project=visual",
+    "screenshots:phase2": "playwright test --project=screenshots",
+    "test:simulations": "vitest run tests/simulations/simulation-harness.test.ts -t smoke",
+    "test:simulations:exhaustive": "node scripts/run-exhaustive-simulations.mjs",
+    "test:backtest": "vitest run tests/backtests",
+    "test:backtest:start-sit": "vitest run tests/backtests -t start/sit",
+    "test:backtest:draft": "vitest run tests/backtests -t draft",
+    "test:backtest:waivers": "vitest run tests/backtests -t waivers",
     "audit:prod": "pnpm audit --prod --audit-level high",
-    "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e && pnpm audit:prod"
+    "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e && pnpm audit:prod",
+    "validate:phase2": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:simulations && pnpm build && pnpm test:e2e && pnpm test:visual && pnpm audit:prod"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.21",

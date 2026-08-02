@@ -7,8 +7,9 @@
 
 An independent, open-source fantasy-football intelligence companion for
 [Sleeper](https://sleeper.com/). Not Sleeping adds a responsive Chrome side
-panel for live draft recommendations, player research, roster construction,
-dynasty planning, trade evaluation, watchlists, imports, and diagnostics.
+panel for live and mock drafts, exact legal lineup optimization, matchup and
+Chopped survival distributions, waivers and FAAB, trades, rookies, dynasty,
+taxi, IDP, auction planning, sourced research, and diagnostics.
 
 Not Sleeping is not affiliated with, endorsed by, or sponsored by Sleeper or
 OpenAI. It uses Sleeper's public read-only API and makes OpenAI features
@@ -23,6 +24,9 @@ optional through bring-your-own-key configuration.
   next-pick availability, and bounded research adjustment.
 - Draft-mode and scoring detection use multiple league signals and show
   confidence instead of silently guessing.
+- A capability-driven league context composes Dynasty, Best Ball, Chopped,
+  Superflex, TE premium, IDP, taxi, auction, median, and waiver behavior from
+  each league's actual settings. Unknown inputs stay visible and overridable.
 - OpenAI research is explicit, citation-aware, rate limited, deduplicated, and
   sent through the Responses API with `store: false`.
 - The API key defaults to session-only storage and never crosses a runtime
@@ -32,12 +36,29 @@ optional through bring-your-own-key configuration.
 
 ## Workspaces
 
-The side panel includes Draft, Players, Team, Dynasty, Trade, Watchlist,
-Compare, Rankings, Data Center, Usage, Settings, Diagnostics, and About.
+The side panel includes Today, Leagues, Draft, Mock Draft Lab, Start & Sit or
+Best Ball Optimizer, Matchup, Chopped Survival, Waivers, Trade, Dynasty,
+Rookies, Taxi, IDP, Auction, Research, Players, Team, Watchlist, Compare,
+Rankings, Data Center, Usage, Settings, Diagnostics, and About.
 The popup reports current context and opens the panel. The options page handles
 trusted account, key, model, privacy, theme, and operational settings.
 
 ![Secure OpenAI key settings](docs/screenshots/settings.png)
+
+## Full-season workspaces
+
+All screenshots below are generated from the packaged MV3 extension against a
+deterministic, API-shaped Sleeper fixture.
+
+| League and weekly decisions                                      | Markets and roster planning                                |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- |
+| ![League switcher](docs/screenshots/league-switcher.png)         | ![Start and Sit](docs/screenshots/start-sit.png)           |
+| ![Matchup Center](docs/screenshots/matchup-center.png)           | ![Waiver Wire](docs/screenshots/waiver-wire.png)           |
+| ![FAAB recommendation](docs/screenshots/faab-recommendation.png) | ![Trade Center](docs/screenshots/trade-center.png)         |
+| ![Dynasty Center](docs/screenshots/dynasty-center.png)           | ![Rookie draft](docs/screenshots/rookie-draft.png)         |
+| ![Taxi Squad](docs/screenshots/taxi-squad.png)                   | ![IDP Center](docs/screenshots/idp-center.png)             |
+| ![Auction assistant](docs/screenshots/auction-assistant.png)     | ![Mock Draft Lab](docs/screenshots/mock-draft-lab.png)     |
+| ![Evidence drawer](docs/screenshots/evidence-drawer.png)         | ![Chopped Survival](docs/screenshots/chopped-survival.png) |
 
 ## Install from source
 
@@ -96,20 +117,23 @@ simulator never mutates the live draft board.
 
 ## Commands
 
-| Command              | Purpose                                        |
-| -------------------- | ---------------------------------------------- |
-| `pnpm dev`           | Run the WXT development profile                |
-| `pnpm build`         | Build MV3 output and prepare `dist/`           |
-| `pnpm zip`           | Build a release ZIP and SHA-256 checksum       |
-| `pnpm format:check`  | Verify Prettier formatting                     |
-| `pnpm lint`          | Run strict typed ESLint                        |
-| `pnpm typecheck`     | Run strict TypeScript                          |
-| `pnpm test`          | Run unit, service, and provider tests          |
-| `pnpm test:coverage` | Enforce 85/80/85/85 core thresholds            |
-| `pnpm test:e2e`      | Load the built extension and run browser tests |
-| `pnpm test:visual`   | Compare targeted visual baselines              |
-| `pnpm audit:prod`    | Audit production dependencies                  |
-| `pnpm validate`      | Run the complete release gate                  |
+| Command                            | Purpose                                                |
+| ---------------------------------- | ------------------------------------------------------ |
+| `pnpm dev`                         | Run the WXT development profile                        |
+| `pnpm build`                       | Build MV3 output and prepare `dist/`                   |
+| `pnpm zip`                         | Build a release ZIP and SHA-256 checksum               |
+| `pnpm format:check`                | Verify Prettier formatting                             |
+| `pnpm lint`                        | Run strict typed ESLint                                |
+| `pnpm typecheck`                   | Run strict TypeScript                                  |
+| `pnpm test`                        | Run unit, service, and provider tests                  |
+| `pnpm test:coverage`               | Enforce 85/80/85/85 core thresholds                    |
+| `pnpm test:e2e`                    | Load the built extension and run browser tests         |
+| `pnpm test:visual`                 | Compare targeted visual baselines                      |
+| `pnpm test:simulations`            | Run the deterministic simulation smoke matrix          |
+| `pnpm test:simulations:exhaustive` | Run 5,000 overlapping draft and hybrid scenarios       |
+| `pnpm test:backtest`               | Run walk-forward start/sit, draft, and waiver fixtures |
+| `pnpm audit:prod`                  | Audit production dependencies                          |
+| `pnpm validate:phase2`             | Run the complete Phase 2 release gate                  |
 
 ## Architecture and security
 
@@ -123,6 +147,9 @@ simulator never mutates the live draft board.
 - [OpenAI setup](docs/OPENAI_SETUP.md)
 - [Data import](docs/DATA_IMPORT.md)
 - [Valuation engine](docs/VALUATION_ENGINE.md)
+- [Sleeper compatibility matrix](docs/SLEEPER_COMPATIBILITY_MATRIX.md)
+- [Chopped Survival](docs/CHOPPED_SURVIVAL.md)
+- [Model validation](docs/MODEL_VALIDATION.md)
 - [UI design system](docs/UI_DESIGN_SYSTEM.md)
 - [UI components](docs/UI_COMPONENT_INVENTORY.md)
 - [UI workflows](docs/UI_WORKFLOWS.md)

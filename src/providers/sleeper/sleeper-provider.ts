@@ -1,16 +1,19 @@
 import type { ZodType } from "zod";
 
 import {
+  sleeperBracketMatchSchema,
   sleeperDraftPickSchema,
   sleeperDraftSchema,
   sleeperLeagueSchema,
   sleeperLeagueUserSchema,
+  sleeperMatchupSchema,
   sleeperNflStateSchema,
   sleeperPlayersSchema,
   sleeperProjectionsSchema,
   sleeperRosterSchema,
   sleeperTradedPickSchema,
   sleeperTrendingSchema,
+  sleeperTransactionSchema,
   sleeperUserSchema,
   type SleeperPlayerRecord,
   type SleeperProjection,
@@ -35,20 +38,20 @@ const ALLOWED_POSITIONS = new Set<Position>([
   "K",
   "DEF",
   "DL",
+  "DE",
+  "DT",
+  "EDGE",
   "LB",
+  "ILB",
+  "OLB",
   "DB",
+  "CB",
+  "S",
+  "FS",
+  "SS",
 ]);
 const POSITION_ALIASES: Partial<Record<string, Position>> = {
-  DE: "DL",
-  DT: "DL",
   NT: "DL",
-  EDGE: "DL",
-  ILB: "LB",
-  OLB: "LB",
-  CB: "DB",
-  S: "DB",
-  FS: "DB",
-  SS: "DB",
 };
 
 export const SLEEPER_TTLS = {
@@ -124,6 +127,34 @@ export class SleeperProvider {
     return this.request(
       `/league/${encodeURIComponent(leagueId)}/traded_picks`,
       sleeperTradedPickSchema.array(),
+    );
+  }
+
+  getMatchups(leagueId: string, week: number) {
+    return this.request(
+      `/league/${encodeURIComponent(leagueId)}/matchups/${boundedWeek(week)}`,
+      sleeperMatchupSchema.array(),
+    );
+  }
+
+  getTransactions(leagueId: string, week: number) {
+    return this.request(
+      `/league/${encodeURIComponent(leagueId)}/transactions/${boundedWeek(week)}`,
+      sleeperTransactionSchema.array(),
+    );
+  }
+
+  getWinnersBracket(leagueId: string) {
+    return this.request(
+      `/league/${encodeURIComponent(leagueId)}/winners_bracket`,
+      sleeperBracketMatchSchema.array(),
+    );
+  }
+
+  getLosersBracket(leagueId: string) {
+    return this.request(
+      `/league/${encodeURIComponent(leagueId)}/losers_bracket`,
+      sleeperBracketMatchSchema.array(),
     );
   }
 
@@ -402,4 +433,11 @@ function normalizePosition(
     return normalized as Position;
   }
   return POSITION_ALIASES[normalized];
+}
+
+function boundedWeek(week: number): number {
+  if (!Number.isInteger(week) || week < 0 || week > 30) {
+    throw new Error("Sleeper week must be an integer from 0 through 30.");
+  }
+  return week;
 }

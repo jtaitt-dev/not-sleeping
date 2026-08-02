@@ -15,20 +15,18 @@ test.afterAll(async () => {
 
 test("loads the MV3 extension and navigates every primary workspace", async () => {
   const { page } = loaded;
-  await expect(
-    page.getByRole("heading", { name: "Best contextual fits" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   for (const workspace of [
-    "Players",
-    "Team",
-    "Dynasty",
-    "Trade",
-    "Watchlist",
-    "More",
+    { link: "Draft", heading: "Best contextual fits" },
+    { link: "Start/Sit", heading: "Start & Sit" },
+    { link: "Waivers", heading: "Waiver Wire" },
+    { link: "Trade", heading: "Trade Center" },
+    { link: "Dynasty", heading: "Dynasty Center" },
+    { link: "More", heading: "More" },
   ]) {
-    await page.getByRole("link", { name: workspace, exact: true }).click();
+    await page.getByRole("link", { name: workspace.link, exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: workspace, exact: true }),
+      page.getByRole("heading", { name: workspace.heading, exact: true }),
     ).toBeVisible();
   }
 });
@@ -48,6 +46,40 @@ test("recalculates strategy and supports draft decision interactions", async () 
   ).toBeVisible();
   await page.getByRole("button", { name: "Wait one round" }).click();
   await expect(page.getByText("Recalculate availability")).toBeVisible();
+});
+
+test("completes a full mock with every user pick selected manually and validated", async () => {
+  const { page } = loaded;
+  await page.goto(
+    `chrome-extension://${loaded.extensionId}/sidepanel.html#/mock-draft`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Mock Draft Lab" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+
+  for (let userPick = 1; userPick <= 15; userPick += 1) {
+    await expect(
+      page.getByText("Your manual pick", { exact: true }),
+    ).toBeVisible();
+    const recommendations = page.locator(".mock-recommendations > div");
+    await expect(recommendations).toHaveCount(8);
+    const topRecommendation = recommendations.first();
+    const playerName = await topRecommendation.locator("span b").innerText();
+    await topRecommendation
+      .getByRole("button", { name: "Draft", exact: true })
+      .click();
+    await expect(
+      page.locator(".mock-board").getByText(playerName, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("legal picks");
+  }
+
+  await expect(page.getByText("complete", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText(
+    "150 legal picks · no duplicates · player pool and order verified",
+  );
+  await expect(page.getByText("AUTO-PICK", { exact: true })).toHaveCount(0);
 });
 
 test("stays usable offline with local demo and cache-first features", async () => {

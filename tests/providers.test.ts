@@ -104,7 +104,7 @@ describe("Sleeper provider", () => {
     expect(fetcher.mock.calls[0]?.[0]).toContain("position%5B%5D=QB");
   });
 
-  it("normalizes granular defensive positions into fantasy IDP groups", () => {
+  it("preserves granular IDP positions while retaining Sleeper eligibility groups", () => {
     const records = sleeperPlayersSchema.parse({
       edge: {
         player_id: "edge",
@@ -121,11 +121,11 @@ describe("Sleeper provider", () => {
     });
 
     expect(normalizeSleeperPlayer("edge", records.edge!)).toMatchObject({
-      position: "DL",
+      position: "DE",
       fantasyPositions: ["DL"],
     });
     expect(normalizeSleeperPlayer("corner", records.corner!)).toMatchObject({
-      position: "DB",
+      position: "CB",
       fantasyPositions: ["DB"],
     });
   });
@@ -245,6 +245,44 @@ describe("OpenAI provider", () => {
     expect(result.usage.totalTokens).toBe(14);
     expect(fetcher.mock.calls[0]?.[1]?.headers).toMatchObject({
       Authorization: "Bearer sk-abcdefghijklmnop",
+    });
+  });
+
+  it("sends validated official-only web search domain filters", async () => {
+    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        tools: { type: string; filters?: { allowed_domains: string[] } }[];
+      };
+      expect(body.tools).toEqual([
+        {
+          type: "web_search",
+          filters: { allowed_domains: ["nfl.com", "api.sleeper.app"] },
+        },
+      ]);
+      return jsonResponse({
+        id: "resp_official",
+        object: "response",
+        created_at: 1,
+        status: "completed",
+        model: "gpt-5.6-sol",
+        output_text: JSON.stringify({ verdict: "hold" }),
+        output: [],
+        usage: { input_tokens: 3, output_tokens: 2, total_tokens: 5 },
+      });
+    });
+    const provider = new OpenAIProvider({
+      getKey: async () => "sk-abcdefghijklmnop",
+      getSettings: async () => settings,
+      fetcher: fetcher as typeof fetch,
+    });
+    await provider.createStructured({
+      model: "gpt-5.6-sol",
+      schemaName: "official_contract",
+      schema: z.object({ verdict: z.literal("hold") }),
+      system: "Use official sources.",
+      input: "Evaluate.",
+      useWebSearch: true,
+      allowedDomains: ["https://NFL.com", "api.sleeper.app"],
     });
   });
 

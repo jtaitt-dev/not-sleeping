@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-08-02T20:55:18.439Z",
+  "dataPolicy": {
+    "source": "Recorded nflverse weekly player-stats fixture (CC-BY-4.0)",
+    "seasons": [
+      2023,
+      2024
+    ],
+    "leakageRule": "A decision for season S, week W may use only rows from S with week < W; draft baselines use only prior seasons.",
+    "limitations": [
+      "The recorded fixture is intentionally small and is an engineering validation, not a production accuracy study.",
+      "Historical ADP is not present, so the draft test uses prior-season fantasy points and labels that proxy explicitly.",
+      "Hindsight optimal lineups are used only to calculate regret and are not presented as achievable forecasts."
+    ]
+  },
+  "startSit": {
+    "decisions": 23,
+    "accuracy": 0.5217391304347826,
+    "closeCallAccuracy": 0.6666666666666666,
+    "nonCloseCallAccuracy": 0.5,
+    "meanRegret": 4.382608695652174,
+    "floorMae": 9.420869565217393,
+    "medianMae": 8.193159420289854,
+    "ceilingMae": 9.911304347826087,
+    "splits": {
+      "season:2023": {
+        "decisions": 15,
+        "accuracy": 0.6
+      },
+      "position:QB": {
+        "decisions": 9,
+        "accuracy": 0.4444444444444444
+      },
+      "week:2": {
+        "decisions": 6,
+        "accuracy": 0.3333333333333333
+      },
+      "position:RB": {
+        "decisions": 6,
+        "accuracy": 0.3333333333333333
+      },
+      "position:WR": {
+        "decisions": 8,
+        "accuracy": 0.75
+      },
+      "week:3": {
+        "decisions": 5,
+        "accuracy": 0.8
+      },
+      "week:4": {
+        "decisions": 5,
+        "accuracy": 0.2
+      },
+      "week:5": {
+        "decisions": 4,
+        "accuracy": 0.75
+      },
+      "week:6": {
+        "decisions": 3,
+        "accuracy": 0.6666666666666666
+      },
+      "season:2024": {
+        "decisions": 8,
+        "accuracy": 0.375
+      }
+    }
+  },
+  "waivers": {
+    "candidates": 14,
+    "trueBreakouts": 8,
+    "precision": 0.5714285714285714,
+    "falsePositiveRate": 0.42857142857142855,
+    "shortTermMeanLift": 2.1567857142857148,
+    "dynastyStashes": "not_available_in_fixture"
+  },
+  "draft": {
+    "seasonTransitions": 1,
+    "baseline": "Prior-season PPR fantasy points; explicitly not historical ADP",
+    "selectedPlayerCount": 3,
+    "valueCaptureRatio": 1.2330833439261046,
+    "replacementValue": 26.10666666666667,
+    "positionAllocation": {
+      "WR": 1,
+      "QB": 2
+    },
+    "historicalAdpAvailable": false
+  }
+}

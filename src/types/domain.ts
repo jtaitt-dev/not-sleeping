@@ -10,7 +10,29 @@ export type Strategy =
   "contender" | "balanced" | "productive_struggle" | "rebuild";
 
 export type Position =
-  "QB" | "RB" | "WR" | "TE" | "FLEX" | "K" | "DEF" | "DL" | "LB" | "DB";
+  | "QB"
+  | "RB"
+  | "WR"
+  | "TE"
+  | "FLEX"
+  | "WRRB_FLEX"
+  | "REC_FLEX"
+  | "SUPER_FLEX"
+  | "K"
+  | "DEF"
+  | "DL"
+  | "DE"
+  | "DT"
+  | "EDGE"
+  | "LB"
+  | "ILB"
+  | "OLB"
+  | "DB"
+  | "CB"
+  | "S"
+  | "FS"
+  | "SS"
+  | "IDP_FLEX";
 
 export type Player = {
   id: string;

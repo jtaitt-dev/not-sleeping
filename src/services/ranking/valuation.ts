@@ -6,6 +6,12 @@ import type {
   ScoreComponent,
   Strategy,
 } from "@/types/domain";
+import {
+  rankDraftCandidates,
+  type DraftEngineConfig,
+  type DraftEnginePlayer,
+  type OpponentArchetype,
+} from "@/services/draft/draft-engine";
 
 export type ValuationInputs = {
   importedRank?: number;
@@ -19,6 +25,7 @@ export type ValuationInputs = {
   recentProduction?: number;
   injuryRisk?: number;
   researchAdjustment?: number;
+  sharedDraftScore?: number;
 };
 
 export type RankingContext = {
@@ -113,6 +120,20 @@ export function calculatePlayerScore(
         : "Enough draft slots remain to address required starters later.",
   });
 
+  const sharedDraftEngine =
+    inputs.sharedDraftScore === undefined
+      ? 0
+      : clamp((inputs.sharedDraftScore - 65) / 6, -8, 8);
+  components.push({
+    key: "shared_draft_engine",
+    label: "Shared draft engine",
+    value: sharedDraftEngine,
+    reason:
+      inputs.sharedDraftScore === undefined
+        ? "Shared-engine input is unavailable for this calculation."
+        : "The deterministic engine used by live drafts and Mock Draft Lab evaluated this candidate.",
+  });
+
   const formatAdjustment = formatAdjustmentScore(player, context);
   components.push({
     key: "format_adjustment",
@@ -163,6 +184,7 @@ export function calculatePlayerScore(
     scarcity +
     rosterFit +
     rosterCompletion +
+    sharedDraftEngine +
     formatAdjustment +
     draftTiming +
     draftCapital +
@@ -186,6 +208,7 @@ export function rankPlayers(
   players: Array<{ player: Player; inputs: ValuationInputs }>,
   context: RankingContext,
 ): Recommendation[] {
+  const sharedScores = sharedDraftEngineScores(players, context);
   const urgentPositions = new Set(
     Object.entries(context.rosterNeeds)
       .filter(([, need]) => need >= URGENT_STARTER_NEED)
@@ -196,7 +219,18 @@ export function rankPlayers(
       ? players.filter(({ player }) => urgentPositions.has(player.position))
       : players;
   const scored = eligiblePlayers
-    .map(({ player, inputs }) => calculatePlayerScore(player, inputs, context))
+    .map(({ player, inputs }) =>
+      calculatePlayerScore(
+        player,
+        {
+          ...inputs,
+          ...(sharedScores.get(player.id) === undefined
+            ? {}
+            : { sharedDraftScore: sharedScores.get(player.id) }),
+        },
+        context,
+      ),
+    )
     .toSorted((a, b) => b.orderingScore - a.orderingScore);
   const tiers = generateTiers(scored.map((entry) => entry.orderingScore));
   const replacement = calculateReplacementLevels(
@@ -243,6 +277,89 @@ export function rankPlayers(
       components: entry.components,
     };
   });
+}
+
+function sharedDraftEngineScores(
+  players: Array<{ player: Player; inputs: ValuationInputs }>,
+  context: RankingContext,
+): Map<string, number> {
+  const enginePlayers: DraftEnginePlayer[] = players.map(
+    ({ player, inputs }, index) => {
+      const rank =
+        inputs.adp ?? inputs.importedRank ?? player.searchRank ?? index + 1;
+      const baseValue = clamp(101 - Math.log2(Math.max(2, rank)) * 8, 1, 100);
+      return {
+        playerId: player.id,
+        name: player.fullName,
+        positions: player.fantasyPositions.length
+          ? player.fantasyPositions
+          : [player.position],
+        ...(player.team ? { team: player.team } : {}),
+        adp: rank,
+        tier:
+          inputs.importedTier ??
+          Math.floor(index / Math.max(1, context.format.teams)) + 1,
+        redraftValue: inputs.redraftValue ?? baseValue,
+        dynastyValue: inputs.dynastyValue ?? baseValue,
+        contenderValue: inputs.redraftValue ?? baseValue,
+        rookie: player.yearsExperience === 0,
+        ...(player.age === undefined ? {} : { age: player.age }),
+      };
+    },
+  );
+  if (!enginePlayers.length) return new Map();
+  const config: DraftEngineConfig = {
+    seed: context.currentPick * 1_009 + context.format.teams * 97,
+    leagueType:
+      context.format.mode === "keeper"
+        ? "keeper"
+        : context.format.mode.startsWith("dynasty")
+          ? "dynasty"
+          : "redraft",
+    teams: context.format.teams,
+    rounds: Math.max(
+      1,
+      context.format.draftRounds ?? expandedRosterSlots(context.format).length,
+    ),
+    style: "snake",
+    playerPool:
+      context.format.mode === "dynasty_rookie"
+        ? "rookies_only"
+        : "all_available",
+    rosterSlots: expandedRosterSlots(context.format),
+    userSlot: 1,
+    opponentArchetypes: [archetypeForStrategy(context.strategy)],
+    superflex: context.format.superflex || context.format.twoQuarterback,
+    tePremium: context.format.tightEndPremium,
+    idp: context.format.idp,
+    bestBall: context.format.bestBall,
+    recordHistory: false,
+  };
+  const ranked = rankDraftCandidates({
+    config,
+    candidates: enginePlayers,
+    rosterPlayerIds: [],
+    allPlayers: enginePlayers,
+    pickNumber: context.currentPick,
+    archetype: archetypeForStrategy(context.strategy),
+    seed: config.seed,
+  });
+  return new Map(ranked.map((entry) => [entry.playerId, entry.score]));
+}
+
+function expandedRosterSlots(format: LeagueFormat): string[] {
+  const slots = Object.entries(format.starters).flatMap(([slot, count]) =>
+    Array.from({ length: Math.max(0, Math.floor(count)) }, () => slot),
+  );
+  slots.push(...Array.from({ length: Math.max(0, format.bench) }, () => "BN"));
+  return slots.length ? slots : ["BN"];
+}
+
+function archetypeForStrategy(strategy: Strategy): OpponentArchetype {
+  if (strategy === "contender") return "dynasty_contender";
+  if (strategy === "rebuild") return "dynasty_youth";
+  if (strategy === "productive_struggle") return "productive_struggle";
+  return "best_player_available";
 }
 
 export function deriveRosterNeeds(

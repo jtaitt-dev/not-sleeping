@@ -1,5 +1,7 @@
 import {
   Activity,
+  BadgeDollarSign,
+  CalendarClock,
   ChevronDown,
   CircleGauge,
   Database,
@@ -8,46 +10,70 @@ import {
   Eye,
   GitCompareArrows,
   ListOrdered,
+  Newspaper,
   RefreshCw,
   Search,
   Settings,
   ShieldCheck,
+  ShieldHalf,
   Sparkles,
   Star,
   Users,
   WalletCards,
+  Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 import { IconButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";
+import { LeagueSwitcher } from "@/components/league-switcher";
 import { getActiveFixture, useAppStore } from "@/stores/app-store";
+import { useLeagueStore } from "@/stores/league-store";
+import { requestRuntime } from "@/services/messaging/runtime-client";
+import type { LeagueWorkspaceState } from "@/types/league";
 
 import "./app-shell.css";
 
 const primaryNavigation = [
+  { to: "/today", label: "Today", icon: Zap },
   { to: "/draft", label: "Draft", icon: DraftingCompass },
-  { to: "/players", label: "Players", icon: Users },
-  { to: "/team", label: "Team", icon: WalletCards },
-  { to: "/dynasty", label: "Dynasty", icon: Activity },
+  { to: "/start-sit", label: "Start/Sit", icon: Users },
+  { to: "/waivers", label: "Waivers", icon: WalletCards },
   { to: "/trade", label: "Trade", icon: GitCompareArrows },
-  { to: "/watchlist", label: "Watchlist", icon: Star },
+  { to: "/dynasty", label: "Dynasty", icon: Activity },
   { to: "/more", label: "More", icon: Ellipsis },
 ] as const;
 
 const moreNavigation = [
+  { to: "/leagues", label: "Leagues", icon: Users },
+  { to: "/mock-draft", label: "Mock Draft Lab", icon: DraftingCompass },
+  { to: "/matchup", label: "Matchup Center", icon: GitCompareArrows },
+  { to: "/chopped", label: "Chopped Survival", icon: ShieldCheck },
+  { to: "/players", label: "Players", icon: Users },
+  { to: "/rookie", label: "Rookie Center", icon: Star },
+  { to: "/taxi", label: "Taxi Squad", icon: WalletCards },
+  { to: "/idp", label: "IDP Center", icon: ShieldHalf },
+  { to: "/auction", label: "Auction Room", icon: BadgeDollarSign },
+  { to: "/team", label: "My Team", icon: WalletCards },
   { to: "/compare", label: "Compare", icon: GitCompareArrows },
   { to: "/rankings", label: "Rankings", icon: ListOrdered },
+  { to: "/watchlist", label: "Watchlist", icon: Star },
+  { to: "/research", label: "Research", icon: Newspaper },
   { to: "/data-center", label: "Data Center", icon: Database },
   { to: "/usage", label: "Usage", icon: CircleGauge },
   { to: "/settings", label: "Settings", icon: Settings },
   { to: "/diagnostics", label: "Diagnostics", icon: ShieldCheck },
+  { to: "/calendar", label: "Deadlines", icon: CalendarClock },
   { to: "/about", label: "About", icon: Eye },
 ] as const;
 
 export function AppShell() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const leagueContext = useLeagueStore((state) => state.activeContext);
+  const leagueSnapshot = useLeagueStore((state) => state.snapshot);
+  const leagueStatus = useLeagueStore((state) => state.status);
   const fixtureId = useAppStore((state) => state.fixtureId);
   const draftStep = useAppStore((state) => state.draftStep);
   const demoEnabled = useAppStore((state) => state.demoEnabled);
@@ -66,19 +92,79 @@ export function AppShell() {
     context.picksUntilUser === undefined
       ? undefined
       : Math.max(0, context.picksUntilUser - (demoEnabled ? draftStep : 0));
-  const leagueName = liveUnavailable
-    ? "Sleeper draft unavailable"
-    : (context.leagueName ?? context.draftName ?? "Sleeper draft");
-  const initials = leagueName
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
   const updatedSeconds = Math.max(
     0,
-    Math.round((now - context.lastUpdatedAt) / 1000),
+    Math.round(
+      (now -
+        (leagueContext && location.pathname !== "/draft"
+          ? (leagueSnapshot?.fetchedAt ?? now)
+          : context.lastUpdatedAt)) /
+        1000,
+    ),
   );
+  const showLeagueContext = Boolean(
+    leagueContext && location.pathname !== "/draft",
+  );
+  const restoredLeague = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!leagueContext || restoredLeague.current === leagueContext.leagueId)
+      return;
+    restoredLeague.current = leagueContext.leagueId;
+    let active = true;
+    void requestRuntime<LeagueWorkspaceState | null>({
+      type: "GET_LEAGUE_WORKSPACE",
+      payload: { leagueId: leagueContext.leagueId, workspace: "__last__" },
+    })
+      .then((stored) => {
+        if (!active || !stored) return;
+        const path = stored.filters["path"];
+        if (
+          typeof path === "string" &&
+          path.startsWith("/") &&
+          path !== location.pathname
+        )
+          void navigate(path);
+        window.requestAnimationFrame(() =>
+          window.scrollTo(0, stored.scrollTop),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [leagueContext, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!leagueContext) return;
+    const save = () => {
+      const base = {
+        leagueId: leagueContext.leagueId,
+        week: leagueContext.week,
+        scrollTop: window.scrollY,
+        strategy: leagueContext.strategy,
+      };
+      void requestRuntime({
+        type: "SAVE_LEAGUE_WORKSPACE",
+        payload: { ...base, workspace: location.pathname, filters: {} },
+      }).catch(() => undefined);
+      void requestRuntime({
+        type: "SAVE_LEAGUE_WORKSPACE",
+        payload: {
+          ...base,
+          workspace: "__last__",
+          filters: { path: location.pathname },
+        },
+      }).catch(() => undefined);
+    };
+    const timer = window.setInterval(save, 2_000);
+    window.addEventListener("pagehide", save);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide", save);
+      save();
+    };
+  }, [leagueContext, location.pathname]);
 
   useEffect(() => {
     const update = () => setNow(Date.now());
@@ -97,42 +183,58 @@ export function AppShell() {
             <span>Independent Sleeper companion</span>
           </div>
         </div>
-        <div className="league-context">
-          <div className="league-avatar" aria-hidden="true">
-            {initials || "NS"}
-          </div>
-          <div className="league-copy">
-            <strong>{leagueName}</strong>
-            <span>
-              {context.mode.replaceAll("_", " ")}
-              {format.superflex ? " · Superflex" : ""}
-            </span>
-          </div>
-          <ChevronDown aria-hidden="true" />
-        </div>
+        <LeagueSwitcher />
         <div className="pick-context" aria-live="polite">
           <span className="live-label">
             <i />
-            {context.status === "complete"
-              ? "Complete"
-              : liveUnavailable
-                ? "Retry needed"
-                : context.connected
-                  ? "Live"
-                  : "Cached"}
+            {showLeagueContext
+              ? leagueStatus === "ready"
+                ? "League live"
+                : leagueStatus
+              : context.status === "complete"
+                ? "Complete"
+                : liveUnavailable
+                  ? "Retry needed"
+                  : context.connected
+                    ? "Live"
+                    : "Cached"}
           </span>
           <strong className="tabular">
-            Pick {Math.ceil(currentPick / format.teams)}.
-            {String(((currentPick - 1) % format.teams) + 1).padStart(2, "0")}
+            {showLeagueContext && leagueContext ? (
+              <>
+                Week {leagueContext.week} ·{" "}
+                {leagueContext.leagueType.replaceAll("_", " ")}
+              </>
+            ) : (
+              <>
+                Pick {Math.ceil(currentPick / format.teams)}.
+                {String(((currentPick - 1) % format.teams) + 1).padStart(
+                  2,
+                  "0",
+                )}
+              </>
+            )}
           </strong>
           <span>
-            {liveUnavailable
-              ? "Live data unavailable"
-              : picksUntil === undefined
-                ? draftStatusLabel(context.status)
-                : picksUntil === 0
-                  ? "Your turn"
-                  : `${picksUntil} picks until you`}
+            {showLeagueContext && leagueContext
+              ? [
+                  leagueContext.lineupType === "best_ball"
+                    ? "Best Ball"
+                    : "Classic",
+                  leagueContext.weeklyElimination ? "Chopped" : null,
+                  leagueContext.rosterPositions.includes("SUPER_FLEX")
+                    ? "Superflex"
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : liveUnavailable
+                ? "Live data unavailable"
+                : picksUntil === undefined
+                  ? draftStatusLabel(context.status)
+                  : picksUntil === 0
+                    ? "Your turn"
+                    : `${picksUntil} picks until you`}
           </span>
         </div>
         <div className="header-actions">
@@ -152,7 +254,7 @@ export function AppShell() {
         <div className="freshness-row">
           <RefreshCw aria-hidden="true" />
           <span>
-            {demoEnabled ? "Demo data · " : ""}
+            {!showLeagueContext && demoEnabled ? "Demo data · " : ""}
             {updatedSeconds < 2
               ? "Updated now"
               : `Updated ${updatedSeconds}s ago`}
@@ -181,14 +283,24 @@ export function AppShell() {
         <span>
           <i
             className={
-              !liveUnavailable && context.connected ? "online" : "offline"
+              showLeagueContext
+                ? leagueStatus === "ready"
+                  ? "online"
+                  : "offline"
+                : !liveUnavailable && context.connected
+                  ? "online"
+                  : "offline"
             }
           />
-          {liveUnavailable
-            ? "Live refresh failed"
-            : context.connected
-              ? "Connection live"
-              : "Using cached data"}
+          {showLeagueContext
+            ? leagueStatus === "ready"
+              ? "League context isolated"
+              : "League refresh pending"
+            : liveUnavailable
+              ? "Live refresh failed"
+              : context.connected
+                ? "Connection live"
+                : "Using cached data"}
         </span>
         <span>
           <Sparkles aria-hidden="true" />

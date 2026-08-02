@@ -12,18 +12,21 @@ Content script
 MV3 service worker
     ├── Sleeper public read-only API
     ├── OpenAI Responses API with the user's key
-    ├── optional nflverse data
+    ├── optional nflverse schedules/stats/rosters/injuries/depth charts
+    ├── Open-Meteo stadium forecasts
     ├── IndexedDB through Dexie
     └── trusted-context Chrome storage
     ↓
-Side panel, popup, and options UI
+Side panel workspaces, popup, and options UI
 ```
 
 React and strict TypeScript power the extension surfaces. Zustand owns
 transient UI and demo state, TanStack Query owns request lifecycle policy, Zod
 validates every external and runtime boundary, and pure services implement
 mode detection, scoring, identity resolution, rankings, draft availability,
-and trade calculations. The side panel consumes cache-first data and remains
+and trade calculations. An explicit `LeagueContext` and league-scoped cache key
+are required by full-season recommendation services. Rapid switching uses an
+epoch and atomically commits context plus matching snapshot. The side panel consumes cache-first data and remains
 usable without OpenAI or a network connection.
 
 The content script runs only on supported Sleeper origins, observes SPA
@@ -31,6 +34,11 @@ navigation, sends sanitized route context, and provides an optional launcher.
 It does not scrape the draft board, read credentials, or expose privileged
 methods. Sleeper integration is read-only and cannot submit picks or roster
 actions.
+
+The live draft and Mock Draft Lab share `rankDraftCandidates`; mock sessions
+add deterministic opponent agents, draft-order state, keepers, trades, and
+auction accounting. Historical validation and simulations run outside the
+extension runtime and emit reviewable artifacts.
 
 See [the detailed architecture](docs/ARCHITECTURE.md),
 [data flow](docs/DATA_FLOW.md), [threat model](docs/THREAT_MODEL.md), and

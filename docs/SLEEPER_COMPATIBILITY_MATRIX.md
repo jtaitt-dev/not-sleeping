@@ -1,0 +1,19 @@
+# Sleeper compatibility matrix
+
+Not Sleeping detects capability from current Sleeper league, draft, roster, and scoring payloads. Unknown non-zero keys remain visible in Diagnostics and can be mapped manually; they are never silently treated as zero.
+
+| Area            | Supported forms                                                                                 | Behavior                                                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| League          | redraft, keeper, dynasty                                                                        | Uses Sleeper `settings.type`, with an explicit `unknown` fallback                                                                 |
+| Lineup          | classic, Best Ball                                                                              | Classic produces manual lineup decisions; Best Ball produces roster/replacement guidance and never tells the user to set starters |
+| Draft           | snake, linear, third-round reversal, auction, manual/custom                                     | Exact order and traded-pick ownership are modeled; unsupported values remain `unknown`                                            |
+| Purpose/pool    | startup, rookie, veteran, supplemental, mixed; all, rookie-only, veteran-only, manual           | Pool filters prevent rookie/veteran leakage                                                                                       |
+| Waivers         | FAAB, FAAB + rolling tie-break, rolling, reverse standings, custom daily, free agents, disabled | Recommendations and action text change by waiver family                                                                           |
+| Matchup         | head-to-head, league median                                                                     | Sleeper matchup score, opponent, and median setting are retained                                                                  |
+| Elimination     | Chopped, Chopped + FAAB, Chopped + trades, Chopped Best Ball hybrids                            | Explicit setting or per-league override composes survival odds, safety distance, release analysis, and format-aware guidance      |
+| Offense         | QB, RB, WR, TE, K, DEF, Flex, Rec Flex, Superflex                                               | Ordered slots are solved by exact maximum-weight matching                                                                         |
+| IDP             | DL, DE, DT, EDGE, LB, ILB, OLB, DB, CB, S, FS, SS, IDP Flex                                     | Granular position is preserved while broader Sleeper eligibility remains available                                                |
+| Roster controls | bench, IR, taxi                                                                                 | Availability and lineup services exclude illegal IR/taxi/inactive uses                                                            |
+| Scoring         | every non-zero Sleeper key present in the league                                                | Raw stats are translated when supported; missing raw coverage uses a labeled imported league projection or returns incomplete     |
+
+Custom commissioner rules that Sleeper does not encode—such as weekly elimination, its tiebreaker, or a special taxi deadline—require a local per-league override. League names are never used as capability evidence. Compatibility detection is implemented in `src/config/sleeper-capabilities.ts` and covered by capability, scoring, lineup, simulation, and schema-drift tests.

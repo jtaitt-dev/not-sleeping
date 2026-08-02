@@ -72,6 +72,35 @@ Zod validation, typed normalization, source freshness, identity confidence,
 unknown/conflict fields, stale-cache preservation, deterministic local
 fallbacks, and explicit user overrides limit silent corruption.
 
+Specific Phase 2 cases include fake reporter accounts, malicious social posts,
+poisoned imported projections, compromised public datasets, stale injury data,
+and false weather locations. Source class is independent of popularity; URLs,
+timestamps, stadium coordinates, hashes, expiration, contradictions, and
+bounded score impact are retained. Unknown inputs lower confidence.
+
+### Cross-league state leakage
+
+Delayed responses could pair one league header with another league's roster or
+recommendation. League-dependent requests use explicit context and scoped keys.
+The UI retains the old context/snapshot pair while switching and atomically
+commits only the newest matching pair. A five-league out-of-order response test
+guards this invariant.
+
+### Notification and optional credential privacy
+
+Lock-screen notifications can expose league information, and an optional X
+credential could be stolen. Notifications require a user gesture, deduplicate,
+respect quiet hours, and hide private text by default. Official X integration
+is disabled and no X credential exists in the default package. If added, it
+must use the same trusted-context BYOK boundary as the OpenAI key.
+
+### Research-cost abuse
+
+Automatic research could be triggered repeatedly by polling or poisoned news.
+The request queue bounds concurrency/rate, deduplicates equivalent work,
+supports cancellation, caches by decision context, and never refreshes every
+player on every poll. Deterministic calculations do not call OpenAI.
+
 ### XSS, unsafe links, and remote code
 
 React escapes product text. No `dangerouslySetInnerHTML`, `eval`, inline

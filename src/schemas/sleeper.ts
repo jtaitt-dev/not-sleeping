@@ -151,10 +151,71 @@ export const sleeperTrendingSchema = z.array(
     .loose(),
 );
 
+export const sleeperMatchupSchema = z
+  .object({
+    roster_id: z.number().int(),
+    matchup_id: z.number().int().nullable().optional(),
+    points: z.number().nullable().default(0),
+    custom_points: z.number().nullable().optional(),
+    players: z.array(z.string()).nullable().default([]),
+    starters: z.array(z.string()).nullable().default([]),
+    players_points: z.record(z.string(), z.number().nullable()).default({}),
+    starters_points: z.array(z.number().nullable()).nullable().optional(),
+  })
+  .loose();
+
+export const sleeperTransactionSchema = z
+  .object({
+    transaction_id: z.string(),
+    type: z.string(),
+    status: z.string(),
+    leg: z.number().int().optional(),
+    creator: nullableString,
+    created: z.number().nullable().optional(),
+    status_updated: z.number().nullable().optional(),
+    roster_ids: z.array(z.number().int()).default([]),
+    consenter_ids: z.array(z.number().int()).default([]),
+    adds: z.record(z.string(), z.number().int()).nullable().optional(),
+    drops: z.record(z.string(), z.number().int()).nullable().optional(),
+    draft_picks: z.array(sleeperTradedPickSchema).default([]),
+    waiver_budget: z
+      .array(
+        z
+          .object({
+            sender: z.number().int(),
+            receiver: z.number().int(),
+            amount: z.number(),
+          })
+          .loose(),
+      )
+      .default([]),
+    settings: flexibleRecord.default({}),
+    metadata: flexibleRecord.default({}),
+  })
+  .loose();
+
+export const sleeperBracketMatchSchema = z
+  .object({
+    r: z.number().int(),
+    m: z.number().int(),
+    t1: z.number().int().nullable().optional(),
+    t2: z.number().int().nullable().optional(),
+    w: z.number().int().nullable().optional(),
+    l: z.number().int().nullable().optional(),
+    p: z.number().int().nullable().optional(),
+    t1_from: z.record(z.string(), z.number().int()).nullable().optional(),
+    t2_from: z.record(z.string(), z.number().int()).nullable().optional(),
+  })
+  .loose();
+
 export type SleeperUser = z.infer<typeof sleeperUserSchema>;
 export type SleeperLeague = z.infer<typeof sleeperLeagueSchema>;
+export type SleeperLeagueUser = z.infer<typeof sleeperLeagueUserSchema>;
 export type SleeperRoster = z.infer<typeof sleeperRosterSchema>;
 export type SleeperDraft = z.infer<typeof sleeperDraftSchema>;
 export type SleeperDraftPick = z.infer<typeof sleeperDraftPickSchema>;
 export type SleeperPlayerRecord = z.infer<typeof sleeperPlayerSchema>;
 export type SleeperProjection = z.infer<typeof sleeperProjectionSchema>;
+export type SleeperMatchup = z.infer<typeof sleeperMatchupSchema>;
+export type SleeperTransaction = z.infer<typeof sleeperTransactionSchema>;
+export type SleeperBracketMatch = z.infer<typeof sleeperBracketMatchSchema>;

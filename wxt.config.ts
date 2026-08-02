@@ -12,11 +12,13 @@ export default defineConfig({
       "Independent open-source fantasy football intelligence companion for Sleeper.",
     minimum_chrome_version: "116",
     permissions: ["storage", "sidePanel", "activeTab", "alarms"],
+    optional_permissions: ["notifications"],
     host_permissions: [
       "https://api.sleeper.app/*",
       "https://sleeper.com/*",
       "https://*.sleeper.com/*",
       "https://api.openai.com/*",
+      "https://api.open-meteo.com/*",
     ],
     optional_host_permissions: ["https://github.com/nflverse/nflverse-data/*"],
     action: {

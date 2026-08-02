@@ -1,6 +1,8 @@
 import { OpenAIProvider } from "@/providers/openai/openai-provider";
 import { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
+import { OpenMeteoProvider } from "@/providers/weather/open-meteo-provider";
 import { db } from "@/services/cache/database";
+import { showLocalAlert } from "@/services/alerts/alert-service";
 import { LiveDraftController } from "@/services/context/live-draft-controller";
 import {
   buildLiveDraftState,
@@ -8,6 +10,7 @@ import {
 } from "@/services/context/live-draft-state";
 import { mergeTeamDefenseFallback } from "@/services/context/team-defense-fallback";
 import { AppError, normalizeError } from "@/services/errors/app-error";
+import { LeagueService } from "@/services/league/league-service";
 import {
   validateMessage,
   validateSender,
@@ -21,11 +24,15 @@ import {
   restrictSecretStorage,
 } from "@/services/storage/key-vault";
 import { getSettings } from "@/services/storage/settings";
-import type { LiveDraftState, Position } from "@/types/domain";
+import type { LiveDraftState, Player, Position } from "@/types/domain";
+import type { SleeperRoster } from "@/schemas/sleeper";
 
 const CONTEXT_KEY = "currentSleeperContext";
 const DEMO_KEY = "demoMode";
+const ACTIVE_LEAGUE_KEY = "activeLeagueId";
 const sleeper = new SleeperProvider();
+const weather = new OpenMeteoProvider();
+const leagues = new LeagueService(sleeper);
 const openai = new OpenAIProvider({
   getKey: async () => (await readKeyInServiceWorker()).key,
   getSettings,
@@ -166,6 +173,122 @@ async function routeMessage(
       });
       return user;
     }
+    case "SYNC_LEAGUES":
+      return leagues.syncCatalog({
+        userId: message.payload.userId,
+        seasons: message.payload.seasons,
+        week: message.payload.week,
+      });
+    case "GET_LEAGUES": {
+      const [catalog, active] = await Promise.all([
+        leagues.getCatalog(),
+        chrome.storage.local.get(ACTIVE_LEAGUE_KEY),
+      ]);
+      return { catalog, activeLeagueId: active[ACTIVE_LEAGUE_KEY] ?? null };
+    }
+    case "SELECT_LEAGUE": {
+      for (const controller of activeRequests.values()) controller.abort();
+      activeRequests.clear();
+      const context = await leagues.selectLeague({
+        leagueId: message.payload.leagueId,
+        userId: message.payload.userId,
+        week: message.payload.week,
+      });
+      await chrome.storage.local.set({ [ACTIVE_LEAGUE_KEY]: context.leagueId });
+      return context;
+    }
+    case "FAVORITE_LEAGUE":
+      await leagues.favoriteLeague(
+        message.payload.leagueId,
+        message.payload.favorite,
+      );
+      return { saved: true };
+    case "SET_LEAGUE_OVERRIDES": {
+      const context = await leagues.selectLeague({
+        leagueId: message.payload.leagueId,
+        userId: message.payload.userId,
+        overrides: message.payload.overrides,
+      });
+      return context;
+    }
+    case "SAVE_LEAGUE_WORKSPACE":
+      await leagues.saveWorkspace({
+        ...message.payload,
+        updatedAt: Date.now(),
+      });
+      return { saved: true };
+    case "GET_LEAGUE_WORKSPACE":
+      return leagues.getWorkspace(
+        message.payload.leagueId,
+        message.payload.workspace,
+      );
+    case "GET_LEAGUE_SNAPSHOT": {
+      const leagueId = message.payload.leagueId;
+      const week = message.payload.week;
+      const [
+        league,
+        users,
+        rosters,
+        matchups,
+        transactions,
+        winnersBracket,
+        losersBracket,
+        tradedPicks,
+        drafts,
+      ] = await Promise.all([
+        sleeper.getLeague(leagueId),
+        sleeper.getLeagueUsers(leagueId),
+        sleeper.getRosters(leagueId),
+        sleeper.getMatchups(leagueId, week),
+        sleeper.getTransactions(leagueId, week),
+        optionalSleeper(() => sleeper.getWinnersBracket(leagueId)),
+        optionalSleeper(() => sleeper.getLosersBracket(leagueId)),
+        sleeper.getLeagueTradedPicks(leagueId),
+        sleeper.getLeagueDrafts(leagueId),
+      ]);
+      await sleeper.refreshPlayers().catch(() => null);
+      const rosterPlayerIds = [
+        ...new Set(
+          rosters.flatMap((roster) => [
+            ...(roster.players ?? []),
+            ...(roster.starters ?? []),
+            ...(roster.reserve ?? []),
+            ...(roster.taxi ?? []),
+          ]),
+        ),
+      ];
+      const [players, projections] = await Promise.all([
+        db.players.bulkGet(rosterPlayerIds),
+        optionalSleeper(() => sleeper.getNflProjections(league.season)),
+      ]);
+      const snapshotPlayers = players.filter(
+        (player): player is Player => player !== undefined,
+      );
+      void emitSnapshotAlerts({
+        leagueId,
+        week,
+        rosters,
+        players: snapshotPlayers,
+      }).catch(() => undefined);
+      return {
+        leagueId,
+        week,
+        fetchedAt: Date.now(),
+        league,
+        users,
+        rosters,
+        matchups,
+        transactions,
+        winnersBracket: winnersBracket ?? [],
+        losersBracket: losersBracket ?? [],
+        tradedPicks,
+        drafts,
+        players: snapshotPlayers,
+        projections: projections ?? [],
+      };
+    }
+    case "GET_STADIUM_WEATHER":
+      return weather.getKickoffWeather(message.payload);
     case "SET_DEMO_MODE": {
       const demo = {
         enabled: message.payload.enabled,
@@ -183,6 +306,54 @@ async function routeMessage(
         (message.payload.positions ?? []) as Position[],
         message.payload.limit,
       );
+    }
+    case "GET_PLAYER_POOL": {
+      if ((await db.players.count()) === 0) await sleeper.refreshPlayers();
+      const rows = await db.players
+        .orderBy("searchRank")
+        .limit(message.payload.limit * 3)
+        .toArray();
+      const idp = new Set([
+        "DL",
+        "DE",
+        "DT",
+        "EDGE",
+        "LB",
+        "ILB",
+        "OLB",
+        "DB",
+        "CB",
+        "S",
+        "FS",
+        "SS",
+      ]);
+      return rows
+        .filter(
+          (player) =>
+            !message.payload.rookiesOnly || player.yearsExperience === 0,
+        )
+        .filter(
+          (player) => !message.payload.idpOnly || idp.has(player.position),
+        )
+        .slice(0, message.payload.limit);
+    }
+    case "GET_TRENDING_PLAYERS": {
+      if ((await db.players.count()) === 0) await sleeper.refreshPlayers();
+      const trends = await sleeper.getTrending(
+        message.payload.kind,
+        24,
+        message.payload.limit,
+      );
+      const players = await db.players.bulkGet(
+        trends.map((trend) => trend.player_id),
+      );
+      const playerMap = new Map(
+        players.flatMap((player) => (player ? [[player.id, player]] : [])),
+      );
+      return trends.flatMap((trend) => {
+        const player = playerMap.get(trend.player_id);
+        return player ? [{ player, count: trend.count }] : [];
+      });
     }
     case "GET_DRAFT": {
       const [draft, picks, tradedPicks] = await Promise.all([
@@ -239,6 +410,47 @@ async function routeMessage(
       return { cleared: message.payload.scope };
     case "EXPORT_DIAGNOSTICS":
       return exportRedactedDiagnostics();
+  }
+}
+
+async function emitSnapshotAlerts(input: {
+  leagueId: string;
+  week: number;
+  rosters: SleeperRoster[];
+  players: Player[];
+}): Promise<void> {
+  const stored = await db.leagues.get(input.leagueId);
+  const roster = input.rosters.find(
+    (candidate) => candidate.roster_id === stored?.rosterId,
+  );
+  if (!roster) return;
+  const byId = new Map(input.players.map((player) => [player.id, player]));
+  for (const playerId of roster.starters ?? []) {
+    const player = byId.get(playerId);
+    if (!player) continue;
+    if (player.injuryStatus || player.status === "injured") {
+      await showLocalAlert({
+        id: `${input.leagueId}:${input.week}:injury:${player.id}:${player.injuryStatus ?? player.status}`,
+        leagueId: input.leagueId,
+        type: "injury_update",
+        title: "Starter injury update",
+        message:
+          "A selected league has a starter with a current injury designation.",
+        privateMessage: `${player.fullName}: ${player.injuryStatus ?? player.status}. Review before kickoff.`,
+        expiresAt: Date.now() + 24 * 60 * 60_000,
+      });
+    }
+    if (player.status === "inactive") {
+      await showLocalAlert({
+        id: `${input.leagueId}:${input.week}:inactive:${player.id}`,
+        leagueId: input.leagueId,
+        type: "inactive_lineup",
+        title: "Inactive player in lineup",
+        message: "A selected league has an inactive starter.",
+        privateMessage: `${player.fullName} is inactive and remains in the reported starter list.`,
+        expiresAt: Date.now() + 12 * 60 * 60_000,
+      });
+    }
   }
 }
 

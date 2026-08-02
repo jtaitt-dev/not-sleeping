@@ -1,6 +1,12 @@
 import Dexie, { type EntityTable } from "dexie";
 
 import type { Player, PlayerResearch, UsageEvent } from "@/types/domain";
+import type {
+  EvidenceItem,
+  LeagueContext,
+  LeagueWorkspaceState,
+  ManualLeagueOverrides,
+} from "@/types/league";
 
 export type CacheMetadata = {
   key: string;
@@ -51,6 +57,29 @@ export type DiagnosticEvent = {
   safeDetail: string;
 };
 
+export type StoredLeague = {
+  leagueId: string;
+  season: string;
+  name: string;
+  userId: string;
+  rosterId: number | null;
+  favorite: boolean;
+  lastUsedAt: number;
+  updatedAt: number;
+  context: LeagueContext;
+  overrides: ManualLeagueOverrides;
+};
+
+export type StoredLeagueWorkspace = LeagueWorkspaceState & {
+  id: string;
+};
+
+export type StoredEvidence = EvidenceItem & {
+  cacheKey: string;
+  leagueId: string;
+  week: number;
+};
+
 export class NotSleepingDatabase extends Dexie {
   players!: EntityTable<Player, "id">;
   cacheMetadata!: EntityTable<CacheMetadata, "key">;
@@ -59,6 +88,9 @@ export class NotSleepingDatabase extends Dexie {
   usage!: EntityTable<UsageEvent, "id">;
   imports!: EntityTable<ImportSource, "id">;
   diagnostics!: EntityTable<DiagnosticEvent, "id">;
+  leagues!: EntityTable<StoredLeague, "leagueId">;
+  leagueWorkspaces!: EntityTable<StoredLeagueWorkspace, "id">;
+  evidence!: EntityTable<StoredEvidence, "cacheKey">;
 
   constructor() {
     super("not-sleeping");
@@ -75,6 +107,14 @@ export class NotSleepingDatabase extends Dexie {
     this.version(2).stores({
       players:
         "id, sleeperId, normalizedName, fullName, team, position, college, searchRank, [position+team]",
+    });
+    this.version(3).stores({
+      leagues:
+        "leagueId, season, name, userId, favorite, lastUsedAt, updatedAt",
+      leagueWorkspaces:
+        "id, leagueId, workspace, updatedAt, [leagueId+workspace]",
+      evidence:
+        "cacheKey, leagueId, week, sourceClass, expiresAt, [leagueId+week], *playerIds, *teamIds",
     });
   }
 }

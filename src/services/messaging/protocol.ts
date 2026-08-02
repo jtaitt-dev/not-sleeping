@@ -59,6 +59,137 @@ export const messageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...messageBase,
+    type: z.literal("SYNC_LEAGUES"),
+    payload: z.object({
+      userId: id,
+      seasons: z
+        .array(z.string().regex(/^\d{4}$/))
+        .min(1)
+        .max(8),
+      week: z.number().int().min(0).max(30),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("GET_LEAGUES"),
+    payload: z.object({}),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("SELECT_LEAGUE"),
+    payload: z.object({
+      leagueId: id,
+      userId: id,
+      week: z.number().int().min(0).max(30).optional(),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("FAVORITE_LEAGUE"),
+    payload: z.object({ leagueId: id, favorite: z.boolean() }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("SET_LEAGUE_OVERRIDES"),
+    payload: z.object({
+      leagueId: id,
+      userId: id,
+      overrides: z.object({
+        leagueType: z
+          .enum(["redraft", "keeper", "dynasty", "unknown"])
+          .optional(),
+        lineupType: z.enum(["classic", "best_ball", "unknown"]).optional(),
+        draftStyle: z
+          .enum([
+            "snake",
+            "linear",
+            "third_round_reversal",
+            "auction",
+            "manual_custom",
+            "unknown",
+          ])
+          .optional(),
+        waiverType: z
+          .enum([
+            "rolling",
+            "reverse_standings",
+            "faab",
+            "faab_with_rolling_tiebreak",
+            "custom_daily",
+            "free_agents",
+            "disabled",
+            "unknown",
+          ])
+          .optional(),
+        slotMappings: z
+          .record(z.string().max(40), z.array(z.string().max(20)).max(40))
+          .optional(),
+        scoringLabels: z
+          .record(z.string().max(120), z.string().max(200))
+          .optional(),
+        taxiExperienceLimit: z
+          .number()
+          .int()
+          .min(0)
+          .max(99)
+          .nullable()
+          .optional(),
+        taxiDeadline: z.string().max(120).nullable().optional(),
+        minimumAuctionBid: z.number().min(0).max(100000).optional(),
+        weeklyElimination: z.boolean().optional(),
+        eliminationTiebreaker: z.string().max(200).nullable().optional(),
+      }),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("GET_LEAGUE_SNAPSHOT"),
+    payload: z.object({
+      leagueId: id,
+      week: z.number().int().min(0).max(30),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("SAVE_LEAGUE_WORKSPACE"),
+    payload: z.object({
+      leagueId: id,
+      workspace: z.string().min(1).max(120),
+      week: z.number().int().min(0).max(30),
+      scrollTop: z.number().min(0).max(10_000_000),
+      filters: z.record(
+        z.string().max(120),
+        z.union([
+          z.string().max(500),
+          z.number(),
+          z.boolean(),
+          z.array(z.string().max(200)).max(100),
+        ]),
+      ),
+      strategy: z.enum([
+        "contender",
+        "balanced",
+        "productive_struggle",
+        "rebuild",
+      ]),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("GET_LEAGUE_WORKSPACE"),
+    payload: z.object({ leagueId: id, workspace: z.string().min(1).max(120) }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("GET_STADIUM_WEATHER"),
+    payload: z.object({
+      team: z.string().min(2).max(4),
+      kickoff: z.iso.datetime(),
+      roofStatus: z.enum(["open", "closed", "unknown"]).optional(),
+    }),
+  }),
+  z.object({
+    ...messageBase,
     type: z.literal("SET_DEMO_MODE"),
     payload: z.object({
       enabled: z.boolean(),
@@ -72,6 +203,23 @@ export const messageSchema = z.discriminatedUnion("type", [
       query: z.string().max(100),
       positions: z.array(z.string().max(8)).max(12).optional(),
       limit: z.number().int().min(1).max(100).default(30),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("GET_PLAYER_POOL"),
+    payload: z.object({
+      limit: z.number().int().min(1).max(1_000).default(400),
+      rookiesOnly: z.boolean().default(false),
+      idpOnly: z.boolean().default(false),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("GET_TRENDING_PLAYERS"),
+    payload: z.object({
+      kind: z.enum(["add", "drop"]),
+      limit: z.number().int().min(1).max(100),
     }),
   }),
   z.object({

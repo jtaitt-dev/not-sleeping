@@ -1,0 +1,116 @@
+{
+  "generatedAt": "2026-08-02T20:54:34.771Z",
+  "seedRange": {
+    "first": 20260802,
+    "last": 20260881
+  },
+  "requested": 80,
+  "completed": 80,
+  "failed": 0,
+  "completeRecommendationReplays": 80,
+  "categories": {
+    "dynastyRookie": 8,
+    "dynastyStartup": 8,
+    "auction": 8,
+    "idp": 9,
+    "bestBall": 10,
+    "keeper": 5,
+    "oddTeamCount": 11,
+    "tradedPicks": 4,
+    "choppedRedraft": 1,
+    "choppedFaab": 1,
+    "choppedTrades": 1,
+    "choppedBestBall": 1,
+    "bestBallWaivers": 10,
+    "dynasty32": 2,
+    "largeIdp": 3,
+    "auctionIdp": 2,
+    "auctionDynasty": 0,
+    "keeperAuction": 0,
+    "supplemental": 1,
+    "unknownInputs": 1,
+    "midDraftChanges": 1
+  },
+  "matrix": {
+    "leagueTypes": [
+      "dynasty",
+      "keeper",
+      "redraft"
+    ],
+    "draftStyles": [
+      "auction",
+      "linear",
+      "manual_custom",
+      "snake",
+      "third_round_reversal"
+    ],
+    "lineupTypes": [
+      "best_ball",
+      "classic"
+    ],
+    "waiverTypes": [
+      "custom_daily",
+      "disabled",
+      "faab",
+      "free_agents",
+      "reverse_standings",
+      "rolling"
+    ],
+    "teamCounts": [
+      8,
+      9,
+      10,
+      12,
+      14,
+      16,
+      32
+    ],
+    "scoringFamilies": [
+      "custom_bonuses",
+      "half_ppr",
+      "heavy_passing_penalties",
+      "points_per_first_down",
+      "ppr",
+      "return_yards",
+      "standard",
+      "te_premium"
+    ],
+    "playerPools": [
+      "all_available",
+      "rookies_only",
+      "veterans_only"
+    ]
+  },
+  "invariants": {
+    "passed": 80,
+    "failed": 0,
+    "errors": []
+  },
+  "calibration": {
+    "recommendationRankStability": 1,
+    "rosterCompletionRate": 1,
+    "strategyAdherence": 1,
+    "averageAuctionBudgetUtilization": 0.7831681415929207,
+    "averageRecommendationLatencyMs": 0.3235862499999939,
+    "p95RecommendationLatencyMs": 0.5360999999998057,
+    "maximumRecommendationLatencyMs": 0.706899999999905,
+    "availabilityProbabilityCalibration": "proxy_only",
+    "cacheHitRate": "not_instrumented"
+  },
+  "targetedScenarios": [
+    "8, 10, 12, 14, 16, and 32 teams plus odd team counts",
+    "1QB and Superflex redraft snake",
+    "Superflex third-round reversal",
+    "Linear dynasty rookie and dynasty startup",
+    "Vets-only and rookies-only player pools",
+    "Keeper round costs and missing costs",
+    "Auction redraft, dynasty, and keeper",
+    "Best Ball with multiple waiver families",
+    "IDP-only and mixed offense/IDP flags",
+    "TE premium, PPFD, passing penalties, return yards, and custom scoring families",
+    "Traded picks, manual commissioner picks, and unknown compatibility inputs",
+    "Chopped redraft, Chopped FAAB, trades-enabled Chopped, and Chopped Best Ball survival models",
+    "32-team dynasty, large IDP, auction IDP, auction dynasty, keeper auction, and supplemental combinations",
+    "Paused/settings-change, duplicate/out-of-order events, outage, and stale-cache cases are asserted by unit and provider tests"
+  ]
+}

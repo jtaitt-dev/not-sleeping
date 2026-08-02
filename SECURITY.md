@@ -29,5 +29,13 @@ coordinate a fix before public disclosure.
   credentials or local addresses.
 - Model/web content is untrusted data and cannot change instructions, execute
   code, or gain extension capabilities.
+- Social posts never become trusted because of follower counts or badges;
+  contradictions, source class, timestamps, and expiry remain visible.
+- League-dependent caches and responses carry an explicit league ID; UI state
+  commits context and snapshot atomically to prevent cross-league leakage.
+- Notification permission is optional and requested only from a user action.
+  Private league details are excluded from lock-screen text by default.
+- Imported projections and public datasets are size/schema validated, retain
+  provenance, and cannot silently override unknown scoring categories.
 
 Repository security guidance applies to all files below this root.

@@ -1,5 +1,6 @@
 import {
   ArrowDownUp,
+  Bell,
   BookOpen,
   CheckCircle2,
   ChevronRight,
@@ -16,6 +17,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  ShieldHalf,
   SlidersHorizontal,
   Sparkles,
   Star,
@@ -36,6 +38,29 @@ import {
 } from "@/components/ui/states";
 import { DEMO_PLAYERS } from "@/services/demo/fixtures";
 import {
+  DEFAULT_SOURCE_PREFERENCES,
+  type SourcePreferences,
+} from "@/providers/evidence/evidence-adapters";
+import {
+  ALERT_TYPES,
+  getAlertSettings,
+  hasNotificationsPermission,
+  requestNotificationsPermission,
+  saveAlertSettings,
+  type AlertType,
+  type AlertSettings,
+} from "@/services/alerts/alert-service";
+import {
+  getSourcePreferences,
+  saveSourcePreferences,
+} from "@/services/evidence/source-preferences";
+import {
+  getFreshnessOverrides,
+  saveFreshnessOverrides,
+  type FreshnessOverrides,
+} from "@/services/freshness/freshness-settings";
+import { DEFAULT_FRESHNESS_POLICIES } from "@/services/freshness/freshness-policy";
+import {
   type ImportValidation,
   readImportFile,
 } from "@/services/imports/import-service";
@@ -51,8 +76,10 @@ import {
   saveSettings,
 } from "@/services/storage/settings";
 import { getRecommendations, useAppStore } from "@/stores/app-store";
+import { useLeagueStore } from "@/stores/league-store";
 import type { PlayerResearchOutput } from "@/schemas/openai";
 import type { AppSettings, KeyStatus, Player, Strategy } from "@/types/domain";
+import type { FreshnessDomain } from "@/types/league";
 
 import "./all-workspaces.css";
 
@@ -1022,6 +1049,8 @@ export function UsageWorkspace() {
 }
 
 export function SettingsWorkspace() {
+  const activeLeague = useLeagueStore((state) => state.activeContext);
+  const setLeagueOverrides = useLeagueStore((state) => state.setOverrides);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [keyStatus, setKeyStatus] = useState<KeyStatus>({
     available: false,
@@ -1029,19 +1058,46 @@ export function SettingsWorkspace() {
     masked: null,
   });
   const [saveError, setSaveError] = useState("");
+  const [alertSettings, setAlertSettings] = useState<AlertSettings>({
+    enabled: false,
+    quietHours: { start: "22:00", end: "07:00" },
+    leagues: {},
+  });
+  const [alertsPermitted, setAlertsPermitted] = useState(false);
+  const [sourcePreferences, setSourcePreferences] = useState<SourcePreferences>(
+    DEFAULT_SOURCE_PREFERENCES,
+  );
+  const [freshnessOverrides, setFreshnessOverrides] =
+    useState<FreshnessOverrides>({});
+  const [tiebreakerDraft, setTiebreakerDraft] = useState<{
+    leagueId: string;
+    value: string;
+  } | null>(null);
+  const eliminationTiebreaker =
+    activeLeague && tiebreakerDraft?.leagueId === activeLeague.leagueId
+      ? tiebreakerDraft.value
+      : (activeLeague?.eliminationTiebreaker ?? "");
 
   useEffect(() => {
     let active = true;
     void Promise.all([
       getSettings(),
+      getAlertSettings(),
+      hasNotificationsPermission(),
+      getSourcePreferences(),
+      getFreshnessOverrides(),
       requestRuntime<{ keyStatus: KeyStatus }>({
         type: "GET_STATUS",
         payload: {},
       }),
     ])
-      .then(([stored, status]) => {
+      .then(([stored, alerts, permitted, sources, freshness, status]) => {
         if (!active) return;
         setSettings(stored);
+        setAlertSettings(alerts);
+        setAlertsPermitted(permitted);
+        setSourcePreferences(sources);
+        setFreshnessOverrides(freshness);
         setKeyStatus(status.keyStatus);
       })
       .catch((error: unknown) => {
@@ -1064,6 +1120,72 @@ export function SettingsWorkspace() {
         error instanceof Error ? error.message : "The setting was not saved.",
       );
     });
+  }
+
+  async function enableAlerts() {
+    const permitted = await requestNotificationsPermission();
+    setAlertsPermitted(permitted);
+    if (!permitted) return;
+    const updated = { ...alertSettings, enabled: true };
+    setAlertSettings(await saveAlertSettings(updated));
+  }
+
+  function updateSourceList(
+    key: Exclude<keyof SourcePreferences, "optionalXEnabled">,
+    value: string,
+  ) {
+    const updated = {
+      ...sourcePreferences,
+      [key]: value
+        .split(/[\n,]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    };
+    setSourcePreferences(updated);
+    void saveSourcePreferences(updated).then(setSourcePreferences);
+  }
+
+  function updateLeagueAlerts(input: {
+    enabled?: boolean;
+    includePrivateDetails?: boolean;
+    toggleType?: AlertType;
+  }) {
+    if (!activeLeague) return;
+    const current = alertSettings.leagues[activeLeague.leagueId] ?? {
+      enabled: true,
+      types: [...ALERT_TYPES],
+      includePrivateDetails: false,
+    };
+    const types = input.toggleType
+      ? current.types.includes(input.toggleType)
+        ? current.types.filter((type) => type !== input.toggleType)
+        : [...current.types, input.toggleType]
+      : current.types;
+    const updated: AlertSettings = {
+      ...alertSettings,
+      leagues: {
+        ...alertSettings.leagues,
+        [activeLeague.leagueId]: {
+          ...current,
+          ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+          ...(input.includePrivateDetails !== undefined
+            ? { includePrivateDetails: input.includePrivateDetails }
+            : {}),
+          types,
+        },
+      },
+    };
+    setAlertSettings(updated);
+    void saveAlertSettings(updated).then(setAlertSettings);
+  }
+
+  function updateFreshness(domain: FreshnessDomain, seconds: number) {
+    const updated = {
+      ...freshnessOverrides,
+      [domain]: Math.max(1, Math.round(seconds)) * 1_000,
+    };
+    setFreshnessOverrides(updated);
+    void saveFreshnessOverrides(updated).then(setFreshnessOverrides);
   }
 
   return (
@@ -1097,6 +1219,108 @@ export function SettingsWorkspace() {
             Open secure setup
           </Button>
         </section>
+        <section className="surface settings-card freshness-settings-card">
+          <header>
+            <RefreshCw />
+            <div>
+              <h2>Data freshness</h2>
+              <p>Per-domain stale thresholds in seconds.</p>
+            </div>
+          </header>
+          <div className="freshness-setting-grid">
+            {(
+              Object.entries(DEFAULT_FRESHNESS_POLICIES) as Array<
+                [
+                  FreshnessDomain,
+                  (typeof DEFAULT_FRESHNESS_POLICIES)[FreshnessDomain],
+                ]
+              >
+            ).flatMap(([domain, policy]) =>
+              policy.ttlMs === null
+                ? []
+                : [
+                    <label key={domain}>
+                      <span>{policy.description}</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="604800"
+                        value={Math.round(
+                          (freshnessOverrides[domain] ?? policy.ttlMs) / 1_000,
+                        )}
+                        onChange={(event) =>
+                          updateFreshness(domain, Number(event.target.value))
+                        }
+                      />
+                    </label>,
+                  ],
+            )}
+          </div>
+          <Button
+            size="small"
+            variant="ghost"
+            onClick={() => {
+              setFreshnessOverrides({});
+              void saveFreshnessOverrides({});
+            }}
+          >
+            Restore defaults
+          </Button>
+        </section>
+        <section className="surface settings-card">
+          <header>
+            <ShieldHalf />
+            <div>
+              <h2>League capability overrides</h2>
+              <p>Applied only to the selected league and preserved locally.</p>
+            </div>
+            <StatusBadge tone={activeLeague ? "info" : "neutral"}>
+              {activeLeague?.leagueName ?? "No league selected"}
+            </StatusBadge>
+          </header>
+          {activeLeague ? (
+            <>
+              <Toggle
+                label="Weekly elimination / Chopped"
+                detail="Enable only when confirmed by commissioner rules; league names are never used as evidence"
+                checked={activeLeague.weeklyElimination}
+                onChange={(weeklyElimination) => {
+                  void setLeagueOverrides({ weeklyElimination }).catch(
+                    (error: unknown) =>
+                      setSaveError(safeRuntimeError(error).message),
+                  );
+                }}
+              />
+              <label className="capability-override-field">
+                <span>Elimination tiebreaker</span>
+                <input
+                  value={eliminationTiebreaker}
+                  placeholder="Example: bench points, then season points"
+                  onChange={(event) => {
+                    setTiebreakerDraft({
+                      leagueId: activeLeague.leagueId,
+                      value: event.target.value,
+                    });
+                  }}
+                  onBlur={() => {
+                    const trimmed = eliminationTiebreaker.trim();
+                    void setLeagueOverrides({
+                      eliminationTiebreaker: trimmed ? trimmed : null,
+                    }).catch((error: unknown) =>
+                      setSaveError(safeRuntimeError(error).message),
+                    );
+                  }}
+                />
+              </label>
+              <p>
+                Unknown settings and non-zero scoring categories remain visible
+                in Diagnostics; no inferred override changes Sleeper.
+              </p>
+            </>
+          ) : (
+            <p>Select a league before configuring a manual capability.</p>
+          )}
+        </section>
         <section className="surface settings-card">
           <header>
             <SlidersHorizontal />
@@ -1123,6 +1347,141 @@ export function SettingsWorkspace() {
         </section>
         <section className="surface settings-card">
           <header>
+            <BookOpen />
+            <div>
+              <h2>Evidence source policy</h2>
+              <p>
+                One entry per line or comma; public social remains best-effort.
+              </p>
+            </div>
+          </header>
+          <div className="source-preference-grid">
+            <SourceListField
+              label="Trusted domains"
+              value={sourcePreferences.trustedDomains}
+              onChange={(value) => updateSourceList("trustedDomains", value)}
+            />
+            <SourceListField
+              label="Blocked domains"
+              value={sourcePreferences.blockedDomains}
+              onChange={(value) => updateSourceList("blockedDomains", value)}
+            />
+            <SourceListField
+              label="Trusted reporters"
+              value={sourcePreferences.trustedReporters}
+              onChange={(value) => updateSourceList("trustedReporters", value)}
+            />
+            <SourceListField
+              label="Trusted social handles"
+              value={sourcePreferences.trustedSocialHandles}
+              onChange={(value) =>
+                updateSourceList("trustedSocialHandles", value)
+              }
+            />
+            <SourceListField
+              label="Muted reporters"
+              value={sourcePreferences.mutedReporters}
+              onChange={(value) => updateSourceList("mutedReporters", value)}
+            />
+            <SourceListField
+              label="Muted topics"
+              value={sourcePreferences.mutedTopics}
+              onChange={(value) => updateSourceList("mutedTopics", value)}
+            />
+          </div>
+          <p>
+            Official X API access is optional, disabled by default, and never
+            required for core operation.
+          </p>
+        </section>
+        <section className="surface settings-card">
+          <header>
+            <Bell />
+            <div>
+              <h2>Local alerts</h2>
+              <p>Optional, deduplicated, and quiet-hours aware.</p>
+            </div>
+            <StatusBadge
+              tone={
+                alertsPermitted && alertSettings.enabled ? "success" : "neutral"
+              }
+            >
+              {alertsPermitted && alertSettings.enabled ? "Enabled" : "Off"}
+            </StatusBadge>
+          </header>
+          <p>
+            Chrome must be running. Alerts are not guaranteed background
+            infrastructure, and private league details stay hidden by default.
+          </p>
+          {alertsPermitted ? (
+            <>
+              <Toggle
+                label="Allow local alerts"
+                detail="Master switch for all locally generated alerts"
+                checked={alertSettings.enabled}
+                onChange={(enabled) => {
+                  const updated = { ...alertSettings, enabled };
+                  setAlertSettings(updated);
+                  void saveAlertSettings(updated);
+                }}
+              />
+              {activeLeague ? (
+                <div className="league-alert-settings">
+                  <h3>{activeLeague.leagueName}</h3>
+                  <Toggle
+                    label="Alerts for this league"
+                    detail="Keeps settings isolated to the selected league"
+                    checked={
+                      alertSettings.leagues[activeLeague.leagueId]?.enabled ??
+                      true
+                    }
+                    onChange={(enabled) => updateLeagueAlerts({ enabled })}
+                  />
+                  <Toggle
+                    label="Show private details"
+                    detail="Off by default for lock-screen privacy"
+                    checked={
+                      alertSettings.leagues[activeLeague.leagueId]
+                        ?.includePrivateDetails ?? false
+                    }
+                    onChange={(includePrivateDetails) =>
+                      updateLeagueAlerts({ includePrivateDetails })
+                    }
+                  />
+                  <div className="alert-type-grid">
+                    {ALERT_TYPES.map((type) => {
+                      const selected =
+                        alertSettings.leagues[
+                          activeLeague.leagueId
+                        ]?.types.includes(type) ?? true;
+                      return (
+                        <Button
+                          key={type}
+                          size="small"
+                          variant={selected ? "primary" : "ghost"}
+                          aria-pressed={selected}
+                          onClick={() =>
+                            updateLeagueAlerts({ toggleType: type })
+                          }
+                        >
+                          {alertTypeLabel(type)}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p>Select a league to configure league-specific alert types.</p>
+              )}
+            </>
+          ) : (
+            <Button size="small" onClick={() => void enableAlerts()}>
+              Enable notification permission
+            </Button>
+          )}
+        </section>
+        <section className="surface settings-card">
+          <header>
             <ShieldCheck />
             <div>
               <h2>Privacy posture</h2>
@@ -1140,6 +1499,27 @@ export function SettingsWorkspace() {
         </section>
       </div>
     </Workspace>
+  );
+}
+
+function SourceListField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label>
+      <span>{label}</span>
+      <textarea
+        rows={2}
+        value={value.join("\n")}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }
 
@@ -1522,6 +1902,13 @@ type DiagnosticStatus = {
   keyStatus: KeyStatus;
   players: number;
 };
+
+function alertTypeLabel(type: AlertType): string {
+  return type
+    .split("_")
+    .map((part) => (part[0] ?? "").toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 function hasRuntimeApi(): boolean {
   return (

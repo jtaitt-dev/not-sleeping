@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { DEFAULT_SETTINGS, getSettings } from "@/services/storage/settings";
 import { safeRuntimeError } from "@/services/messaging/runtime-client";
 import { useAppStore } from "@/stores/app-store";
+import { useLeagueStore } from "@/stores/league-store";
 import type { LiveDraftState, Theme } from "@/types/domain";
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
     DEFAULT_SETTINGS.reducedMotion,
   );
   const hydrate = useAppStore((state) => state.hydrate);
+  const hydrateLeagues = useLeagueStore((state) => state.hydrate);
   const setLiveState = useAppStore((state) => state.setLiveState);
   const setRuntimeError = useAppStore((state) => state.setRuntimeError);
 
@@ -40,7 +42,7 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hasRuntime()) return;
-    void hydrate();
+    void Promise.all([hydrate(), hydrateLeagues()]);
     const port = chrome.runtime.connect({ name: "not-sleeping-live" });
     const sendVisibility = () =>
       port.postMessage({ visible: document.visibilityState === "visible" });
@@ -61,7 +63,7 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
       port.onMessage.removeListener(onMessage);
       port.disconnect();
     };
-  }, [hydrate, setLiveState, setRuntimeError]);
+  }, [hydrate, hydrateLeagues, setLiveState, setRuntimeError]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -33,6 +33,7 @@ type StructuredRequest<T> = {
   system: string;
   input: string;
   useWebSearch: boolean;
+  allowedDomains?: string[];
   maxOutputTokens?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -110,6 +111,7 @@ export class OpenAIProvider {
       schema: request.schemaName,
       input: request.input,
       web: request.useWebSearch,
+      domains: request.allowedDomains?.toSorted() ?? [],
     });
     return this.queue.enqueue(dedupeKey, (signal) =>
       this.runStructured(
@@ -129,6 +131,7 @@ export class OpenAIProvider {
     playerName: string;
     leagueContext: string;
     depth: "quick" | "standard" | "deep";
+    allowedDomains?: string[];
     signal?: AbortSignal;
   }): Promise<StructuredResult<PlayerResearchOutput>> {
     const system = [
@@ -155,6 +158,9 @@ export class OpenAIProvider {
       system,
       input,
       useWebSearch: true,
+      ...(request.allowedDomains?.length
+        ? { allowedDomains: request.allowedDomains }
+        : {}),
       signal: request.signal,
     });
     const citedUrls = new Set(result.citationUrls);
@@ -230,7 +236,20 @@ export class OpenAIProvider {
       },
       ...(request.useWebSearch
         ? {
-            tools: [{ type: "web_search" }],
+            tools: [
+              {
+                type: "web_search",
+                ...(request.allowedDomains?.length
+                  ? {
+                      filters: {
+                        allowed_domains: normalizeAllowedDomains(
+                          request.allowedDomains,
+                        ),
+                      },
+                    }
+                  : {}),
+              },
+            ],
             include: ["web_search_call.action.sources"],
           }
         : {}),
@@ -583,4 +602,32 @@ function normalizeNetworkError(error: unknown): AppError {
     retryable: true,
     cause: error,
   });
+}
+
+function normalizeAllowedDomains(domains: string[]): string[] {
+  const normalized = domains.flatMap((domain) => {
+    const candidate = domain
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "");
+    if (
+      !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(
+        candidate,
+      )
+    ) {
+      return [];
+    }
+    return [candidate];
+  });
+  const unique = [...new Set(normalized)].slice(0, 20);
+  if (unique.length === 0) {
+    throw new AppError({
+      code: "INVALID_IMPORT",
+      message: "The research domain filter is invalid.",
+      safeDetail: "No safe domain remained after validation.",
+      suggestedAction: "Use hostnames such as nfl.com without paths.",
+      retryable: false,
+    });
+  }
+  return unique;
 }
