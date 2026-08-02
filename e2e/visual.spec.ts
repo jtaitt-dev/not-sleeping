@@ -18,7 +18,7 @@ test("live draft workspace visual baseline", async () => {
     `chrome-extension://${loaded.extensionId}/sidepanel.html#/draft`,
   );
   await expect(
-    page.getByRole("heading", { name: "Malik Nabers" }),
+    page.getByRole("heading", { name: "Best contextual fits" }),
   ).toBeVisible();
   await expect(page).toHaveScreenshot("live-draft-workspace.png", {
     animations: "disabled",

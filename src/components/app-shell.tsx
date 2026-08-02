@@ -18,7 +18,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router";
 
 import { IconButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";

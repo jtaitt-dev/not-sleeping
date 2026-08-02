@@ -133,6 +133,15 @@ export const sleeperPlayerSchema = z
 
 export const sleeperPlayersSchema = z.record(z.string(), sleeperPlayerSchema);
 
+export const sleeperProjectionSchema = z
+  .object({
+    player_id: z.string(),
+    stats: z.record(z.string(), z.number().nullable()).default({}),
+  })
+  .loose();
+
+export const sleeperProjectionsSchema = z.array(sleeperProjectionSchema);
+
 export const sleeperTrendingSchema = z.array(
   z
     .object({
@@ -148,3 +157,4 @@ export type SleeperRoster = z.infer<typeof sleeperRosterSchema>;
 export type SleeperDraft = z.infer<typeof sleeperDraftSchema>;
 export type SleeperDraftPick = z.infer<typeof sleeperDraftPickSchema>;
 export type SleeperPlayerRecord = z.infer<typeof sleeperPlayerSchema>;
+export type SleeperProjection = z.infer<typeof sleeperProjectionSchema>;

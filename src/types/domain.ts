@@ -35,6 +35,7 @@ export type Player = {
 
 export type LeagueFormat = {
   teams: number;
+  draftRounds?: number;
   mode: DraftMode;
   scoring: "standard" | "half_ppr" | "ppr" | "custom";
   superflex: boolean;
@@ -94,6 +95,13 @@ export type LiveDraftState = {
   format: LeagueFormat;
   picks: DraftPick[];
   players: Player[];
+  playerValues?: Record<
+    string,
+    {
+      adp?: number;
+      projectedPoints?: number;
+    }
+  >;
   fetchedAt: number;
   playerIndexStale: boolean;
 };

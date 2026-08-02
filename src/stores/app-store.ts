@@ -302,19 +302,27 @@ export function getLiveRecommendations(
     .filter(
       (player) =>
         Boolean(player.team && player.team !== "FA") &&
+        isEligibleForFormat(player, liveState.format) &&
         !hiddenPlayers.includes(player.id),
     )
-    .map((player) => ({
-      player,
-      inputs: {
-        ...(player.searchRank === undefined
-          ? {}
-          : {
-              importedRank: player.searchRank,
-              adp: player.searchRank,
-            }),
-      },
-    }));
+    .map((player) => {
+      const liveValue = liveState.playerValues?.[player.id];
+      const marketRank = liveValue?.adp ?? player.searchRank;
+      return {
+        player,
+        inputs: {
+          ...(marketRank === undefined
+            ? {}
+            : {
+                importedRank: marketRank,
+                adp: marketRank,
+              }),
+          ...(liveValue?.projectedPoints === undefined
+            ? {}
+            : { projectedPoints: liveValue.projectedPoints }),
+        },
+      };
+    });
   return rankPlayers(candidates, {
     format: liveState.format,
     strategy,
@@ -331,6 +339,18 @@ export function getLiveRecommendations(
     positionDemand,
     remainingInTier,
   });
+}
+
+function isEligibleForFormat(
+  player: Player,
+  format: LiveDraftState["format"],
+): boolean {
+  if (player.position === "FLEX") return false;
+  if (["DL", "LB", "DB"].includes(player.position)) return format.idp;
+  if (["K", "DEF"].includes(player.position)) {
+    return (format.starters[player.position] ?? 0) > 0;
+  }
+  return true;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

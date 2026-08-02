@@ -83,6 +83,7 @@ describe("buildLiveDraftState", () => {
     });
     expect(state.format).toMatchObject({
       teams: 10,
+      draftRounds: 15,
       mode: "redraft",
       superflex: false,
       bench: 0,
@@ -158,6 +159,42 @@ describe("buildLiveDraftState", () => {
         DB: 2,
         IDP_FLEX: 1,
       },
+    });
+  });
+
+  it("maps Sleeper projection ADP and points to live player values", () => {
+    const draft = sleeperDraftSchema.parse({
+      draft_id: "projection-draft",
+      league_id: null,
+      type: "snake",
+      status: "drafting",
+      season: "2026",
+      settings: { teams: 10, rounds: 15 },
+      metadata: { scoring_type: "std" },
+      draft_order: { user_c: 1 },
+    });
+
+    const state = buildLiveDraftState({
+      draft,
+      picks: [],
+      players,
+      projections: [
+        {
+          player_id: "p3",
+          stats: {
+            adp_std: 40.6,
+            adp_ppr: 51.2,
+            pts_std: 320,
+            pts_ppr: 321,
+          },
+        },
+      ],
+      settings: DEFAULT_SETTINGS,
+    });
+
+    expect(state.playerValues?.p3).toEqual({
+      adp: 40.6,
+      projectedPoints: 320,
     });
   });
 

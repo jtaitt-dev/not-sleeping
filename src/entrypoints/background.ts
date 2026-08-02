@@ -6,6 +6,7 @@ import {
   buildLiveDraftState,
   resolveDraftLeagueId,
 } from "@/services/context/live-draft-state";
+import { mergeTeamDefenseFallback } from "@/services/context/team-defense-fallback";
 import { AppError, normalizeError } from "@/services/errors/app-error";
 import {
   validateMessage,
@@ -256,17 +257,38 @@ async function loadLiveDraft(draftId: string): Promise<LiveDraftState> {
   ]);
   const leagueId = resolveDraftLeagueId(draft);
   const playerLimit = liveDraftPlayerLimit(draft.settings);
-  const [league, users, rosters, players] = await Promise.all([
+  const [
+    league,
+    users,
+    rosters,
+    corePlayers,
+    kickers,
+    teamDefenses,
+    idpPlayers,
+    projections,
+  ] = await Promise.all([
     leagueId ? optionalSleeper(() => sleeper.getLeague(leagueId)) : null,
     leagueId ? optionalSleeper(() => sleeper.getLeagueUsers(leagueId)) : [],
     leagueId ? optionalSleeper(() => sleeper.getRosters(leagueId)) : [],
     sleeper.searchPlayers("", [], playerLimit),
+    sleeper.searchPlayers("", ["K"], 64),
+    sleeper.searchPlayers("", ["DEF"], 64),
+    sleeper.searchPlayers("", ["DL", "LB", "DB"], 300),
+    optionalSleeper(() => sleeper.getNflProjections(draft.season)),
+  ]);
+  const players = mergeTeamDefenseFallback([
+    ...new Map(
+      [...corePlayers, ...kickers, ...teamDefenses, ...idpPlayers].map(
+        (player) => [player.id, player],
+      ),
+    ).values(),
   ]);
   const routeContext = asRecord(storedContext[CONTEXT_KEY]);
   return buildLiveDraftState({
     draft,
     picks,
     players,
+    projections: projections ?? [],
     settings,
     ...(typeof routeContext["url"] === "string"
       ? { routeUrl: routeContext["url"] }

@@ -44,11 +44,14 @@ const DIRECT_ROSTER_POSITIONS: Player["position"][] = [
   "DB",
 ];
 
+const URGENT_STARTER_NEED = 10;
+
 type PlayerScore = {
   player: Player;
   localScore: number;
   researchAdjustment: number;
   contextualScore: number;
+  orderingScore: number;
   components: ScoreComponent[];
 };
 
@@ -98,6 +101,39 @@ export function calculatePlayerScore(
         : "Roster construction does not force this position.",
   });
 
+  const rosterCompletion =
+    (context.rosterNeeds[player.position] ?? 0) >= URGENT_STARTER_NEED ? 40 : 0;
+  components.push({
+    key: "roster_completion",
+    label: "Roster completion",
+    value: rosterCompletion,
+    reason:
+      rosterCompletion > 0
+        ? "The remaining draft slots must cover this unfilled starting position."
+        : "Enough draft slots remain to address required starters later.",
+  });
+
+  const formatAdjustment = formatAdjustmentScore(player, context);
+  components.push({
+    key: "format_adjustment",
+    label: "League-format value",
+    value: formatAdjustment,
+    reason: formatAdjustmentReason(player, context),
+  });
+
+  const draftTiming = draftTimingScore(inputs.adp, context.currentPick);
+  components.push({
+    key: "draft_timing",
+    label: "Draft timing",
+    value: draftTiming,
+    reason:
+      inputs.adp === undefined
+        ? "Imported ADP is unavailable, so no market-timing adjustment applies."
+        : inputs.adp > context.currentPick
+          ? `ADP ${inputs.adp} suggests this player may be available after the current pick.`
+          : `ADP ${inputs.adp} is at or ahead of the current pick.`,
+  });
+
   const draftCapital = draftCapitalScore(player);
   components.push({
     key: "draft_capital",
@@ -121,17 +157,24 @@ export function calculatePlayerScore(
     reason: "Applies injury and status risk using the selected risk tolerance.",
   });
 
-  const localScore = clamp(
-    baseline + ageValue + scarcity + rosterFit + draftCapital + injuryPenalty,
-    0,
-    100,
-  );
+  const orderingScore =
+    baseline +
+    ageValue +
+    scarcity +
+    rosterFit +
+    rosterCompletion +
+    formatAdjustment +
+    draftTiming +
+    draftCapital +
+    injuryPenalty;
+  const localScore = clamp(orderingScore, 0, 100);
   const researchAdjustment = clamp(inputs.researchAdjustment ?? 0, -8, 8);
   return {
     player,
     localScore: round(localScore),
     researchAdjustment: round(researchAdjustment),
     contextualScore: round(clamp(localScore + researchAdjustment, 0, 100)),
+    orderingScore: round(orderingScore + researchAdjustment),
     components: components.map((component) => ({
       ...component,
       value: round(component.value),
@@ -143,20 +186,32 @@ export function rankPlayers(
   players: Array<{ player: Player; inputs: ValuationInputs }>,
   context: RankingContext,
 ): Recommendation[] {
-  const scored = players
+  const urgentPositions = new Set(
+    Object.entries(context.rosterNeeds)
+      .filter(([, need]) => need >= URGENT_STARTER_NEED)
+      .map(([position]) => position as Player["position"]),
+  );
+  const eligiblePlayers =
+    urgentPositions.size > 0
+      ? players.filter(({ player }) => urgentPositions.has(player.position))
+      : players;
+  const scored = eligiblePlayers
     .map(({ player, inputs }) => calculatePlayerScore(player, inputs, context))
-    .toSorted((a, b) => b.contextualScore - a.contextualScore);
-  const tiers = generateTiers(scored.map((entry) => entry.contextualScore));
+    .toSorted((a, b) => b.orderingScore - a.orderingScore);
+  const tiers = generateTiers(scored.map((entry) => entry.orderingScore));
   const replacement = calculateReplacementLevels(
-    scored.map((entry) => ({ player: entry.player, score: entry.localScore })),
+    scored.map((entry) => ({
+      player: entry.player,
+      score: entry.orderingScore,
+    })),
     context.format,
   );
 
   return scored.map((entry, index) => {
     const availability = estimateAvailability({
       playerScore: entry.contextualScore,
-      adp: players.find((item) => item.player.id === entry.player.id)?.inputs
-        .adp,
+      adp: eligiblePlayers.find((item) => item.player.id === entry.player.id)
+        ?.inputs.adp,
       currentPick: context.currentPick,
       nextPick: context.nextUserPick,
       positionDemand: context.positionDemand[entry.player.position] ?? 0.5,
@@ -164,8 +219,8 @@ export function rankPlayers(
     });
     const need = context.rosterNeeds[entry.player.position] ?? 0;
     const vor =
-      entry.localScore -
-      (replacement.get(entry.player.position) ?? entry.localScore);
+      entry.orderingScore -
+      (replacement.get(entry.player.position) ?? entry.orderingScore);
     return {
       player: entry.player,
       rank: index + 1,
@@ -205,11 +260,17 @@ export function deriveRosterNeeds(
   const needs: Partial<Record<Player["position"], number>> = {};
 
   for (const position of DIRECT_ROSTER_POSITIONS) {
-    const missing = Math.max(
-      0,
-      (format.starters[position] ?? 0) - (rosterCounts[position] ?? 0),
-    );
+    const starterCount = format.starters[position] ?? 0;
+    const rosterCount = rosterCounts[position] ?? 0;
+    const missing = Math.max(0, starterCount - rosterCount);
     if (missing > 0) needs[position] = missing;
+    else if (
+      starterCount > 0 &&
+      rosterCount >= starterCount &&
+      ["QB", "TE", "K", "DEF"].includes(position)
+    ) {
+      needs[position] = -1;
+    }
   }
 
   addFlexibleNeed(
@@ -236,6 +297,9 @@ export function deriveRosterNeeds(
     (format.starters["IDP_FLEX"] ?? 0) + (format.starters["IDP"] ?? 0),
     0.5,
   );
+
+  applyBenchBalanceNeeds(needs, rosterCounts, format);
+  applyStarterCompletionNeeds(needs, rosterCounts, format);
 
   return needs;
 }
@@ -482,6 +546,76 @@ function draftCapitalScore(player: Player): number {
   return -0.5;
 }
 
+function draftTimingScore(
+  adp: number | undefined,
+  currentPick: number,
+): number {
+  if (adp === undefined) return 0;
+  const marketGap = currentPick - adp;
+  if (marketGap >= 0) return clamp(marketGap * 0.12, 0, 2);
+  return -clamp(Math.abs(marketGap) * 0.45, 0, 6);
+}
+
+function formatAdjustmentScore(
+  player: Player,
+  context: RankingContext,
+): number {
+  const round = Math.max(
+    1,
+    Math.ceil(context.currentPick / Math.max(1, context.format.teams)),
+  );
+  if (player.position === "QB") {
+    if (context.format.superflex || context.format.twoQuarterback) return 6;
+    if ((context.rosterNeeds.QB ?? 0) < 0) return -14;
+    if (round <= 2) return -16;
+    if (round <= 4) return -9;
+    return 0;
+  }
+  if (player.position === "RB" && context.format.scoring === "standard")
+    return 2;
+  if (player.position === "WR") {
+    if (context.format.scoring === "ppr") return 2;
+    if (context.format.scoring === "half_ppr") return 1;
+  }
+  if (player.position === "TE") {
+    if (context.format.tightEndPremium) return 2.5;
+    if ((context.rosterNeeds.TE ?? 0) < 0) return -8;
+    if (round === 1) return -20;
+    if (round === 2) return -12;
+    if (round <= 4) return -5;
+  }
+  if (player.position === "K" || player.position === "DEF") {
+    return round <= 12 ? -18 : -4;
+  }
+  return 0;
+}
+
+function formatAdjustmentReason(
+  player: Player,
+  context: RankingContext,
+): string {
+  if (player.position === "QB") {
+    return context.format.superflex || context.format.twoQuarterback
+      ? "Quarterbacks receive a premium in superflex and two-QB formats."
+      : "One-QB leagues discount early quarterback value because replacement options remain available.";
+  }
+  if (player.position === "RB" && context.format.scoring === "standard") {
+    return "Standard scoring modestly favors rushing and touchdown volume.";
+  }
+  if (player.position === "WR" && context.format.scoring !== "standard") {
+    return "Reception scoring increases wide-receiver value.";
+  }
+  if (player.position === "TE") {
+    return context.format.tightEndPremium
+      ? "Tight-end premium scoring increases tight-end value."
+      : "Non-premium leagues discount early tight ends because replacement options remain available.";
+  }
+  if (player.position === "K" || player.position === "DEF") {
+    return "Kickers and defenses are deferred while scarce skill-position value remains.";
+  }
+  return "No additional league-format adjustment applies.";
+}
+
 function statusRisk(player: Player): number {
   if (player.status === "injured") return 8;
   if (player.status === "inactive") return 6;
@@ -511,6 +645,64 @@ function addFlexibleNeed(
   if (unfilled <= 0) return;
   for (const position of positions) {
     needs[position] = (needs[position] ?? 0) + unfilled * boost;
+  }
+}
+
+function applyBenchBalanceNeeds(
+  needs: Partial<Record<Player["position"], number>>,
+  rosterCounts: Partial<Record<Player["position"], number>>,
+  format: LeagueFormat,
+): void {
+  if ((format.starters.RB ?? 0) <= 0 || (format.starters.WR ?? 0) <= 0) {
+    return;
+  }
+
+  const runningBacks = rosterCounts.RB ?? 0;
+  const wideReceivers = rosterCounts.WR ?? 0;
+  const difference = runningBacks - wideReceivers;
+  if (difference >= 3) {
+    needs.RB = Math.min(needs.RB ?? 0, -1);
+    needs.WR = Math.max(needs.WR ?? 0, 1);
+  } else if (difference <= -3) {
+    needs.WR = Math.min(needs.WR ?? 0, -1);
+    needs.RB = Math.max(needs.RB ?? 0, 1);
+  }
+}
+
+function applyStarterCompletionNeeds(
+  needs: Partial<Record<Player["position"], number>>,
+  rosterCounts: Partial<Record<Player["position"], number>>,
+  format: LeagueFormat,
+): void {
+  const inferredRosterSize =
+    Object.values(format.starters).reduce(
+      (total, count) => total + Math.max(0, count),
+      0,
+    ) + Math.max(0, format.bench);
+  const rosterSize = format.draftRounds ?? inferredRosterSize;
+  const drafted = Object.values(rosterCounts).reduce(
+    (total, count) => total + Math.max(0, count),
+    0,
+  );
+  const remainingPicks = Math.max(0, rosterSize - drafted);
+  const missingDirectStarters = DIRECT_ROSTER_POSITIONS.reduce(
+    (total, position) =>
+      total +
+      Math.max(
+        0,
+        (format.starters[position] ?? 0) - (rosterCounts[position] ?? 0),
+      ),
+    0,
+  );
+
+  if (missingDirectStarters <= 0 || remainingPicks > missingDirectStarters) {
+    return;
+  }
+
+  for (const position of DIRECT_ROSTER_POSITIONS) {
+    if ((format.starters[position] ?? 0) > (rosterCounts[position] ?? 0)) {
+      needs[position] = Math.max(needs[position] ?? 0, URGENT_STARTER_NEED);
+    }
   }
 }
 

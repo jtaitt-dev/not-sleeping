@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router";
 
 import { AppShell, MoreWorkspace } from "@/components/app-shell";
 import { RootProviders } from "@/components/root-providers";

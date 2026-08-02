@@ -220,6 +220,281 @@ describe("deterministic valuation", () => {
     expect(needs.LB).toBeGreaterThan(needs.QB ?? 0);
   });
 
+  it("marks filled singleton positions as weak bench needs", () => {
+    const format = {
+      ...fixture.format,
+      teams: 10,
+      superflex: false,
+      twoQuarterback: false,
+      starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2, K: 1, DEF: 1 },
+    };
+    const picks = [
+      {
+        pickNumber: 1,
+        round: 1,
+        pickInRound: 1,
+        playerId: "qb",
+        playerName: "Quarterback",
+        position: "QB" as const,
+        isKeeper: false,
+        isUserPick: true,
+      },
+    ];
+
+    expect(deriveRosterNeeds(format, picks, 20).QB).toBe(-1);
+    expect(deriveRosterNeeds(format, picks, 20).WR).toBeGreaterThan(0);
+  });
+
+  it("steers an overstocked late-round bench toward the thinner flex position", () => {
+    const format = {
+      ...fixture.format,
+      teams: 10,
+      bench: 4,
+      draftRounds: 15,
+      starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2, K: 1, DEF: 1 },
+    };
+    const positions = [
+      "QB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+    ] as const;
+    const picks = positions.map((position, index) => ({
+      pickNumber: index * 10 + 1,
+      round: index + 1,
+      pickInRound: 1,
+      playerId: `${position}-${index}`,
+      playerName: `${position} ${index}`,
+      position,
+      isKeeper: false,
+      isUserPick: true,
+    }));
+
+    const needs = deriveRosterNeeds(format, picks, 121);
+
+    expect(needs.RB).toBe(-1);
+    expect(needs.WR).toBe(1);
+    expect(needs.K).toBeLessThan(10);
+    expect(needs.DEF).toBeLessThan(10);
+  });
+
+  it("forces unfilled direct starters when every remaining roster slot is required", () => {
+    const format = {
+      ...fixture.format,
+      teams: 10,
+      bench: 5,
+      draftRounds: 15,
+      starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2, K: 1, DEF: 1 },
+    };
+    const positions = [
+      "QB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+    ] as const;
+    const picks = positions.map((position, index) => ({
+      pickNumber: index * 10 + 1,
+      round: index + 1,
+      pickInRound: 1,
+      playerId: `${position}-${index}`,
+      playerName: `${position} ${index}`,
+      position,
+      isKeeper: false,
+      isUserPick: true,
+    }));
+    const needs = deriveRosterNeeds(format, picks, 140);
+    const kicker = {
+      ...DEMO_PLAYERS[0]!,
+      id: "kicker",
+      fullName: "Required Kicker",
+      position: "K" as const,
+      fantasyPositions: ["K" as const],
+    };
+
+    expect(needs.K).toBeGreaterThanOrEqual(3);
+    expect(needs.DEF).toBeGreaterThanOrEqual(3);
+    expect(
+      calculatePlayerScore(
+        kicker,
+        { adp: 145 },
+        {
+          ...context,
+          format,
+          currentPick: 140,
+          nextUserPick: 141,
+          rosterNeeds: needs,
+        },
+      ).components.find((component) => component.key === "roster_completion")
+        ?.value,
+    ).toBe(40);
+  });
+
+  it("forces defense on the final pick after kicker is filled", () => {
+    const format = {
+      ...fixture.format,
+      teams: 10,
+      bench: 5,
+      draftRounds: 15,
+      starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2, K: 1, DEF: 1 },
+    };
+    const positions = [
+      "RB",
+      "RB",
+      "TE",
+      "WR",
+      "QB",
+      "WR",
+      "RB",
+      "RB",
+      "WR",
+      "RB",
+      "RB",
+      "RB",
+      "WR",
+      "K",
+    ] as const;
+    const picks = positions.map((position, index) => ({
+      pickNumber: index % 2 === 0 ? index * 10 + 1 : (index + 1) * 10,
+      round: index + 1,
+      pickInRound: 1,
+      playerId: `${position}-${index}`,
+      playerName: `${position} ${index}`,
+      position,
+      isKeeper: false,
+      isUserPick: true,
+    }));
+
+    const needs = deriveRosterNeeds(format, picks, 141);
+
+    expect(needs.K).toBe(-1);
+    expect(needs.DEF).toBeGreaterThanOrEqual(10);
+  });
+
+  it("discounts early quarterbacks in one-QB drafts and premiums them in superflex", () => {
+    const quarterback = {
+      ...DEMO_PLAYERS[0]!,
+      id: "quarterback",
+      fullName: "Elite Quarterback",
+      position: "QB" as const,
+      searchRank: 1,
+      fantasyPositions: ["QB" as const],
+    };
+    const runningBack = {
+      ...DEMO_PLAYERS[1]!,
+      id: "running-back",
+      fullName: "Elite Running Back",
+      position: "RB" as const,
+      searchRank: 2,
+      fantasyPositions: ["RB" as const],
+    };
+    const tightEnd = {
+      ...DEMO_PLAYERS[2]!,
+      id: "tight-end",
+      fullName: "Elite Tight End",
+      position: "TE" as const,
+      searchRank: 1,
+      fantasyPositions: ["TE" as const],
+    };
+    const baseContext = {
+      ...context,
+      currentPick: 1,
+      nextUserPick: 20,
+      format: {
+        ...context.format,
+        teams: 10,
+        scoring: "standard" as const,
+        superflex: false,
+        twoQuarterback: false,
+        tightEndPremium: false,
+        starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 },
+      },
+      rosterNeeds: { QB: 1, RB: 3, WR: 3, TE: 2 },
+      positionDemand: {},
+      remainingInTier: { QB: 3, RB: 10 },
+    };
+    const candidates = [
+      { player: quarterback, inputs: { importedRank: 1, adp: 1 } },
+      { player: runningBack, inputs: { importedRank: 2, adp: 2 } },
+      { player: tightEnd, inputs: { importedRank: 1, adp: 1 } },
+    ];
+
+    expect(rankPlayers(candidates, baseContext)[0]!.player.id).toBe(
+      "running-back",
+    );
+    expect(
+      rankPlayers(candidates, {
+        ...baseContext,
+        format: { ...baseContext.format, superflex: true },
+      })[0]!.player.id,
+    ).toBe("quarterback");
+  });
+
+  it("uses ADP timing to avoid reaching past an equivalent same-position option", () => {
+    const laterQuarterback = {
+      ...DEMO_PLAYERS[0]!,
+      id: "later-quarterback",
+      fullName: "Later Quarterback",
+      position: "QB" as const,
+      fantasyPositions: ["QB" as const],
+    };
+    const currentQuarterback = {
+      ...laterQuarterback,
+      id: "current-quarterback",
+      fullName: "Current Quarterback",
+    };
+    const roundFiveContext = {
+      ...context,
+      currentPick: 41,
+      nextUserPick: 60,
+      format: {
+        ...context.format,
+        teams: 10,
+        scoring: "standard" as const,
+        superflex: false,
+        twoQuarterback: false,
+      },
+      rosterNeeds: { QB: 1 },
+      positionDemand: { QB: 0.8 },
+      remainingInTier: { QB: 5 },
+    };
+
+    const result = rankPlayers(
+      [
+        {
+          player: laterQuarterback,
+          inputs: { importedRank: 42, adp: 49.6, projectedPoints: 320.8 },
+        },
+        {
+          player: currentQuarterback,
+          inputs: { importedRank: 42, adp: 40.6, projectedPoints: 320 },
+        },
+      ],
+      roundFiveContext,
+    );
+
+    expect(result[0]!.player.id).toBe("current-quarterback");
+    expect(
+      result[1]!.components.find((part) => part.key === "draft_timing")!.value,
+    ).toBeLessThan(0);
+  });
+
   it("bounds research adjustments, risk, and unknown baselines", () => {
     const player = {
       ...DEMO_PLAYERS[0]!,

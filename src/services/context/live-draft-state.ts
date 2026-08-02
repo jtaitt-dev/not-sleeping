@@ -3,6 +3,7 @@ import type {
   SleeperDraftPick,
   SleeperLeague,
   SleeperRoster,
+  SleeperProjection,
   SleeperUser,
 } from "@/schemas/sleeper";
 import {
@@ -35,6 +36,7 @@ type BuildLiveDraftStateInput = {
   draft: SleeperDraft;
   picks: SleeperDraftPick[];
   players: Player[];
+  projections?: SleeperProjection[];
   settings: AppSettings;
   routeUrl?: string;
   league?: SleeperLeague | null;
@@ -94,6 +96,7 @@ export function buildLiveDraftState(
   const format = {
     ...detectLeagueFormat(detectionInput),
     teams,
+    draftRounds: rounds,
   };
   const playerById = new Map(
     input.players.map((player) => [player.id, player]),
@@ -179,15 +182,66 @@ export function buildLiveDraftState(
     connected: true,
   };
   const pickedIds = new Set(picks.map((pick) => pick.playerId));
+  const playerValues = buildPlayerValues(input.projections ?? [], format);
 
   return {
     context,
     format,
     picks,
     players: input.players.filter((player) => !pickedIds.has(player.id)),
+    ...(Object.keys(playerValues).length > 0 ? { playerValues } : {}),
     fetchedAt: now,
     playerIndexStale: input.playerIndexStale ?? false,
   };
+}
+
+function buildPlayerValues(
+  projections: SleeperProjection[],
+  format: LiveDraftState["format"],
+): NonNullable<LiveDraftState["playerValues"]> {
+  const scoringSuffix =
+    format.scoring === "ppr"
+      ? "ppr"
+      : format.scoring === "half_ppr"
+        ? "half_ppr"
+        : "std";
+  const dynasty = ["dynasty_startup", "dynasty_rookie"].includes(format.mode);
+  const adpKeys =
+    format.superflex || format.twoQuarterback
+      ? dynasty
+        ? ["adp_dynasty_2qb", "adp_2qb"]
+        : ["adp_2qb"]
+      : dynasty
+        ? [`adp_dynasty_${scoringSuffix}`, "adp_dynasty"]
+        : [`adp_${scoringSuffix}`, "adp_std"];
+  const pointsKeys = [`pts_${scoringSuffix}`, "pts_std"];
+  return Object.fromEntries(
+    projections.flatMap((row) => {
+      const adp = firstFinite(row.stats, adpKeys);
+      const projectedPoints = firstFinite(row.stats, pointsKeys);
+      if (adp === undefined && projectedPoints === undefined) return [];
+      return [
+        [
+          row.player_id,
+          {
+            ...(adp === undefined ? {} : { adp }),
+            ...(projectedPoints === undefined ? {} : { projectedPoints }),
+          },
+        ],
+      ];
+    }),
+  );
+}
+
+function firstFinite(
+  values: Record<string, number | null>,
+  keys: string[],
+): number | undefined {
+  for (const key of keys) {
+    const value = values[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return undefined;
 }
 
 function normalizePick(

@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
 import { Button, IconButton } from "@/components/ui/button";

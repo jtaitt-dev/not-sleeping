@@ -76,6 +76,34 @@ describe("Sleeper provider", () => {
     ).toHaveProperty("4046.metadata", null);
   });
 
+  it("loads and caches Sleeper's scoring-specific projection feed", async () => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      void url;
+      void init;
+      return jsonResponse([
+        {
+          player_id: "qb-1",
+          stats: { adp_std: 40.6, pts_std: 320 },
+        },
+      ]);
+    });
+    const provider = new SleeperProvider(fetcher as typeof fetch, () => 1_000);
+
+    await expect(
+      provider.getNflProjections("2026", ["QB", "RB"]),
+    ).resolves.toMatchObject([
+      { player_id: "qb-1", stats: { adp_std: 40.6, pts_std: 320 } },
+    ]);
+    await provider.getNflProjections("2026", ["RB", "QB"]);
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]?.[0]).toContain(
+      "https://api.sleeper.app/projections/nfl/2026?",
+    );
+    expect(fetcher.mock.calls[0]?.[0]).toContain("order_by=adp_std");
+    expect(fetcher.mock.calls[0]?.[0]).toContain("position%5B%5D=QB");
+  });
+
   it("normalizes granular defensive positions into fantasy IDP groups", () => {
     const records = sleeperPlayersSchema.parse({
       edge: {
@@ -99,6 +127,27 @@ describe("Sleeper provider", () => {
     expect(normalizeSleeperPlayer("corner", records.corner!)).toMatchObject({
       position: "DB",
       fantasyPositions: ["DB"],
+    });
+  });
+
+  it("keeps team defenses in the searchable player index", () => {
+    const records = sleeperPlayersSchema.parse({
+      LAR: {
+        player_id: "LAR",
+        first_name: "Los Angeles",
+        last_name: "Rams",
+        position: "DEF",
+        team: "LAR",
+        fantasy_positions: ["DEF"],
+      },
+    });
+
+    expect(normalizeSleeperPlayer("LAR", records.LAR!)).toMatchObject({
+      id: "LAR",
+      fullName: "Los Angeles Rams",
+      position: "DEF",
+      team: "LAR",
+      fantasyPositions: ["DEF"],
     });
   });
 });

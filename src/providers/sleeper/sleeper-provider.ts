@@ -7,11 +7,13 @@ import {
   sleeperLeagueUserSchema,
   sleeperNflStateSchema,
   sleeperPlayersSchema,
+  sleeperProjectionsSchema,
   sleeperRosterSchema,
   sleeperTradedPickSchema,
   sleeperTrendingSchema,
   sleeperUserSchema,
   type SleeperPlayerRecord,
+  type SleeperProjection,
 } from "@/schemas/sleeper";
 import { db } from "@/services/cache/database";
 import { AppError } from "@/services/errors/app-error";
@@ -19,9 +21,11 @@ import { normalizePlayerName } from "@/services/ranking/identity";
 import type { Player, Position } from "@/types/domain";
 
 const API_ROOT = "https://api.sleeper.app/v1";
+const PROJECTIONS_API_ROOT = "https://api.sleeper.app";
 const PLAYER_CACHE_KEY = "sleeper:nfl-players";
 const PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
-const PLAYER_SCHEMA_VERSION = 2;
+const PROJECTION_TTL_MS = 15 * 60 * 1000;
+const PLAYER_SCHEMA_VERSION = 3;
 const ALLOWED_POSITIONS = new Set<Position>([
   "QB",
   "RB",
@@ -60,6 +64,11 @@ export const SLEEPER_TTLS = {
 } as const;
 
 export class SleeperProvider {
+  private readonly projectionCache = new Map<
+    string,
+    { expiresAt: number; rows: SleeperProjection[] }
+  >();
+
   constructor(
     private readonly fetcher: typeof fetch = fetch,
     private readonly now: () => number = Date.now,
@@ -150,6 +159,33 @@ export class SleeperProvider {
     );
   }
 
+  async getNflProjections(
+    season: string,
+    positions: Position[] = ["QB", "RB", "WR", "TE", "K", "DEF"],
+  ): Promise<SleeperProjection[]> {
+    const normalizedPositions = [...new Set(positions)].toSorted();
+    const cacheKey = `${season}:${normalizedPositions.join(",")}`;
+    const cached = this.projectionCache.get(cacheKey);
+    if (cached && cached.expiresAt > this.now()) return cached.rows;
+
+    const query = new URLSearchParams({
+      season_type: "regular",
+      order_by: "adp_std",
+    });
+    for (const position of normalizedPositions) {
+      query.append("position[]", position);
+    }
+    const rows = await this.requestUrl(
+      `${PROJECTIONS_API_ROOT}/projections/nfl/${encodeURIComponent(season)}?${query.toString()}`,
+      sleeperProjectionsSchema,
+    );
+    this.projectionCache.set(cacheKey, {
+      expiresAt: this.now() + PROJECTION_TTL_MS,
+      rows,
+    });
+    return rows;
+  }
+
   async refreshPlayers(force = false): Promise<{
     players: number;
     stale: boolean;
@@ -208,6 +244,26 @@ export class SleeperProvider {
   ): Promise<Player[]> {
     const normalized = normalizePlayerName(query);
     const boundedLimit = Math.min(1_000, Math.max(1, limit));
+    const positionSet = new Set(positions);
+    if (positionSet.size > 0) {
+      const results = await db.players
+        .where("position")
+        .anyOf([...positionSet])
+        .toArray();
+      return results
+        .filter(
+          (player) =>
+            normalized.length === 0 ||
+            player.normalizedName.startsWith(normalized),
+        )
+        .toSorted(
+          (a, b) =>
+            (a.searchRank ?? Number.MAX_SAFE_INTEGER) -
+              (b.searchRank ?? Number.MAX_SAFE_INTEGER) ||
+            a.fullName.localeCompare(b.fullName),
+        )
+        .slice(0, boundedLimit);
+    }
     const readLimit =
       normalized.length === 0
         ? boundedLimit
@@ -217,18 +273,17 @@ export class SleeperProvider {
         ? db.players.orderBy("searchRank")
         : db.players.where("normalizedName").startsWithIgnoreCase(normalized);
     const results = await collection.limit(readLimit).toArray();
-    const positionSet = new Set(positions);
-    return results
-      .filter(
-        (player) => positionSet.size === 0 || positionSet.has(player.position),
-      )
-      .slice(0, boundedLimit);
+    return results.slice(0, boundedLimit);
   }
 
   private async request<T>(path: string, schema: ZodType<T>): Promise<T> {
+    return this.requestUrl(`${API_ROOT}${path}`, schema);
+  }
+
+  private async requestUrl<T>(url: string, schema: ZodType<T>): Promise<T> {
     let response: Response;
     try {
-      response = await this.fetcher.call(globalThis, `${API_ROOT}${path}`, {
+      response = await this.fetcher.call(globalThis, url, {
         method: "GET",
         headers: { Accept: "application/json" },
       });

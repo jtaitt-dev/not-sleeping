@@ -12,7 +12,10 @@ export class LiveDraftController {
   private timer: ReturnType<typeof setInterval> | null = null;
   private context: LiveContext = {};
   private pageVisible = true;
-  private activeRefresh: Promise<void> | null = null;
+  private activeRefresh: {
+    draftId: string;
+    promise: Promise<void>;
+  } | null = null;
 
   constructor(
     private readonly loadDraft: (draftId: string) => Promise<LiveDraftState>,
@@ -40,18 +43,27 @@ export class LiveDraftController {
   }
 
   updateContext(context: LiveContext) {
+    const draftChanged = this.context.draftId !== context.draftId;
     this.context = context;
     this.reconcile();
+    if (draftChanged && context.draftId) {
+      void this.refreshNow();
+    }
   }
 
   async refreshNow(): Promise<void> {
-    if (this.activeRefresh) return this.activeRefresh;
     const draftId = this.context.draftId;
     if (!draftId) return;
-    this.activeRefresh = this.refresh(draftId).finally(() => {
-      this.activeRefresh = null;
+    if (this.activeRefresh?.draftId === draftId) {
+      return this.activeRefresh.promise;
+    }
+    const promise = this.refresh(draftId).finally(() => {
+      if (this.activeRefresh?.promise === promise) {
+        this.activeRefresh = null;
+      }
     });
-    return this.activeRefresh;
+    this.activeRefresh = { draftId, promise };
+    return promise;
   }
 
   private reconcile() {
@@ -73,6 +85,7 @@ export class LiveDraftController {
   private async refresh(draftId: string) {
     try {
       const state = await this.loadDraft(draftId);
+      if (this.context.draftId !== draftId) return;
       this.context.status = state.context.status;
       for (const port of this.ports) {
         port.postMessage({
@@ -82,6 +95,7 @@ export class LiveDraftController {
       }
       this.reconcile();
     } catch (error) {
+      if (this.context.draftId !== draftId) return;
       const safe = normalizeError(error).toSafeObject();
       logger.warning("live_draft_refresh_failed", safe);
       for (const port of this.ports) {

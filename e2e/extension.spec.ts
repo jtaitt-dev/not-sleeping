@@ -16,7 +16,7 @@ test.afterAll(async () => {
 test("loads the MV3 extension and navigates every primary workspace", async () => {
   const { page } = loaded;
   await expect(
-    page.getByRole("heading", { name: "Malik Nabers" }),
+    page.getByRole("heading", { name: "Best contextual fits" }),
   ).toBeVisible();
   for (const workspace of [
     "Players",
