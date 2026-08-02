@@ -22,6 +22,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:performance": "node scripts/run-performance-benchmarks.mjs",
+    "test:performance:ci": "node scripts/run-performance-benchmarks.mjs --ci",
     "test:e2e": "playwright test --project=chromium",
     "test:visual": "playwright test --project=visual",
     "screenshots:phase2": "playwright test --project=screenshots",
@@ -33,7 +35,7 @@
     "test:backtest:waivers": "vitest run tests/backtests -t waivers",
     "audit:prod": "pnpm audit --prod --audit-level high",
     "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e && pnpm audit:prod",
-    "validate:phase2": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:simulations && pnpm build && pnpm test:e2e && pnpm test:visual && pnpm audit:prod"
+    "validate:phase2": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:performance:ci && pnpm test:simulations && pnpm build && pnpm test:e2e && pnpm test:visual && pnpm audit:prod"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.21",

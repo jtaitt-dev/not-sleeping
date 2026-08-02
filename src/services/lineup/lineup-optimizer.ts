@@ -47,6 +47,11 @@ export type LineupOptimizerInput = {
   alternativeCount?: number;
 };
 
+type PreparedLineupCandidate = LineupCandidate & {
+  eligiblePositionSet: ReadonlySet<string>;
+  objectiveScore: number;
+};
+
 const NON_STARTING_SLOTS = new Set(["BN", "IR", "TAXI"]);
 const DEFAULT_SLOT_ELIGIBILITY: Record<string, string[]> = {
   QB: ["QB"],
@@ -88,6 +93,7 @@ const DEFAULT_SLOT_ELIGIBILITY: Record<string, string[]> = {
 };
 
 export function optimizeLineup(input: LineupOptimizerInput): LineupSolution {
+  const strategy = input.strategy ?? "balanced";
   const excluded = new Set(input.excludedPlayerIds ?? []);
   const slots = input.rosterPositions
     .map((slot, originalIndex) => ({ slot: normalize(slot), originalIndex }))
@@ -114,46 +120,47 @@ export function optimizeLineup(input: LineupOptimizerInput): LineupSolution {
         !player.onIr &&
         !player.onTaxi,
     )
-    .map((player) => ({
-      ...player,
-      eligiblePositions: player.eligiblePositions.map(normalize),
-    }))
+    .map((player): PreparedLineupCandidate => {
+      const eligiblePositions = player.eligiblePositions.map(normalize);
+      return {
+        ...player,
+        eligiblePositions,
+        eligiblePositionSet: new Set(eligiblePositions),
+        objectiveScore: objective(player, strategy),
+      };
+    })
     .toSorted((left, right) => left.playerId.localeCompare(right.playerId));
-  const primary = solve(
-    slots,
-    players,
-    input.strategy ?? "balanced",
-    manualMappings,
-    new Set(),
-    diagnostics,
-  );
+  const primary = solve(slots, players, manualMappings, new Set(), diagnostics);
   const alternatives: LineupAlternative[] = [];
   const seen = new Set<string>();
   const alternativeCount = Math.max(
     0,
     Math.min(5, input.alternativeCount ?? 3),
   );
-  for (const assignment of primary.assignments) {
-    if (!assignment.playerId || assignment.locked) continue;
-    const blocked = new Set([`${assignment.slotIndex}:${assignment.playerId}`]);
-    const alternate = solve(
-      slots,
-      players,
-      input.strategy ?? "balanced",
-      manualMappings,
-      blocked,
-      diagnostics,
-    );
-    const key = alternate.assignments
-      .map((entry) => entry.playerId ?? "-")
-      .join("|");
-    if (seen.has(key)) continue;
-    seen.add(key);
-    alternatives.push({
-      score: alternate.score,
-      delta: round(alternate.score - primary.score),
-      assignments: alternate.assignments,
-    });
+  if (alternativeCount > 0) {
+    for (const assignment of primary.assignments) {
+      if (!assignment.playerId || assignment.locked) continue;
+      const blocked = new Set([
+        `${assignment.slotIndex}:${assignment.playerId}`,
+      ]);
+      const alternate = solve(
+        slots,
+        players,
+        manualMappings,
+        blocked,
+        diagnostics,
+      );
+      const key = alternate.assignments
+        .map((entry) => entry.playerId ?? "-")
+        .join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      alternatives.push({
+        score: alternate.score,
+        delta: round(alternate.score - primary.score),
+        assignments: alternate.assignments,
+      });
+    }
   }
   alternatives.sort((left, right) => right.score - left.score);
   return {
@@ -180,8 +187,7 @@ export function isEligibleForSlot(
 
 function solve(
   slots: { slot: string; originalIndex: number }[],
-  players: LineupCandidate[],
-  strategy: LineupStrategy,
+  players: PreparedLineupCandidate[],
   manualMappings: Record<string, string[]>,
   blocked: Set<string>,
   diagnostics: string[],
@@ -206,9 +212,7 @@ function solve(
       );
       continue;
     }
-    if (
-      !isEligibleForSlot(slot.slot, player.eligiblePositions, manualMappings)
-    ) {
+    if (!isPreparedEligible(slot.slot, player, manualMappings)) {
       diagnostics.push(
         `${player.name} is not eligible for locked slot ${slot.slot}.`,
       );
@@ -227,7 +231,7 @@ function solve(
       slotIndex: slot.originalIndex,
       slot: slot.slot,
       playerId: player.playerId,
-      score: objective(player, strategy),
+      score: player.objectiveScore,
       locked: true,
     });
     lockedPlayers.add(player.playerId);
@@ -243,7 +247,6 @@ function solve(
   const matched = minCostMaximumMatching(
     remainingSlots,
     remainingPlayers,
-    strategy,
     manualMappings,
     blocked,
   );
@@ -277,8 +280,7 @@ type Edge = { to: number; reverse: number; capacity: number; cost: number };
 
 function minCostMaximumMatching(
   slots: { slot: string; originalIndex: number }[],
-  players: LineupCandidate[],
-  strategy: LineupStrategy,
+  players: PreparedLineupCandidate[],
   manualMappings: Record<string, string[]>,
   blocked: Set<string>,
 ): LineupAssignment[] {
@@ -315,11 +317,8 @@ function minCostMaximumMatching(
   slots.forEach((slot, slotIndex) => {
     players.forEach((player, playerIndex) => {
       if (blocked.has(`${slot.originalIndex}:${player.playerId}`)) return;
-      if (
-        !isEligibleForSlot(slot.slot, player.eligiblePositions, manualMappings)
-      )
-        return;
-      const score = objective(player, strategy);
+      if (!isPreparedEligible(slot.slot, player, manualMappings)) return;
+      const score = player.objectiveScore;
       const deterministicTie = playerIndex + slotIndex / 1000;
       addEdge(
         slotOffset + slotIndex,
@@ -335,25 +334,27 @@ function minCostMaximumMatching(
     const previousNode = Array<number>(graph.length).fill(-1);
     const previousEdge = Array<number>(graph.length).fill(-1);
     distance[source] = 0;
-    for (let iteration = 0; iteration < graph.length - 1; iteration += 1) {
-      let changed = false;
-      for (let node = 0; node < graph.length; node += 1) {
-        const currentDistance = distance[node];
-        if (currentDistance === undefined || !Number.isFinite(currentDistance))
-          continue;
-        for (const [edgeIndex, edge] of edgesAt(node).entries()) {
-          if (edge.capacity <= 0) continue;
-          const candidate = currentDistance + edge.cost;
-          const targetDistance = distance[edge.to] ?? Number.POSITIVE_INFINITY;
-          if (candidate < targetDistance) {
-            distance[edge.to] = candidate;
-            previousNode[edge.to] = node;
-            previousEdge[edge.to] = edgeIndex;
-            changed = true;
-          }
+    const queued = Array<boolean>(graph.length).fill(false);
+    const queue = [source];
+    queued[source] = true;
+    for (const node of queue) {
+      queued[node] = false;
+      const currentDistance = distance[node];
+      if (currentDistance === undefined || !Number.isFinite(currentDistance))
+        continue;
+      for (const [edgeIndex, edge] of edgesAt(node).entries()) {
+        if (edge.capacity <= 0) continue;
+        const candidate = currentDistance + edge.cost;
+        const targetDistance = distance[edge.to] ?? Number.POSITIVE_INFINITY;
+        if (candidate >= targetDistance) continue;
+        distance[edge.to] = candidate;
+        previousNode[edge.to] = node;
+        previousEdge[edge.to] = edgeIndex;
+        if (!queued[edge.to]) {
+          queue.push(edge.to);
+          queued[edge.to] = true;
         }
       }
-      if (!changed) break;
     }
     if (previousNode[sink] === -1) break;
     let node = sink;
@@ -389,13 +390,25 @@ function minCostMaximumMatching(
         slotIndex: slot.originalIndex,
         slot: slot.slot,
         playerId: player.playerId,
-        score: objective(player, strategy),
+        score: player.objectiveScore,
         locked: false,
       });
       break;
     }
   });
   return assignments;
+}
+
+function isPreparedEligible(
+  slot: string,
+  player: PreparedLineupCandidate,
+  manualMappings: Record<string, string[]>,
+): boolean {
+  const allowed = manualMappings[slot] ?? DEFAULT_SLOT_ELIGIBILITY[slot];
+  return (
+    allowed?.some((position) => player.eligiblePositionSet.has(position)) ??
+    false
+  );
 }
 
 function objective(player: LineupCandidate, strategy: LineupStrategy): number {

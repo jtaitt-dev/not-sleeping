@@ -29,6 +29,7 @@
     "e2e",
     "wxt.config.ts",
     "vitest.config.ts",
+    "vitest.performance.config.ts",
     "playwright.config.ts"
   ]
 }

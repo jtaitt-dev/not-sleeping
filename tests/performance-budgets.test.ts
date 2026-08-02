@@ -10,31 +10,32 @@ import { optimizeLineup } from "@/services/lineup/lineup-optimizer";
 import { analyzeTrade } from "@/services/trades/trade-service";
 import { availablePlayerIds } from "@/services/waivers/waiver-service";
 
-describe("Phase 2 local performance budgets", () => {
-  it("switches cached league context in under 250ms", () => {
-    const started = performance.now();
-    for (let index = 0; index < 5; index += 1) {
+describe("Phase 2 performance invariants", () => {
+  it("creates isolated cached league contexts", () => {
+    const contexts = Array.from({ length: 5 }, (_, index) =>
       createLeagueContext({
         league: league(`league-${index}`),
         userId: "user",
         week: index + 1,
         fetchedAt: Date.now(),
-      });
-    }
-    expect(performance.now() - started).toBeLessThan(250);
+      }),
+    );
+    expect(contexts.map((context) => context.leagueId)).toEqual([
+      "league-0",
+      "league-1",
+      "league-2",
+      "league-3",
+      "league-4",
+    ]);
   });
 
-  it("solves standard and large IDP lineups within their budgets", () => {
+  it("solves standard and large IDP lineups legally and deterministically", () => {
     const players = lineupPlayers(90);
-    const standardStarted = performance.now();
-    optimizeLineup({
+    const standard = optimizeLineup({
       rosterPositions: ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"],
       players,
     });
-    expect(performance.now() - standardStarted).toBeLessThan(100);
-
-    const idpStarted = performance.now();
-    optimizeLineup({
+    const idp = optimizeLineup({
       rosterPositions: [
         "QB",
         "RB",
@@ -55,11 +56,21 @@ describe("Phase 2 local performance budgets", () => {
       ],
       players,
     });
-    expect(performance.now() - idpStarted).toBeLessThan(300);
+    const repeat = optimizeLineup({
+      rosterPositions: ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"],
+      players,
+    });
+
+    expect(standard.emptySlots).toEqual([]);
+    expect(idp.emptySlots).toEqual([]);
+    expect(standard.assignments).toHaveLength(9);
+    expect(idp.assignments).toHaveLength(16);
+    expect(standard.alternatives.length).toBeLessThanOrEqual(3);
+    expect(idp.alternatives.length).toBeLessThanOrEqual(3);
+    expect(repeat).toEqual(standard);
   });
 
-  it("filters a cached waiver pool in under 150ms", () => {
-    const started = performance.now();
+  it("filters a large cached waiver pool without leaking rostered players", () => {
     const result = availablePlayerIds({
       allPlayerIds: Array.from({ length: 2_000 }, (_, index) => `p${index}`),
       rosters: Array.from({ length: 32 }, (_, rosterIndex) => ({
@@ -77,16 +88,16 @@ describe("Phase 2 local performance budgets", () => {
       })),
     });
     expect(result.length).toBe(1_040);
-    expect(performance.now() - started).toBeLessThan(150);
+    expect(result).not.toContain("p0");
+    expect(result).toContain("p1999");
   });
 
-  it("simulates a typical trade in under 300ms", () => {
+  it("analyzes every party in a multi-team trade", () => {
     const context = createLeagueContext({
       league: league("trade"),
       userId: "user",
       week: 8,
     });
-    const started = performance.now();
     const result = analyzeTrade({
       context,
       parties: [1, 2, 3].map((rosterId) => ({
@@ -102,10 +113,9 @@ describe("Phase 2 local performance budgets", () => {
       })),
     });
     expect(result.parties).toHaveLength(3);
-    expect(performance.now() - started).toBeLessThan(300);
   });
 
-  it("recalculates a typical draft board in under 500ms", () => {
+  it("recalculates a bounded deterministic draft board", () => {
     const players = draftPlayers(500);
     const session = new MockDraftSession(
       {
@@ -138,22 +148,19 @@ describe("Phase 2 local performance budgets", () => {
       players,
     );
     session.start();
-    const started = performance.now();
     expect(session.recommendations(100)).toHaveLength(100);
-    expect(performance.now() - started).toBeLessThan(500);
   });
 
-  it("searches 10,000 cached player labels in under 100ms", () => {
+  it("searches 10,000 cached player labels consistently", () => {
     const labels = Array.from(
       { length: 10_000 },
       (_, index) => `Player ${index} team position`,
     );
-    const started = performance.now();
     const matches = labels.filter((label) =>
       label.toLowerCase().includes("player 99"),
     );
     expect(matches.length).toBeGreaterThan(0);
-    expect(performance.now() - started).toBeLessThan(100);
+    expect(matches.at(0)).toBe("Player 99 team position");
   });
 });
 
