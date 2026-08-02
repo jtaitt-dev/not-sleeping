@@ -1,0 +1,55 @@
+.metric-cluster {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+}
+
+.metric-cluster > div {
+  min-width: 0;
+  padding: 9px 10px;
+  border-right: 1px solid var(--border-default);
+}
+
+.metric-cluster > div:last-child {
+  border-right: 0;
+}
+
+.metric-cluster dt {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.metric-cluster dd {
+  margin: 3px 0 0;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 730;
+  line-height: 1.1;
+}
+
+.metric-cluster small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.metric-value--accent {
+  color: var(--accent-primary);
+}
+
+.metric-value--success {
+  color: var(--status-success);
+}
+
+.metric-value--warning {
+  color: var(--status-warning);
+}
+
+.metric-value--danger {
+  color: var(--status-danger);
+}

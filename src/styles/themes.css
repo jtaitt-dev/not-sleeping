@@ -1,0 +1,66 @@
+[data-theme="light"] {
+  color-scheme: light;
+  --background-canvas: #f4f7fb;
+  --background-sidebar: #eef2f7;
+  --background-surface: #fff;
+  --background-surface-hover: #f2f6fa;
+  --background-surface-active: #e7f8f4;
+  --background-elevated: #fff;
+  --background-overlay: rgb(12 20 34 / 42%);
+  --text-primary: #101828;
+  --text-secondary: #344054;
+  --text-muted: #667085;
+  --text-disabled: #98a2b3;
+  --text-inverse: #fff;
+  --border-subtle: rgb(16 24 40 / 6%);
+  --border-default: rgb(16 24 40 / 12%);
+  --border-strong: rgb(16 24 40 / 22%);
+  --accent-primary: #087f6d;
+  --accent-primary-hover: #076c5d;
+  --accent-primary-active: #055f52;
+  --accent-primary-muted: rgb(8 127 109 / 12%);
+}
+
+[data-theme="high_contrast"] {
+  color-scheme: dark;
+  --background-canvas: #000;
+  --background-sidebar: #050505;
+  --background-surface: #101010;
+  --background-surface-hover: #202020;
+  --background-surface-active: #252525;
+  --background-elevated: #161616;
+  --text-primary: #fff;
+  --text-secondary: #f2f2f2;
+  --text-muted: #c7c7c7;
+  --border-subtle: rgb(255 255 255 / 25%);
+  --border-default: rgb(255 255 255 / 48%);
+  --border-strong: #fff;
+  --border-focus: #00ffd5;
+  --accent-primary: #00ffd5;
+  --accent-primary-hover: #8fffe9;
+  --accent-primary-active: #00d8b6;
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    color-scheme: light;
+    --background-canvas: #f4f7fb;
+    --background-sidebar: #eef2f7;
+    --background-surface: #fff;
+    --background-surface-hover: #f2f6fa;
+    --background-surface-active: #e7f8f4;
+    --background-elevated: #fff;
+    --text-primary: #101828;
+    --text-secondary: #344054;
+    --text-muted: #667085;
+    --text-disabled: #98a2b3;
+    --text-inverse: #fff;
+    --border-subtle: rgb(16 24 40 / 6%);
+    --border-default: rgb(16 24 40 / 12%);
+    --border-strong: rgb(16 24 40 / 22%);
+    --accent-primary: #087f6d;
+    --accent-primary-hover: #076c5d;
+    --accent-primary-active: #055f52;
+    --accent-primary-muted: rgb(8 127 109 / 12%);
+  }
+}

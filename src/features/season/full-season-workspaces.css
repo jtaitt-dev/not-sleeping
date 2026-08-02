@@ -1,0 +1,1344 @@
+.season-workspace {
+  align-content: start;
+  gap: 14px;
+}
+
+.season-workspace button {
+  cursor: pointer;
+}
+
+.today-summary,
+.direction-meter,
+.planning-grid,
+.auction-values,
+.idp-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.today-summary {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.today-summary > div,
+.idp-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  border-left: 2px solid var(--accent-primary);
+  padding: 4px 8px;
+}
+
+.today-summary strong,
+.idp-summary strong {
+  overflow: hidden;
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-summary span,
+.idp-summary span,
+.loading-copy {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.decision-rail,
+.recommendation-list,
+.waiver-list,
+.taxi-list,
+.league-directory,
+.deadline-list {
+  display: grid;
+  gap: 8px;
+}
+
+.decision-card {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-secondary);
+  grid-template-columns: 32px minmax(0, 1fr) auto 14px;
+  padding: 10px;
+  text-align: left;
+}
+
+.decision-card:hover,
+.decision-card[data-selected="true"] {
+  border-color: var(--accent-primary);
+  background: var(--background-surface-hover);
+}
+
+.decision-card[data-tone="danger"] {
+  border-left-color: var(--status-danger);
+}
+
+.decision-card[data-tone="warning"] {
+  border-left-color: var(--status-warning);
+}
+
+.decision-card[data-tone="success"] {
+  border-left-color: var(--status-success);
+}
+
+.decision-card[data-tone="info"] {
+  border-left-color: var(--status-info);
+}
+
+.decision-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--accent-primary-muted);
+  color: var(--accent-primary);
+}
+
+.decision-icon svg,
+.decision-card > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.decision-copy,
+.decision-meta {
+  display: grid;
+  min-width: 0;
+}
+
+.decision-copy small,
+.decision-copy span,
+.decision-meta small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decision-copy strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decision-meta {
+  justify-items: end;
+}
+
+.decision-meta strong {
+  color: var(--accent-primary);
+}
+
+.decision-card footer,
+.recommendation-row footer,
+.waiver-row footer {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 9px;
+  grid-column: 1 / -1;
+  padding-top: 7px;
+}
+
+.evidence-drawer {
+  display: grid;
+  gap: 10px;
+  border-color: color-mix(
+    in srgb,
+    var(--accent-primary) 28%,
+    var(--border-default)
+  );
+  padding: 12px;
+}
+
+.evidence-drawer > header,
+.asset-picker > header,
+.trade-verdict > header,
+.mock-board > header,
+.mock-status,
+.mock-toolbar,
+.auction-controls,
+.rookie-board > header,
+.idp-board > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.evidence-drawer > header span,
+.trade-verdict > header span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.evidence-drawer svg,
+.trade-verdict svg,
+.warning-strip svg,
+.context-strip svg,
+.planning-panel svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.evidence-summary,
+.source-policy-summary {
+  display: grid;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.evidence-summary a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.evidence-summary {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.evidence-summary > span,
+.evidence-drawer > article {
+  display: grid;
+  gap: 4px;
+}
+
+.evidence-summary > span:last-child {
+  text-align: right;
+}
+
+.evidence-drawer > article {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+}
+
+.evidence-drawer > article > span {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.evidence-drawer > article p,
+.evidence-drawer > article a {
+  margin: 0;
+}
+
+.evidence-drawer > article a {
+  align-items: center;
+  color: var(--accent-primary);
+  display: inline-flex;
+  gap: 4px;
+  width: fit-content;
+}
+
+.evidence-drawer > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+}
+
+.league-directory-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  overflow: hidden;
+}
+
+.league-directory-row[data-active="true"] {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-muted);
+}
+
+.league-directory-row > button:first-child {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  grid-template-columns: 32px minmax(0, 1fr) 14px;
+  padding: 8px;
+  text-align: left;
+}
+
+.league-directory-row > button:first-child > span:nth-child(2),
+.player-identity > span,
+.lineup-row > span:nth-child(2),
+.taxi-row > span,
+.asset-picker button > span {
+  display: grid;
+  min-width: 0;
+}
+
+.league-directory-row small,
+.player-identity small,
+.lineup-row small,
+.taxi-row small,
+.asset-picker small,
+.planning-panel li,
+.matchup-roster small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.league-directory-row svg {
+  width: 14px;
+}
+
+.league-directory-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #78337f, #265a91);
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.league-directory-row .icon-button {
+  align-self: center;
+}
+
+.league-directory-row [data-filled="true"] {
+  fill: var(--status-warning);
+  color: var(--status-warning);
+}
+
+.strategy-control {
+  display: grid;
+  width: min(100%, 360px);
+  grid-template-columns: repeat(3, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+}
+
+.strategy-control button {
+  min-height: 30px;
+  border-right: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.strategy-control button:last-child {
+  border-right: 0;
+}
+
+.strategy-control button[data-active="true"] {
+  background: var(--accent-primary-muted);
+  color: var(--accent-primary);
+}
+
+.lineup-board,
+.matchup-roster,
+.asset-picker,
+.rookie-board,
+.idp-board,
+.mock-board,
+.mock-recommendations,
+.mock-config,
+.source-policy-summary,
+.auction-controls,
+.best-ball-notice {
+  overflow: hidden;
+  padding: 10px;
+}
+
+.lineup-board > header,
+.lineup-row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: 58px minmax(0, 1fr) 64px 68px;
+}
+
+.lineup-board > header {
+  color: var(--text-muted);
+  font-size: 9px;
+  padding: 0 3px 7px;
+  text-transform: uppercase;
+}
+
+.lineup-row {
+  min-height: 50px;
+  border-top: 1px solid var(--border-subtle);
+  padding: 7px 3px;
+}
+
+.lineup-row > strong {
+  justify-self: end;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 3px;
+}
+
+.row-actions .icon-button {
+  width: 29px;
+  height: 29px;
+}
+
+.row-actions [data-active="true"] {
+  color: var(--accent-primary);
+}
+
+.recommendation-list h2 {
+  margin-top: 2px;
+}
+
+.recommendation-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.recommendation-row > div,
+.player-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.recommendation-row > div > span:last-child {
+  display: grid;
+}
+
+.recommendation-row > p,
+.taxi-row > p {
+  color: var(--text-secondary);
+  font-size: 10px;
+  grid-column: 1 / -1;
+}
+
+.recommendation-edge {
+  align-self: center;
+  color: var(--accent-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.matchup-scoreboard {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: 1fr auto 1fr;
+  padding: 14px;
+  text-align: center;
+}
+
+.matchup-scoreboard > div {
+  display: grid;
+  gap: 2px;
+}
+
+.matchup-scoreboard > div > small,
+.matchup-scoreboard > div:nth-child(2) span {
+  color: var(--text-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.matchup-scoreboard > div:first-child > span,
+.matchup-scoreboard > div:last-child > span {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.matchup-columns,
+.trade-builder,
+.mock-layout {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.matchup-roster {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+}
+
+.matchup-roster > div {
+  display: grid;
+  align-items: center;
+  gap: 7px;
+  border-top: 1px solid var(--border-subtle);
+  grid-template-columns: 17px minmax(0, 1fr) auto;
+  padding: 6px 0;
+}
+
+.matchup-roster > div > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+}
+
+.matchup-factors {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.matchup-factors > div {
+  display: grid;
+  align-items: center;
+  gap: 7px;
+  border-top: 1px solid var(--border-subtle);
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  padding: 7px 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.matchup-factors > div > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--accent-primary);
+}
+
+.matchup-factors > div > strong {
+  color: var(--text-primary);
+}
+
+.trade-market-strip {
+  display: grid;
+  align-items: end;
+  gap: 9px;
+  grid-template-columns: minmax(130px, 1fr) repeat(3, minmax(70px, auto));
+  padding: 10px;
+}
+
+.trade-market-strip label,
+.trade-market-strip > span {
+  display: grid;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.trade-market-strip select {
+  min-height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--background-canvas);
+  padding: 0 8px;
+}
+
+.trade-market-strip strong {
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.trade-finder {
+  display: grid;
+  gap: 8px;
+}
+
+.trade-finder > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.trade-finder article {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+
+.trade-finder article > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trade-finder article p,
+.trade-finder article li,
+.trade-finder article > small {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.trade-finder article ul {
+  padding-left: 18px;
+}
+
+.context-strip {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 10px;
+}
+
+.context-strip > div {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.context-strip > div > span {
+  display: grid;
+  min-width: 0;
+}
+
+.context-strip small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.context-strip strong {
+  font-size: 10px;
+}
+
+.waiver-row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: 22px minmax(130px, 1fr) auto minmax(170px, auto);
+  padding: 10px;
+}
+
+.waiver-rank {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.waiver-values,
+.faab-band {
+  display: flex;
+  gap: 8px;
+}
+
+.waiver-values > span,
+.faab-band > span {
+  display: grid;
+  min-width: 38px;
+}
+
+.waiver-values small,
+.faab-band small,
+.value-tile small,
+.direction-meter small {
+  color: var(--text-muted);
+  font-size: 8px;
+}
+
+.faab-band strong {
+  font-size: 11px;
+}
+
+.asset-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.asset-picker > div {
+  display: grid;
+  max-height: 310px;
+  overflow: auto;
+}
+
+.asset-picker button {
+  display: grid;
+  min-width: 0;
+  min-height: 43px;
+  align-items: center;
+  gap: 7px;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  grid-template-columns: auto minmax(0, 1fr) 16px;
+  text-align: left;
+}
+
+.asset-picker button[data-selected="true"] {
+  background: var(--accent-primary-muted);
+}
+
+.asset-picker button > svg {
+  width: 14px;
+  color: var(--accent-primary);
+}
+
+.trade-verdict {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.trade-verdict > div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.trade-verdict > div > div {
+  display: grid;
+  border-left: 2px solid var(--accent-primary);
+  padding-left: 8px;
+}
+
+.trade-verdict ul,
+.planning-panel ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.trade-verdict footer,
+.best-ball-notice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.direction-meter {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.direction-meter > article {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+}
+
+.direction-meter > article[data-active="true"] {
+  border-color: var(--accent-primary);
+}
+
+.direction-meter > article > div {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border-default);
+}
+
+.direction-meter i {
+  display: block;
+  height: 100%;
+  background: var(--accent-primary);
+}
+
+.warning-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-color: color-mix(in srgb, var(--status-warning) 35%, transparent);
+  color: var(--status-warning);
+  font-size: 10px;
+  padding: 9px;
+}
+
+.planning-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.planning-panel {
+  padding: 10px;
+}
+
+.planning-panel ul {
+  list-style: none;
+  padding: 7px 0 0;
+}
+
+.planning-panel li {
+  display: flex;
+  gap: 5px;
+  white-space: normal;
+}
+
+.dynasty-scenario {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.dynasty-scenario > header,
+.dynasty-scenario > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dynasty-scenario > header p,
+.dynasty-scenario > footer {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.dynasty-scenario label {
+  display: grid;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.dynasty-scenario select {
+  min-height: 31px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--background-canvas);
+  padding: 0 7px;
+}
+
+.dynasty-scenario > footer {
+  justify-content: flex-start;
+}
+
+.dynasty-scenario > footer svg {
+  width: 14px;
+  height: 14px;
+  color: var(--status-success);
+}
+
+.rookie-board,
+.idp-board {
+  display: grid;
+  gap: 8px;
+}
+
+.rookie-center-layout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+}
+
+.rookie-board {
+  align-content: start;
+  max-height: 720px;
+  overflow: auto;
+}
+
+.rookie-board > button,
+.idp-board > div {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--border-subtle);
+  grid-template-columns: 28px auto minmax(0, 1fr) auto;
+  padding: 7px 0;
+}
+
+.rookie-board > button {
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.rookie-board > button:hover,
+.rookie-board > button[data-selected="true"] {
+  background: var(--background-surface-hover);
+}
+
+.rookie-board > button > span,
+.idp-board > div > span {
+  display: grid;
+  min-width: 0;
+}
+
+.rookie-profile {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.rookie-profile > header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.rookie-profile h2,
+.rookie-profile h3,
+.rookie-profile p {
+  margin: 0;
+}
+
+.rookie-profile .auction-values {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.rookie-profile dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.rookie-profile dl > div,
+.rookie-scenarios article {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.rookie-profile dt,
+.rookie-profile dd {
+  margin: 0;
+}
+
+.rookie-profile dt,
+.muted-copy {
+  color: var(--text-muted);
+}
+
+.rookie-profile > label {
+  display: grid;
+  gap: 5px;
+}
+
+.rookie-scenarios {
+  display: grid;
+  gap: 6px;
+}
+
+.rookie-scenarios article {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-small);
+  padding: 8px;
+}
+
+.rookie-scenarios article[data-leading="true"] {
+  border-color: color-mix(
+    in srgb,
+    var(--accent-primary) 45%,
+    var(--border-default)
+  );
+  background: var(--accent-primary-muted);
+}
+
+.rookie-scenarios article > span {
+  display: grid;
+  gap: 2px;
+}
+
+.idp-board > div {
+  grid-template-columns: 30px minmax(135px, 0.8fr) minmax(180px, 1.2fr);
+}
+
+.idp-metrics {
+  display: grid;
+  gap: 2px;
+}
+
+.idp-metrics small:last-child {
+  color: var(--text-muted);
+}
+
+.taxi-row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.taxi-row p {
+  margin-top: 2px;
+}
+
+.idp-summary,
+.auction-values {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.survival-guidance {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.survival-guidance header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.survival-guidance h2,
+.survival-guidance p {
+  margin: 0;
+}
+
+.survival-guidance h2 {
+  text-transform: capitalize;
+}
+
+.survival-guidance .warning-copy {
+  color: var(--status-warning);
+}
+
+.survival-table {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.survival-table > header,
+.survival-table > div {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns:
+    64px minmax(150px, 1.2fr) minmax(110px, 0.8fr) minmax(120px, 0.8fr)
+    minmax(150px, 1fr);
+  min-width: 720px;
+  padding: 12px 16px;
+}
+
+.survival-table > header {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.survival-table > div {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.survival-table > div[data-chop-zone="true"] {
+  background: color-mix(in srgb, var(--status-danger) 10%, transparent);
+}
+
+.survival-table span {
+  display: grid;
+  gap: 2px;
+}
+
+.auction-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.auction-controls label,
+.mock-config label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.auction-controls input,
+.mock-config input,
+.mock-config select {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--background-canvas);
+  padding: 0 8px;
+}
+
+.value-tile {
+  display: grid;
+  gap: 2px;
+  padding: 9px;
+}
+
+.value-tile strong {
+  color: var(--accent-primary);
+  font-size: 16px;
+}
+
+.mock-config {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.mock-config > div {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.mock-config .button {
+  width: 100%;
+}
+
+.mock-board,
+.mock-recommendations {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.mock-status,
+.mock-toolbar {
+  flex-wrap: wrap;
+}
+
+.mock-toolbar {
+  justify-content: flex-start;
+}
+
+.mock-validation {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.mock-validation svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mock-validation.valid {
+  border-color: color-mix(in srgb, var(--status-success) 40%, transparent);
+  color: var(--status-success);
+}
+
+.mock-validation.invalid {
+  border-color: color-mix(in srgb, var(--status-danger) 40%, transparent);
+  color: var(--status-danger);
+}
+
+.mock-board > div,
+.mock-recommendations > div {
+  display: grid;
+  align-items: center;
+  gap: 7px;
+  border-top: 1px solid var(--border-subtle);
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  padding: 7px 0;
+}
+
+.mock-recommendations > div {
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+}
+
+.mock-board > div > span,
+.mock-recommendations > div > span {
+  display: grid;
+  min-width: 0;
+}
+
+.mock-board > div > small,
+.mock-recommendations > div > small,
+.mock-recommendations > div > span small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.mock-toolbar .icon-button {
+  width: 30px;
+  height: 30px;
+}
+
+.mock-board ol,
+.mock-recommendations ol {
+  display: grid;
+  gap: 3px;
+  max-height: 340px;
+  margin: 0;
+  overflow: auto;
+  padding-left: 24px;
+}
+
+.mock-board li,
+.mock-recommendations li {
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 10px;
+  padding: 5px 2px;
+}
+
+.mock-board li strong,
+.mock-recommendations li strong {
+  color: var(--text-primary);
+}
+
+.research-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deadline-list article {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.deadline-list article > svg {
+  width: 18px;
+  color: var(--accent-primary);
+}
+
+.deadline-list article > span {
+  display: grid;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .waiver-row {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+  }
+
+  .waiver-row > .faab-band,
+  .waiver-row > .status-badge {
+    grid-column: 2 / -1;
+  }
+
+  .planning-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rookie-center-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .survival-table > header,
+  .survival-table > div {
+    grid-template-columns: 58px minmax(135px, 1fr) minmax(105px, 0.75fr) minmax(
+        100px,
+        0.7fr
+      );
+    min-width: 440px;
+  }
+
+  .survival-table > header > :last-child,
+  .survival-table > div > :last-child {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .matchup-columns,
+  .trade-builder,
+  .mock-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .direction-meter,
+  .idp-summary,
+  .auction-values {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .context-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .decision-card {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+
+  .decision-card > svg {
+    display: none;
+  }
+
+  .lineup-board > header {
+    display: none;
+  }
+
+  .lineup-row {
+    grid-template-columns: 50px minmax(0, 1fr) 52px;
+  }
+
+  .lineup-row .row-actions {
+    grid-column: 2 / -1;
+  }
+
+  .auction-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .trade-market-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .trade-market-strip label {
+    grid-column: 1 / -1;
+  }
+
+  .mock-recommendations > div {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+  }
+
+  .mock-recommendations > div > .button {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (max-width: 360px) {
+  .today-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .today-summary > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .decision-meta small:last-child,
+  .recommendation-row footer span:nth-child(2),
+  .recommendation-row footer span:nth-child(3) {
+    display: none;
+  }
+
+  .faab-band {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rookie-center-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .rookie-board > button,
+  .idp-board > div {
+    grid-template-columns: 24px auto minmax(0, 1fr);
+  }
+
+  .rookie-board > button > strong,
+  .idp-board > div > strong {
+    grid-column: 3;
+  }
+}

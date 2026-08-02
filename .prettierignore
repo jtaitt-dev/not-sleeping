@@ -1,0 +1,12 @@
+node_modules
+.wxt
+.output
+dist
+coverage
+playwright-report
+test-results
+artifacts
+pnpm-lock.yaml
+docs/design
+public/icons
+assets/icons

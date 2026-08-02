@@ -1,0 +1,151 @@
+body {
+  min-width: 338px;
+  background: var(--background-canvas);
+}
+
+.popup {
+  display: grid;
+  width: 338px;
+  gap: 10px;
+  background:
+    radial-gradient(circle at 100% 0, rgb(34 230 195 / 8%), transparent 38%),
+    var(--background-canvas);
+  padding: 11px;
+}
+
+.popup > header,
+.popup-brand,
+.popup-context,
+.popup-status > div,
+.popup > footer {
+  display: flex;
+  align-items: center;
+}
+
+.popup > header {
+  justify-content: space-between;
+}
+
+.popup > header > svg {
+  width: 16px;
+  color: var(--text-muted);
+}
+
+.popup-brand {
+  gap: 8px;
+}
+
+.popup-brand > div,
+.popup-status span {
+  display: grid;
+}
+
+.popup-brand strong {
+  font-size: 13px;
+}
+
+.popup-brand span,
+.popup-status small {
+  color: var(--text-muted);
+  font-size: 8px;
+}
+
+.popup-context {
+  min-height: 36px;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--background-surface);
+  padding: 0 8px;
+}
+
+.popup-context > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-success);
+  box-shadow: 0 0 0 3px rgb(52 211 153 / 12%);
+}
+
+.popup > .button {
+  width: 100%;
+  justify-content: center;
+  min-height: 38px;
+}
+
+.popup-status {
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-medium);
+  background: var(--background-surface);
+}
+
+.popup-status > div {
+  min-height: 48px;
+  gap: 7px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 6px 8px;
+}
+
+.popup-status > div:last-child {
+  border-bottom: 0;
+}
+
+.popup-status > div > svg {
+  width: 16px;
+  color: var(--accent-primary);
+}
+
+.popup-status span {
+  flex: 1;
+}
+
+.popup-status strong {
+  font-size: 9px;
+}
+
+.popup-status button {
+  background: transparent;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-size: 8px;
+}
+
+.popup-error {
+  border-radius: var(--radius-small);
+  background: rgb(251 191 36 / 10%);
+  color: var(--status-warning);
+  font-size: 8px;
+  padding: 6px;
+}
+
+.popup > footer {
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 8px;
+}
+
+.popup > footer button,
+.popup > footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 8px;
+  text-decoration: none;
+}
+
+.popup > footer svg {
+  width: 11px;
+}

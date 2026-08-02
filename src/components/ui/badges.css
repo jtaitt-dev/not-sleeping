@@ -1,0 +1,91 @@
+.position-badge,
+.status-badge,
+.tier-badge {
+  display: inline-flex;
+  min-height: 21px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  padding: 0 7px;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.position-badge {
+  --position-color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--position-color) 45%, transparent);
+  background: color-mix(in srgb, var(--position-color) 12%, transparent);
+  color: var(--position-color);
+}
+
+.position-badge[data-position="qb"] {
+  --position-color: var(--position-qb);
+}
+
+.position-badge[data-position="rb"] {
+  --position-color: var(--position-rb);
+}
+
+.position-badge[data-position="wr"] {
+  --position-color: var(--position-wr);
+}
+
+.position-badge[data-position="te"] {
+  --position-color: var(--position-te);
+}
+
+.position-badge[data-position="flex"] {
+  --position-color: var(--position-flex);
+}
+
+.position-badge[data-position="k"] {
+  --position-color: var(--position-k);
+}
+
+.position-badge[data-position="def"] {
+  --position-color: var(--position-def);
+}
+
+.position-badge[data-position="dl"] {
+  --position-color: var(--position-dl);
+}
+
+.position-badge[data-position="lb"] {
+  --position-color: var(--position-lb);
+}
+
+.position-badge[data-position="db"] {
+  --position-color: var(--position-db);
+}
+
+.status-badge--success {
+  border-color: color-mix(in srgb, var(--status-success) 40%, transparent);
+  background: color-mix(in srgb, var(--status-success) 12%, transparent);
+  color: var(--status-success);
+}
+
+.status-badge--warning {
+  border-color: color-mix(in srgb, var(--status-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--status-warning) 12%, transparent);
+  color: var(--status-warning);
+}
+
+.status-badge--danger {
+  border-color: color-mix(in srgb, var(--status-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--status-danger) 12%, transparent);
+  color: var(--status-danger);
+}
+
+.status-badge--info {
+  border-color: color-mix(in srgb, var(--status-info) 40%, transparent);
+  background: color-mix(in srgb, var(--status-info) 12%, transparent);
+  color: var(--status-info);
+}
+
+.status-badge--neutral,
+.tier-badge {
+  color: var(--text-secondary);
+}

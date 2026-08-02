@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:coverage
+      - run: pnpm test:performance:ci
+      - run: pnpm test:simulations
+      - run: pnpm build
+      - run: pnpm test:e2e
+      - run: pnpm test:visual
+      - run: pnpm audit:prod
+      - run: pnpm zip
+      - name: Verify no production source maps
+        run: test -z "$(find dist -name '*.map' -print -quit)"
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage/
+      - name: Upload Phase 2 reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase2-smoke-reports
+          path: artifacts/*report*
+          if-no-files-found: ignore
+      - name: Upload Playwright results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-results
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+      - name: Upload production package
+        uses: actions/upload-artifact@v7
+        with:
+          name: not-sleeping-extension
+          path: |
+            dist/
+            artifacts/*
