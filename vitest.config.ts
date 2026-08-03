@@ -16,20 +16,23 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary", "html"],
+      // The whole logic layer, not a hand-picked subset: the previous list
+      // measured 742 statements and left the decision pipeline, both AI
+      // providers, the Sleeper schemas, and most services outside the gate
+      // entirely. UI stays out — it is covered by the Playwright suite.
       include: [
-        "src/services/context/route-detection.ts",
-        "src/services/imports/import-service.ts",
-        "src/services/ranking/**/*.ts",
-        "src/services/research/request-queue.ts",
-        "src/services/security/redaction.ts",
-        "src/services/security/url.ts",
+        "src/services/**/*.ts",
+        "src/providers/**/*.ts",
+        "src/schemas/**/*.ts",
       ],
       exclude: ["**/*.d.ts"],
+      // Set just under the measured baseline (76.59/65.11/77.18/78.90 over
+      // 3,785 statements) so this ratchets upward without failing on variance.
       thresholds: {
-        statements: 85,
-        branches: 80,
-        functions: 85,
-        lines: 85,
+        statements: 75,
+        branches: 63,
+        functions: 75,
+        lines: 77,
       },
     },
   },

@@ -393,13 +393,6 @@ async function routeMessage(
     }
     case "GET_LIVE_DRAFT":
       return loadLiveDraft(message.payload.draftId);
-    case "GET_RECOMMENDATIONS": {
-      return {
-        source: "local",
-        strategy: message.payload.strategy,
-        riskTolerance: message.payload.riskTolerance,
-      };
-    }
     case "RESEARCH_PLAYER": {
       const settings = await getSettings();
       const researchProvider =

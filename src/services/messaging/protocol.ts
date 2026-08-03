@@ -281,20 +281,6 @@ export const messageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...messageBase,
-    type: z.literal("GET_RECOMMENDATIONS"),
-    payload: z.object({
-      draftId: id.optional(),
-      strategy: z.enum([
-        "contender",
-        "balanced",
-        "productive_struggle",
-        "rebuild",
-      ]),
-      riskTolerance: z.number().min(0).max(1),
-    }),
-  }),
-  z.object({
-    ...messageBase,
     type: z.literal("RESEARCH_PLAYER"),
     payload: z.object({
       playerId: id,
