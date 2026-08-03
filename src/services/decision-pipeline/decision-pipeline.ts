@@ -17,6 +17,14 @@ import type {
 } from "@/types/domain";
 import { AiProviderRegistry } from "@/providers/ai/provider-registry";
 
+// A live draft starts a decision per pick, each retaining its full ranked
+// baseline. Nothing ever removed them, so the maps grew for the lifetime of the
+// service worker. Evicting the oldest entries bounds that: a dropped job simply
+// stops being pollable, and a dropped scope degrades to "stale", which already
+// falls back to the deterministic recommendation.
+const MAX_TRACKED_JOBS = 64;
+const MAX_TRACKED_SCOPES = 256;
+
 export class DecisionPipeline {
   private readonly jobs = new Map<string, RealtimeDecision>();
   private readonly latestState = new Map<string, string>();
@@ -39,6 +47,8 @@ export class DecisionPipeline {
       aiStatus: "queued",
     };
     this.jobs.set(jobId, job);
+    evictOldest(this.jobs, MAX_TRACKED_JOBS);
+    evictOldest(this.latestState, MAX_TRACKED_SCOPES);
     void this.enrich(jobId, scope, input).catch(() => undefined);
     return structuredClone(job);
   }
@@ -141,6 +151,15 @@ export class DecisionPipeline {
         error: `${safe.message} ${safe.suggestedAction}`,
       });
     }
+  }
+}
+
+/** Drops oldest-inserted entries until the map is within `limit`. */
+function evictOldest<V>(map: Map<string, V>, limit: number): void {
+  while (map.size > limit) {
+    const oldest = map.keys().next();
+    if (oldest.done) return;
+    map.delete(oldest.value);
   }
 }
 
