@@ -1,0 +1,10 @@
+# Keep the working tree LF on every platform. Without this, a Windows clone
+# with Git's default core.autocrlf=true checks out CRLF and `pnpm format:check`
+# fails on every file, because Prettier's endOfLine default is "lf".
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.zip binary
+*.woff binary
+*.woff2 binary
