@@ -43,7 +43,7 @@
     "validate:phase3": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:performance:ci && pnpm test:simulations && pnpm test:ai-evals && pnpm build && pnpm assert:core-bundle && pnpm test:e2e && pnpm test:visual && pnpm audit:prod"
   },
   "dependencies": {
-    "@radix-ui/react-alert-dialog": "1.1.21",
+    "@radix-ui/react-alert-dialog": "1.1.23",
     "@radix-ui/react-dialog": "1.1.21",
     "@radix-ui/react-dropdown-menu": "2.1.22",
     "@radix-ui/react-tabs": "1.1.19",
