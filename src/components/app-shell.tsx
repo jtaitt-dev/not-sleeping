@@ -8,6 +8,7 @@ import {
   DraftingCompass,
   Ellipsis,
   Eye,
+  FlaskConical,
   GitCompareArrows,
   ListOrdered,
   Newspaper,
@@ -28,6 +29,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { IconButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";
 import { LeagueSwitcher } from "@/components/league-switcher";
+import { BUILD_FLAVOR, IS_LABS_BUILD } from "@/build-flavor";
 import { getActiveFixture, useAppStore } from "@/stores/app-store";
 import { useLeagueStore } from "@/stores/league-store";
 import { requestRuntime } from "@/services/messaging/runtime-client";
@@ -66,6 +68,9 @@ const moreNavigation = [
   { to: "/diagnostics", label: "Diagnostics", icon: ShieldCheck },
   { to: "/calendar", label: "Deadlines", icon: CalendarClock },
   { to: "/about", label: "About", icon: Eye },
+  ...(IS_LABS_BUILD
+    ? [{ to: "/labs", label: "Labs", icon: FlaskConical }]
+    : []),
 ] as const;
 
 export function AppShell() {
@@ -307,7 +312,8 @@ export function AppShell() {
           Analysis local-first
         </span>
         <span className="tabular">
-          {keyStatus.available ? "OpenAI ready" : "OpenAI optional"}
+          {keyStatus.available ? "AI provider ready" : "AI optional"} ·{" "}
+          {BUILD_FLAVOR === "labs" ? "Labs" : "Core"}
         </span>
       </footer>
     </div>

@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
+import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-intelligence-card";
 import { Button, IconButton } from "@/components/ui/button";
 import { CompactTabs } from "@/components/ui/compact-tabs";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
@@ -68,6 +69,7 @@ export function DraftWorkspace() {
   const fixture = getActiveFixture(fixtureId);
   const context =
     !demoEnabled && liveState ? liveState.context : fixture.context;
+  const format = !demoEnabled && liveState ? liveState.format : fixture.format;
 
   useEffect(() => {
     if (!demoEnabled || demoPaused || fixture.context.status === "complete")
@@ -211,6 +213,58 @@ export function DraftWorkspace() {
           </StatusBadge>
         )}
       </div>
+
+      {!draftComplete ? (
+        <RealtimeIntelligenceCard
+          feature={
+            context.mode === "keeper"
+              ? "keeper"
+              : format.bestBall
+                ? "best_ball"
+                : "draft"
+          }
+          subject={context.draftId ?? "current-draft"}
+          contextSummary={`${context.mode.replaceAll("_", " ")} draft. Pick ${context.currentPick}; ${format.teams} teams; ${format.superflex ? "superflex" : "single QB"}; ${format.tightEndPremium ? "TE premium" : "standard TE"}.`}
+          candidates={recommendations.slice(0, 30).map((recommendation) => ({
+            id: recommendation.player.id,
+            label: recommendation.player.fullName,
+            position: recommendation.player.position,
+            ...(recommendation.player.team
+              ? { team: recommendation.player.team }
+              : {}),
+            baseValue: recommendation.contextualScore,
+            rosterFit:
+              recommendation.rosterFit === "strong"
+                ? 0.8
+                : recommendation.rosterFit === "weak"
+                  ? -0.5
+                  : 0,
+            scarcity: recommendation.scarcity,
+            risk:
+              recommendation.risk === "high"
+                ? 0.85
+                : recommendation.risk === "moderate"
+                  ? 0.5
+                  : 0.2,
+            available: true,
+            eligible: true,
+            alreadySelected: picks.some(
+              (pick) => pick.playerId === recommendation.player.id,
+            ),
+            reasons: recommendation.components
+              .slice(0, 4)
+              .map((component) => component.reason),
+            metadata: {
+              age: recommendation.player.age ?? null,
+              yearsExperience: recommendation.player.yearsExperience ?? null,
+            },
+          }))}
+          strategy={strategy}
+          riskTolerance={riskTolerance}
+          currentPick={context.currentPick}
+          picksUntilNext={picksUntil}
+        />
+      ) : null}
 
       {!draftComplete && top ? (
         <TopRecommendation

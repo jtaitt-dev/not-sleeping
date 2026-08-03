@@ -1,8 +1,9 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Navigate, Route, Routes } from "react-router";
 
 import { AppShell, MoreWorkspace } from "@/components/app-shell";
+import { IS_LABS_BUILD } from "@/build-flavor";
 import { RootProviders } from "@/components/root-providers";
 import { DraftWorkspace } from "@/features/draft/draft-workspace";
 import {
@@ -35,6 +36,10 @@ import {
   WatchlistWorkspace,
 } from "@/features/workspaces/all-workspaces";
 import "@/styles/globals.css";
+
+const ParlayLabWorkspace = IS_LABS_BUILD
+  ? lazy(() => import("virtual:not-sleeping-labs-workspace"))
+  : null;
 
 function SidePanelApp() {
   return (
@@ -69,6 +74,16 @@ function SidePanelApp() {
           <Route path="/settings" element={<SettingsWorkspace />} />
           <Route path="/diagnostics" element={<DiagnosticsWorkspace />} />
           <Route path="/about" element={<AboutWorkspace />} />
+          {ParlayLabWorkspace ? (
+            <Route
+              path="/labs"
+              element={
+                <Suspense fallback={<p>Loading optional Labs workspace…</p>}>
+                  <ParlayLabWorkspace />
+                </Suspense>
+              }
+            />
+          ) : null}
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Route>
       </Routes>

@@ -29,10 +29,12 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { StatusBadge } from "@/components/ui/badges";
+import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-intelligence-card";
 import { Button, IconButton } from "@/components/ui/button";
 import { PositionBadge } from "@/components/ui/badges";
 import { EmptyState, InlineError } from "@/components/ui/states";
-import type { Player } from "@/types/domain";
+import type { AiFeature, Player } from "@/types/domain";
+import type { DecisionCandidate } from "@/services/intelligence/types";
 import type { EvidenceItem, LeagueContext } from "@/types/league";
 import {
   analyzeDispersalPool,
@@ -2200,6 +2202,11 @@ function SeasonWorkspace({
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const context = useLeagueStore((state) => state.activeContext);
+  const snapshot = useLeagueStore((state) => state.snapshot);
+  const intelligenceFeature = context
+    ? workspaceIntelligenceFeature(title, context)
+    : null;
   return (
     <section className="workspace-page season-workspace">
       <header className="workspace-heading">
@@ -2209,9 +2216,138 @@ function SeasonWorkspace({
         </div>
         {action}
       </header>
+      {context && snapshot && intelligenceFeature ? (
+        <RealtimeIntelligenceCard
+          feature={intelligenceFeature}
+          subject={`${context.leagueId}:${intelligenceFeature}`}
+          contextSummary={`${title}. Week ${context.week}. ${context.leagueType} ${context.lineupType}; ${Object.keys(context.scoringSettings).length} scoring settings; ${context.waiverType}.`}
+          candidates={buildWorkspaceDecisionCandidates(
+            intelligenceFeature,
+            context,
+            snapshot,
+          )}
+          strategy={context.strategy}
+          riskTolerance={0.5}
+        />
+      ) : null}
       {children}
     </section>
   );
+}
+
+function workspaceIntelligenceFeature(
+  title: string,
+  context: LeagueContext,
+): AiFeature | null {
+  if (title === "Best Ball Optimizer") return "best_ball";
+  if (title === "Start & Sit") return "start_sit";
+  if (title === "Matchup Center") return "matchup";
+  if (title === "Chopped Survival") return "chopped";
+  if (title === "Waiver Wire") return "waiver";
+  if (title === "Trade Center") return "trade";
+  if (title === "Dynasty Center") {
+    return context.leagueType === "keeper" ? "keeper" : "dynasty";
+  }
+  if (title === "Rookie Center") return "rookie";
+  if (title === "Taxi Squad") return "taxi";
+  if (title === "IDP") return "idp";
+  if (title === "Auction Assistant") return "auction";
+  if (title === "Mock Draft Lab") return "draft";
+  if (title === "Research") return "research";
+  return null;
+}
+
+function buildWorkspaceDecisionCandidates(
+  feature: AiFeature,
+  context: LeagueContext,
+  snapshot: LeagueSnapshot,
+): DecisionCandidate[] {
+  const ownRoster = snapshot.rosters.find(
+    (roster) => roster.roster_id === context.rosterId,
+  );
+  const ownIds = new Set([
+    ...(ownRoster?.players ?? []),
+    ...(ownRoster?.starters ?? []),
+    ...(ownRoster?.taxi ?? []),
+  ]);
+  const rosteredIds = new Set(
+    snapshot.rosters.flatMap((roster) => [
+      ...(roster.players ?? []),
+      ...(roster.reserve ?? []),
+      ...(roster.taxi ?? []),
+    ]),
+  );
+  const idpPositions = new Set([
+    "DL",
+    "DE",
+    "DT",
+    "EDGE",
+    "LB",
+    "ILB",
+    "OLB",
+    "DB",
+    "CB",
+    "S",
+    "FS",
+    "SS",
+  ]);
+  return snapshot.players
+    .filter((player) => {
+      if (feature === "waiver") return !rosteredIds.has(player.id);
+      if (feature === "rookie") return player.yearsExperience === 0;
+      if (feature === "idp") return idpPositions.has(player.position);
+      if (["start_sit", "best_ball", "taxi"].includes(feature)) {
+        return ownIds.has(player.id);
+      }
+      return true;
+    })
+    .map((player) => {
+      const projection = snapshot.projections.find(
+        (row) => row.player_id === player.id,
+      );
+      const projectedPoints =
+        projection?.stats["pts_ppr"] ??
+        projection?.stats["pts_half_ppr"] ??
+        projection?.stats["pts_std"] ??
+        undefined;
+      const baseValue = Math.max(
+        1,
+        Math.min(
+          100,
+          projectedPoints ?? 100 - Math.min(99, (player.searchRank ?? 500) / 6),
+        ),
+      );
+      return {
+        id: player.id,
+        label: player.fullName,
+        position: player.position,
+        ...(player.team ? { team: player.team } : {}),
+        baseValue,
+        ...(projectedPoints !== undefined ? { projectedPoints } : {}),
+        rosterFit: ownIds.has(player.id) ? 0.45 : 0,
+        scarcity: ["QB", "TE", "LB"].includes(player.position) ? 0.65 : 0.45,
+        risk: player.status === "injured" || player.injuryStatus ? 0.85 : 0.35,
+        available: true,
+        eligible: feature !== "taxi" || (player.yearsExperience ?? 99) <= 2,
+        reasons: [
+          `${player.position}${player.team ? ` · ${player.team}` : ""}`,
+          player.injuryStatus
+            ? `Current Sleeper designation: ${player.injuryStatus}`
+            : "No Sleeper injury designation in the current snapshot.",
+        ],
+        metadata: {
+          age: player.age ?? null,
+          yearsExperience: player.yearsExperience ?? null,
+          newsUpdatedAt: player.newsUpdatedAt ?? null,
+        },
+      } satisfies DecisionCandidate;
+    })
+    .toSorted(
+      (left, right) =>
+        right.baseValue - left.baseValue ||
+        left.label.localeCompare(right.label),
+    )
+    .slice(0, 40);
 }
 
 function NoLeagueWorkspace({ title }: { title: string }) {

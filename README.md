@@ -11,15 +11,23 @@ panel for live and mock drafts, exact legal lineup optimization, matchup and
 Chopped survival distributions, waivers and FAAB, trades, rookies, dynasty,
 taxi, IDP, auction planning, sourced research, and diagnostics.
 
-Not Sleeping is not affiliated with, endorsed by, or sponsored by Sleeper or
-OpenAI. It uses Sleeper's public read-only API and makes OpenAI features
-optional through bring-your-own-key configuration.
+Not Sleeping is not affiliated with, endorsed by, or sponsored by Sleeper,
+OpenAI, or Anthropic. It uses Sleeper's public read-only API and makes AI
+features optional through provider-isolated bring-your-own-key configuration.
+
+Two artifacts are produced:
+
+- **Not Sleeping Core** is the Web Store-safe fantasy companion. It contains no
+  betting UI, odds handling, sportsbook integration, or Labs route.
+- **Not Sleeping Labs** is an explicitly acknowledged GitHub sideload build. It
+  adds a research-only Parlay Lab for manual user-supplied odds. Labs is not
+  intended for Chrome Web Store submission.
 
 ![Live draft workspace](docs/screenshots/live-draft.png)
 
 ## Why it is different
 
-- Deterministic local rankings remain useful without an OpenAI key.
+- Deterministic local decisions remain immediate without any AI key.
 - Every recommendation exposes local score components, scarcity, roster fit,
   next-pick availability, and bounded research adjustment.
 - Draft-mode and scoring detection use multiple league signals and show
@@ -27,9 +35,10 @@ optional through bring-your-own-key configuration.
 - A capability-driven league context composes Dynasty, Best Ball, Chopped,
   Superflex, TE premium, IDP, taxi, auction, median, and waiver behavior from
   each league's actual settings. Unknown inputs stay visible and overridable.
-- OpenAI research is explicit, citation-aware, rate limited, deduplicated, and
-  sent through the Responses API with `store: false`.
-- The API key defaults to session-only storage and never crosses a runtime
+- OpenAI and Anthropic implement one provider-neutral interface with dynamic
+  models, capability-aware effort/thinking controls, strict structured output,
+  bounded overlays, retries, timeouts, and optional consensus.
+- Each provider key defaults to session-only storage and never crosses a runtime
   message, log, diagnostic export, or content-script boundary.
 - Sleeper access is read-only. The extension cannot draft, trade, edit a team,
   or authenticate as the user.
@@ -77,7 +86,9 @@ pnpm build
 ```
 
 Then open `chrome://extensions`, enable **Developer mode**, choose
-**Load unpacked**, and select the generated `dist` directory.
+**Load unpacked**, and select `dist/core` for Core or `dist/labs` for the
+explicitly acknowledged Labs build. `dist/` also mirrors Core so an existing
+development install can be reloaded in place.
 
 For development:
 
@@ -88,20 +99,23 @@ pnpm dev
 WXT starts an isolated development profile and reloads the extension as source
 changes.
 
-## OpenAI setup
+## Multi-provider setup
 
-Open **Settings → OpenAI key**. Session-only storage is selected by default.
+Open **Settings → AI providers** and choose OpenAI or Anthropic. Session-only
+storage is selected by default for each isolated credential.
 Remembered storage requires an explicit confirmation and is appropriate only
 for a trusted browser profile. Use a dedicated project key with the minimum
 permissions and budget needed.
 
-Model IDs are loaded dynamically from the OpenAI Models API. The checked-in
-defaults are `gpt-5.6-terra` for routine structured work and `gpt-5.6-sol` for
-deeper current research, but users can select or manually enter a compatible
-model. See [Models and OpenAI behavior](docs/MODELS.md).
+Model IDs are loaded dynamically from the selected provider. Global presets and
+per-feature overrides control provider, model, routing, reasoning effort,
+Anthropic thinking mode, web search, token budget, and timeout. Unsupported
+controls are omitted and surfaced rather than guessed.
 
 Full setup and key-removal guidance is in
-[OpenAI Setup](docs/OPENAI_SETUP.md). The key is optional: redraft, rookie,
+[Multi-provider setup](docs/MULTI_PROVIDER_SETUP.md),
+[OpenAI setup](docs/OPENAI_SETUP.md), and
+[Anthropic setup](docs/ANTHROPIC_SETUP.md). Keys are optional: redraft, rookie,
 startup, dynasty, trade, import, watchlist, and deterministic scoring
 workflows remain available locally.
 
@@ -120,8 +134,8 @@ simulator never mutates the live draft board.
 | Command                            | Purpose                                                |
 | ---------------------------------- | ------------------------------------------------------ |
 | `pnpm dev`                         | Run the WXT development profile                        |
-| `pnpm build`                       | Build MV3 output and prepare `dist/`                   |
-| `pnpm zip`                         | Build a release ZIP and SHA-256 checksum               |
+| `pnpm build`                       | Build separate Core and Labs MV3 outputs               |
+| `pnpm zip`                         | Build two release ZIPs and SHA-256 checksums           |
 | `pnpm format:check`                | Verify Prettier formatting                             |
 | `pnpm lint`                        | Run strict typed ESLint                                |
 | `pnpm typecheck`                   | Run strict TypeScript                                  |
@@ -129,11 +143,13 @@ simulator never mutates the live draft board.
 | `pnpm test:coverage`               | Enforce 85/80/85/85 core thresholds                    |
 | `pnpm test:e2e`                    | Load the built extension and run browser tests         |
 | `pnpm test:visual`                 | Compare targeted visual baselines                      |
+| `pnpm test:ai-evals`               | Run sanitized, credential-free AI decision evals       |
 | `pnpm test:simulations`            | Run the deterministic simulation smoke matrix          |
 | `pnpm test:simulations:exhaustive` | Run 5,000 overlapping draft and hybrid scenarios       |
 | `pnpm test:backtest`               | Run walk-forward start/sit, draft, and waiver fixtures |
 | `pnpm audit:prod`                  | Audit production dependencies                          |
 | `pnpm validate:phase2`             | Run the complete Phase 2 release gate                  |
+| `pnpm validate:phase3`             | Run the complete Core/Labs and AI release gate         |
 
 ## Architecture and security
 
@@ -145,6 +161,11 @@ simulator never mutates the live draft board.
 - [Security review](docs/SECURITY_REVIEW.md)
 - [Installation and updates](docs/INSTALLATION.md)
 - [OpenAI setup](docs/OPENAI_SETUP.md)
+- [Anthropic and multi-provider setup](docs/MULTI_PROVIDER_SETUP.md)
+- [AI architecture](docs/AI_ARCHITECTURE.md)
+- [Realtime decision engine](docs/REALTIME_DECISION_ENGINE.md)
+- [Sleeper news and metadata limits](docs/SLEEPER_NEWS.md)
+- [Labs safety and packaging](docs/PARLAY_LAB_RISK.md)
 - [Data import](docs/DATA_IMPORT.md)
 - [Valuation engine](docs/VALUATION_ENGINE.md)
 - [Sleeper compatibility matrix](docs/SLEEPER_COMPATIBILITY_MATRIX.md)

@@ -1688,7 +1688,9 @@ export function AboutWorkspace() {
       <section className="surface about-hero">
         <img src="/icons/icon-128.png" alt="" width="88" height="88" />
         <div>
-          <span className="section-label">Version 0.1.0</span>
+          <span className="section-label">
+            Version {chrome.runtime.getManifest().version}
+          </span>
           <h1>Not Sleeping</h1>
           <p>
             An independent fantasy football intelligence companion for Sleeper.

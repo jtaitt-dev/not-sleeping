@@ -30,28 +30,36 @@ import {
   safeRuntimeError,
 } from "@/services/messaging/runtime-client";
 import {
-  getKeyStatus,
-  removeKeyFromTrustedOptions,
-  saveKeyFromTrustedOptions,
+  getAllProviderKeyStatuses,
+  removeProviderKeyFromTrustedOptions,
+  saveProviderKeyFromTrustedOptions,
 } from "@/services/storage/key-vault";
 import {
   DEFAULT_SETTINGS,
   getSettings,
   saveSettings,
 } from "@/services/storage/settings";
-import type { AppSettings, KeyMode, Theme } from "@/types/domain";
+import type {
+  AiFeatureConfig,
+  AiFeature,
+  AiProviderId,
+  AppSettings,
+  KeyMode,
+  KeyStatus,
+  ModelCapability,
+  Theme,
+} from "@/types/domain";
 import "@/styles/globals.css";
 import "./options.css";
 
 type SettingsTab =
   | "general"
   | "account"
-  | "openai"
+  | "providers"
   | "models"
   | "privacy"
   | "appearance"
   | "advanced";
-type KeyStatus = Awaited<ReturnType<typeof getKeyStatus>>;
 
 const tabs: Array<{
   id: SettingsTab;
@@ -60,11 +68,28 @@ const tabs: Array<{
 }> = [
   { id: "general", label: "General", icon: SlidersHorizontal },
   { id: "account", label: "Sleeper account", icon: UserRound },
-  { id: "openai", label: "OpenAI key", icon: KeyRound },
+  { id: "providers", label: "AI providers", icon: KeyRound },
   { id: "models", label: "Models & limits", icon: Bot },
   { id: "privacy", label: "Privacy", icon: ShieldCheck },
   { id: "appearance", label: "Appearance", icon: Moon },
   { id: "advanced", label: "Advanced", icon: Gauge },
+];
+
+const AI_FEATURES: Array<{ id: AiFeature; label: string }> = [
+  { id: "draft", label: "Draft" },
+  { id: "start_sit", label: "Start / Sit" },
+  { id: "matchup", label: "Matchup" },
+  { id: "waiver", label: "Waiver / FAAB" },
+  { id: "trade", label: "Trades" },
+  { id: "dynasty", label: "Dynasty" },
+  { id: "rookie", label: "Rookie" },
+  { id: "taxi", label: "Taxi" },
+  { id: "idp", label: "IDP" },
+  { id: "auction", label: "Auction" },
+  { id: "best_ball", label: "Best Ball" },
+  { id: "chopped", label: "Chopped" },
+  { id: "keeper", label: "Keeper" },
+  { id: "research", label: "Research" },
 ];
 
 const HAS_EXTENSION_API = hasExtensionApi();
@@ -79,11 +104,17 @@ function hasExtensionApi(): boolean {
 function OptionsApp() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [keyStatus, setKeyStatus] = useState<KeyStatus>({
+  const emptyKeyStatus: KeyStatus = {
     available: false,
     mode: null,
     masked: null,
-  });
+  };
+  const [selectedProvider, setSelectedProvider] =
+    useState<AiProviderId>("openai");
+  const [keyStatuses, setKeyStatuses] = useState<
+    Record<AiProviderId, KeyStatus>
+  >({ openai: emptyKeyStatus, anthropic: emptyKeyStatus });
+  const keyStatus = keyStatuses[selectedProvider];
   const [apiKey, setApiKey] = useState("");
   const [keyMode, setKeyMode] = useState<KeyMode>("session");
   const [rememberConfirmed, setRememberConfirmed] = useState(false);
@@ -92,15 +123,23 @@ function OptionsApp() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [modelCount, setModelCount] = useState<number | null>(null);
+  const [modelRecords, setModelRecords] = useState<ModelCapability[]>([]);
+  const defaultCapability = findModelCapability(
+    modelRecords,
+    settings.aiDefaults.provider,
+    settings.aiDefaults.model,
+  );
 
   useEffect(() => {
     let active = true;
-    void Promise.all([getSettings(), getKeyStatus()]).then(([stored, key]) => {
-      if (!active) return;
-      setSettings(stored);
-      setKeyStatus(key);
-      if (key.mode) setKeyMode(key.mode);
-    });
+    void Promise.all([getSettings(), getAllProviderKeyStatuses()]).then(
+      ([stored, keys]) => {
+        if (!active) return;
+        setSettings(stored);
+        setKeyStatuses(keys);
+        if (keys.openai.mode) setKeyMode(keys.openai.mode);
+      },
+    );
     return () => {
       active = false;
     };
@@ -108,6 +147,56 @@ function OptionsApp() {
 
   function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
     setSettings((current) => ({ ...current, [key]: value }));
+    setNotice("");
+  }
+
+  function changeProvider(provider: AiProviderId) {
+    setSelectedProvider(provider);
+    const mode = keyStatuses[provider].mode;
+    if (mode) setKeyMode(mode);
+    setApiKey("");
+    setRememberConfirmed(false);
+  }
+
+  function updateAiDefaults(patch: Partial<AiFeatureConfig>) {
+    setSettings((current) => ({
+      ...current,
+      aiPreset: "custom",
+      aiDefaults: { ...current.aiDefaults, ...patch },
+    }));
+    setNotice("");
+  }
+
+  function updateAiBudgets(patch: Partial<AppSettings["aiBudgets"]>) {
+    setSettings((current) => ({
+      ...current,
+      aiBudgets: { ...current.aiBudgets, ...patch },
+      ...(patch.maxRequestsPerMinute !== undefined
+        ? { maxRequestsPerMinute: Math.min(12, patch.maxRequestsPerMinute) }
+        : {}),
+      ...(patch.maxConcurrency !== undefined
+        ? { maxConcurrency: Math.min(2, patch.maxConcurrency) }
+        : {}),
+    }));
+    setNotice("");
+  }
+
+  function updateFeatureConfig(
+    feature: AiFeature,
+    patch: Partial<AiFeatureConfig>,
+  ) {
+    setSettings((current) => {
+      const existing =
+        current.aiFeatureOverrides[feature] ?? current.aiDefaults;
+      return {
+        ...current,
+        aiPreset: "custom",
+        aiFeatureOverrides: {
+          ...current.aiFeatureOverrides,
+          [feature]: { ...existing, ...patch },
+        },
+      };
+    });
     setNotice("");
   }
 
@@ -142,9 +231,16 @@ function OptionsApp() {
     setBusy(true);
     setError("");
     try {
-      const masked = await saveKeyFromTrustedOptions(apiKey, keyMode);
+      const masked = await saveProviderKeyFromTrustedOptions(
+        selectedProvider,
+        apiKey,
+        keyMode,
+      );
       setApiKey("");
-      setKeyStatus({ available: true, mode: keyMode, masked });
+      setKeyStatuses((current) => ({
+        ...current,
+        [selectedProvider]: { available: true, mode: keyMode, masked },
+      }));
       setNotice(
         keyMode === "session"
           ? "Key saved for this browser session."
@@ -162,10 +258,15 @@ function OptionsApp() {
   }
 
   async function removeKey() {
-    await removeKeyFromTrustedOptions();
+    await removeProviderKeyFromTrustedOptions(selectedProvider);
     setApiKey("");
-    setKeyStatus({ available: false, mode: null, masked: null });
-    setNotice("The OpenAI key was removed.");
+    setKeyStatuses((current) => ({
+      ...current,
+      [selectedProvider]: emptyKeyStatus,
+    }));
+    setNotice(
+      `The ${selectedProvider === "openai" ? "OpenAI" : "Anthropic"} key was removed.`,
+    );
   }
 
   async function testKey() {
@@ -176,8 +277,8 @@ function OptionsApp() {
         ok: true;
         modelCount: number;
       }>({
-        type: "TEST_OPENAI",
-        payload: {},
+        type: "TEST_AI_PROVIDER",
+        payload: { provider: selectedProvider },
       });
       setNotice(
         `Connection succeeded · ${response.modelCount} models visible.`,
@@ -196,13 +297,18 @@ function OptionsApp() {
     setBusy(true);
     setError("");
     try {
-      const response = await requestRuntime<unknown[]>({
-        type: "LIST_MODELS",
-        payload: { force: true },
+      const provider = settings.aiDefaults.provider;
+      const response = await requestRuntime<ModelCapability[]>({
+        type: "LIST_AI_MODELS",
+        payload: { provider, force: true },
       });
       setModelCount(response.length);
+      setModelRecords((current) => [
+        ...current.filter((model) => model.provider !== provider),
+        ...response,
+      ]);
       setNotice(
-        `Loaded ${response.length} compatible model records from OpenAI.`,
+        `Loaded ${response.length} model records from ${provider === "openai" ? "OpenAI" : "Anthropic"}.`,
       );
     } catch (caught) {
       const safe = safeRuntimeError(caught);
@@ -243,7 +349,7 @@ function OptionsApp() {
           <img src="/icons/icon-48.png" alt="" width="38" height="38" />
           <div>
             <strong>Not Sleeping</strong>
-            <span>Settings · v0.1.0</span>
+            <span>Settings · v{chrome.runtime.getManifest().version}</span>
           </div>
         </header>
         <nav aria-label="Settings sections">
@@ -437,10 +543,10 @@ function OptionsApp() {
             </>
           ) : null}
 
-          {activeTab === "openai" ? (
+          {activeTab === "providers" ? (
             <>
               <SectionHeader
-                title="Bring your own OpenAI key"
+                title="Bring your own AI provider key"
                 detail="Optional. Deterministic ranking, Sleeper sync, imports, and trade evaluation work without it."
                 badge={
                   keyStatus.available ? (
@@ -451,6 +557,20 @@ function OptionsApp() {
                 }
               />
               <div className="key-panel">
+                <Field
+                  label="Provider"
+                  detail="Keys are isolated and never reused across providers."
+                >
+                  <select
+                    value={selectedProvider}
+                    onChange={(event) =>
+                      changeProvider(event.target.value as AiProviderId)
+                    }
+                  >
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                  </select>
+                </Field>
                 <div className="key-field">
                   <LockKeyhole aria-hidden="true" />
                   <input
@@ -458,8 +578,10 @@ function OptionsApp() {
                     value={apiKey}
                     autoComplete="off"
                     spellCheck={false}
-                    placeholder="sk-…"
-                    aria-label="OpenAI API key"
+                    placeholder={
+                      selectedProvider === "anthropic" ? "sk-ant-…" : "sk-…"
+                    }
+                    aria-label={`${selectedProvider === "openai" ? "OpenAI" : "Anthropic"} API key`}
                     onChange={(event) => setApiKey(event.target.value)}
                   />
                   <button
@@ -568,7 +690,7 @@ function OptionsApp() {
             <>
               <SectionHeader
                 title="Dynamic model selection"
-                detail="Compatible IDs are loaded from OpenAI when requested; manual IDs remain available for new models."
+                detail="Models and capability controls are loaded from the selected provider; unknown controls stay disabled instead of being guessed."
                 badge={
                   modelCount === null ? undefined : (
                     <StatusBadge tone="info">{modelCount} loaded</StatusBadge>
@@ -577,24 +699,154 @@ function OptionsApp() {
               />
               <div className="form-grid">
                 <Field
-                  label="Routine model"
-                  detail="Structured adjustments and compact summaries."
+                  label="Routing preset"
+                  detail="Economy, balanced, quality, or fully custom controls."
+                >
+                  <select
+                    value={settings.aiPreset}
+                    onChange={(event) =>
+                      update(
+                        "aiPreset",
+                        event.target.value as AppSettings["aiPreset"],
+                      )
+                    }
+                  >
+                    <option value="economy">Economy</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="quality">Quality</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </Field>
+                <Field
+                  label="Default provider"
+                  detail="Can be overridden per feature."
+                >
+                  <select
+                    value={settings.aiDefaults.provider}
+                    onChange={(event) =>
+                      updateAiDefaults({
+                        provider: event.target.value as AiProviderId,
+                      })
+                    }
+                  >
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                  </select>
+                </Field>
+                <Field
+                  label="Default routing mode"
+                  detail="Consensus uses the two exact models configured below."
+                >
+                  <select
+                    value={settings.aiDefaults.routingMode}
+                    onChange={(event) =>
+                      updateAiDefaults({
+                        routingMode: event.target
+                          .value as AiFeatureConfig["routingMode"],
+                      })
+                    }
+                  >
+                    <option value="off">AI off</option>
+                    <option value="manual">Manual only</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="quality">Quality</option>
+                    <option value="consensus">OpenAI + Anthropic</option>
+                  </select>
+                </Field>
+                <Field
+                  label="Default model"
+                  detail="Used unless a feature override selects another model."
                 >
                   <input
-                    value={settings.routineModel}
+                    list={`provider-models-${settings.aiDefaults.provider}`}
+                    value={settings.aiDefaults.model}
                     onChange={(event) =>
-                      update("routineModel", event.target.value)
+                      updateAiDefaults({ model: event.target.value })
+                    }
+                  />
+                </Field>
+                {settings.aiDefaults.routingMode === "consensus" ? (
+                  <>
+                    <Field
+                      label="Consensus OpenAI model"
+                      detail="Exact model; never substituted automatically."
+                    >
+                      <input
+                        list="provider-models-openai"
+                        value={settings.aiDefaults.consensusModels.openai}
+                        onChange={(event) =>
+                          updateAiDefaults({
+                            consensusModels: {
+                              ...settings.aiDefaults.consensusModels,
+                              openai: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field
+                      label="Consensus Anthropic model"
+                      detail="Exact model; never substituted automatically."
+                    >
+                      <input
+                        list="provider-models-anthropic"
+                        value={settings.aiDefaults.consensusModels.anthropic}
+                        onChange={(event) =>
+                          updateAiDefaults({
+                            consensusModels: {
+                              ...settings.aiDefaults.consensusModels,
+                              anthropic: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                  </>
+                ) : null}
+                <Field
+                  label="Reasoning effort"
+                  detail="Only values reported for the selected model are shown."
+                >
+                  <ReasoningEffortSelect
+                    ariaLabel="Reasoning effort"
+                    value={settings.aiDefaults.reasoningEffort}
+                    capability={defaultCapability}
+                    onChange={(reasoningEffort) =>
+                      updateAiDefaults({
+                        reasoningEffort,
+                      })
                     }
                   />
                 </Field>
                 <Field
-                  label="Research model"
-                  detail="Current, citation-bearing player research."
+                  label="Thinking mode"
+                  detail="Only modes reported for the selected model are shown."
+                >
+                  <ThinkingModeSelect
+                    ariaLabel="Thinking mode"
+                    value={settings.aiDefaults.thinkingMode}
+                    capability={defaultCapability}
+                    onChange={(thinkingMode) =>
+                      updateAiDefaults({
+                        thinkingMode,
+                      })
+                    }
+                  />
+                </Field>
+                <Field
+                  label="Native web search"
+                  detail="Available only when the loaded model capability explicitly supports it."
                 >
                   <input
-                    value={settings.researchModel}
+                    type="checkbox"
+                    aria-label="Native web search"
+                    disabled={defaultCapability?.webSearch !== true}
+                    checked={
+                      defaultCapability?.webSearch === true &&
+                      settings.aiDefaults.webSearch
+                    }
                     onChange={(event) =>
-                      update("researchModel", event.target.value)
+                      updateAiDefaults({ webSearch: event.target.checked })
                     }
                   />
                 </Field>
@@ -606,9 +858,11 @@ function OptionsApp() {
                     type="number"
                     min="1"
                     max="12"
-                    value={settings.maxRequestsPerMinute}
+                    value={settings.aiBudgets.maxRequestsPerMinute}
                     onChange={(event) =>
-                      update("maxRequestsPerMinute", Number(event.target.value))
+                      updateAiBudgets({
+                        maxRequestsPerMinute: Number(event.target.value),
+                      })
                     }
                   />
                 </Field>
@@ -621,9 +875,11 @@ function OptionsApp() {
                     min="256"
                     max="16384"
                     step="256"
-                    value={settings.maxOutputTokens}
+                    value={settings.aiDefaults.maxOutputTokens}
                     onChange={(event) =>
-                      update("maxOutputTokens", Number(event.target.value))
+                      updateAiDefaults({
+                        maxOutputTokens: Number(event.target.value),
+                      })
                     }
                   />
                 </Field>
@@ -635,12 +891,11 @@ function OptionsApp() {
                     type="number"
                     min="10"
                     max="180"
-                    value={settings.requestTimeoutMs / 1000}
+                    value={settings.aiDefaults.timeoutMs / 1000}
                     onChange={(event) =>
-                      update(
-                        "requestTimeoutMs",
-                        Number(event.target.value) * 1000,
-                      )
+                      updateAiDefaults({
+                        timeoutMs: Number(event.target.value) * 1000,
+                      })
                     }
                   />
                 </Field>
@@ -649,31 +904,188 @@ function OptionsApp() {
                   detail="One is the privacy- and rate-limit-friendly default."
                 >
                   <select
-                    value={settings.maxConcurrency}
+                    value={settings.aiBudgets.maxConcurrency}
                     onChange={(event) =>
-                      update("maxConcurrency", Number(event.target.value))
+                      updateAiBudgets({
+                        maxConcurrency: Number(event.target.value),
+                      })
                     }
                   >
                     <option value="1">1 request</option>
                     <option value="2">2 requests</option>
+                    <option value="3">3 requests</option>
+                    <option value="4">4 requests</option>
                   </select>
                 </Field>
               </div>
+              <section
+                className="feature-routing"
+                aria-labelledby="feature-routing-title"
+              >
+                <div>
+                  <h3 id="feature-routing-title">Per-feature routing</h3>
+                  <p>
+                    Override provider, model, routing, and effort without
+                    changing deterministic analysis.
+                  </p>
+                </div>
+                <div className="feature-routing-grid">
+                  {AI_FEATURES.map((feature) => {
+                    const config =
+                      settings.aiFeatureOverrides[feature.id] ??
+                      settings.aiDefaults;
+                    const capability = findModelCapability(
+                      modelRecords,
+                      config.provider,
+                      config.model,
+                    );
+                    return (
+                      <article key={feature.id}>
+                        <strong>{feature.label}</strong>
+                        <select
+                          aria-label={`${feature.label} provider`}
+                          value={config.provider}
+                          onChange={(event) =>
+                            updateFeatureConfig(feature.id, {
+                              provider: event.target.value as AiProviderId,
+                            })
+                          }
+                        >
+                          <option value="openai">OpenAI</option>
+                          <option value="anthropic">Anthropic</option>
+                        </select>
+                        <input
+                          list={`provider-models-${config.provider}`}
+                          aria-label={`${feature.label} model`}
+                          value={config.model}
+                          onChange={(event) =>
+                            updateFeatureConfig(feature.id, {
+                              model: event.target.value,
+                            })
+                          }
+                        />
+                        <select
+                          aria-label={`${feature.label} routing mode`}
+                          value={config.routingMode}
+                          onChange={(event) =>
+                            updateFeatureConfig(feature.id, {
+                              routingMode: event.target
+                                .value as AiFeatureConfig["routingMode"],
+                            })
+                          }
+                        >
+                          <option value="off">AI off</option>
+                          <option value="manual">Manual</option>
+                          <option value="balanced">Balanced</option>
+                          <option value="quality">Quality</option>
+                          <option value="consensus">OpenAI + Anthropic</option>
+                        </select>
+                        {config.routingMode === "consensus" ? (
+                          <>
+                            <input
+                              list="provider-models-openai"
+                              aria-label={`${feature.label} consensus OpenAI model`}
+                              value={config.consensusModels.openai}
+                              onChange={(event) =>
+                                updateFeatureConfig(feature.id, {
+                                  consensusModels: {
+                                    ...config.consensusModels,
+                                    openai: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                            <input
+                              list="provider-models-anthropic"
+                              aria-label={`${feature.label} consensus Anthropic model`}
+                              value={config.consensusModels.anthropic}
+                              onChange={(event) =>
+                                updateFeatureConfig(feature.id, {
+                                  consensusModels: {
+                                    ...config.consensusModels,
+                                    anthropic: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </>
+                        ) : null}
+                        <ReasoningEffortSelect
+                          ariaLabel={`${feature.label} reasoning effort`}
+                          value={config.reasoningEffort}
+                          capability={capability}
+                          onChange={(reasoningEffort) =>
+                            updateFeatureConfig(feature.id, {
+                              reasoningEffort,
+                            })
+                          }
+                        />
+                        <ThinkingModeSelect
+                          ariaLabel={`${feature.label} thinking mode`}
+                          value={config.thinkingMode}
+                          capability={capability}
+                          onChange={(thinkingMode) =>
+                            updateFeatureConfig(feature.id, { thinkingMode })
+                          }
+                        />
+                        <label className="feature-capability-toggle">
+                          <input
+                            type="checkbox"
+                            aria-label={`${feature.label} native web search`}
+                            disabled={capability?.webSearch !== true}
+                            checked={
+                              capability?.webSearch === true && config.webSearch
+                            }
+                            onChange={(event) =>
+                              updateFeatureConfig(feature.id, {
+                                webSearch: event.target.checked,
+                              })
+                            }
+                          />
+                          Native web search
+                        </label>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+              {(["openai", "anthropic"] as const).map((provider) => (
+                <datalist key={provider} id={`provider-models-${provider}`}>
+                  {modelRecords
+                    .filter((model) => model.provider === provider)
+                    .map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {[
+                          model.structuredOutput === true ? "structured" : null,
+                          model.webSearch === true ? "web" : null,
+                          model.thinking === true ? "thinking" : null,
+                          model.priceClass !== "unknown"
+                            ? model.priceClass
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </option>
+                    ))}
+                </datalist>
+              ))}
               <Button
                 icon={<RefreshCw />}
                 onClick={() => void refreshModels()}
-                disabled={!keyStatus.available || busy}
+                disabled={
+                  !keyStatuses[settings.aiDefaults.provider].available || busy
+                }
               >
-                Refresh models from OpenAI
+                Refresh provider models
               </Button>
               <div className="security-callout">
                 <CircleHelp />
                 <div>
                   <strong>Current defaults</strong>
                   <p>
-                    Routine work uses gpt-5.6-terra; deeper current research
-                    uses gpt-5.6-sol. Capability checks determine whether
-                    structured output and web search can be used.
+                    Every feature returns a deterministic answer first. AI is an
+                    optional, bounded overlay with per-feature provider, model,
+                    effort, thinking, timeout, and token controls.
                   </p>
                 </div>
               </div>
@@ -709,12 +1121,12 @@ function OptionsApp() {
                 />
                 <PrivacyCard
                   icon={<Bot />}
-                  title="OpenAI, opt in"
+                  title="AI providers, opt in"
                   items={[
                     "Only requested analysis context",
-                    "API key in Authorization header",
-                    "Responses request uses store: false",
-                    "Current web search for research",
+                    "Provider-specific API key header",
+                    "Strict structured response contracts",
+                    "OpenAI web search only when enabled",
                   ]}
                 />
               </div>
@@ -901,6 +1313,99 @@ function Field({
       {children}
     </label>
   );
+}
+
+function ReasoningEffortSelect({
+  ariaLabel,
+  value,
+  capability,
+  onChange,
+}: {
+  ariaLabel: string;
+  value: AiFeatureConfig["reasoningEffort"];
+  capability: ModelCapability | null;
+  onChange: (value: AiFeatureConfig["reasoningEffort"]) => void;
+}) {
+  const options = capability?.reasoningEfforts ?? [];
+  const selected = options.includes(value) ? value : "";
+  return (
+    <select
+      aria-label={ariaLabel}
+      value={selected}
+      disabled={options.length === 0}
+      onChange={(event) =>
+        onChange(event.target.value as AiFeatureConfig["reasoningEffort"])
+      }
+    >
+      <option value="" disabled>
+        {capability ? "Not supported" : "Load model capabilities"}
+      </option>
+      {options.map((effort) => (
+        <option key={effort} value={effort}>
+          {reasoningEffortLabel(effort)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function ThinkingModeSelect({
+  ariaLabel,
+  value,
+  capability,
+  onChange,
+}: {
+  ariaLabel: string;
+  value: AiFeatureConfig["thinkingMode"];
+  capability: ModelCapability | null;
+  onChange: (value: AiFeatureConfig["thinkingMode"]) => void;
+}) {
+  const options = capability?.thinkingModes ?? [];
+  const selected = options.includes(value) ? value : "";
+  return (
+    <select
+      aria-label={ariaLabel}
+      value={selected}
+      disabled={options.length === 0}
+      onChange={(event) =>
+        onChange(event.target.value as AiFeatureConfig["thinkingMode"])
+      }
+    >
+      <option value="" disabled>
+        {capability ? "Not supported" : "Load model capabilities"}
+      </option>
+      {options.map((mode) => (
+        <option key={mode} value={mode}>
+          {thinkingModeLabel(mode)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function findModelCapability(
+  models: ModelCapability[],
+  provider: AiProviderId,
+  modelId: string,
+): ModelCapability | null {
+  return (
+    models.find(
+      (model) => model.provider === provider && model.id === modelId,
+    ) ?? null
+  );
+}
+
+function reasoningEffortLabel(
+  effort: AiFeatureConfig["reasoningEffort"],
+): string {
+  if (effort === "none") return "None";
+  if (effort === "xhigh") return "Extra high";
+  if (effort === "max") return "Maximum";
+  return effort.charAt(0).toUpperCase() + effort.slice(1);
+}
+
+function thinkingModeLabel(mode: AiFeatureConfig["thinkingMode"]): string {
+  return mode.charAt(0).toUpperCase() + mode.slice(1);
 }
 
 function SettingsToggle({

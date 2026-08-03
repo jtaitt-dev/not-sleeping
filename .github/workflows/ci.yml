@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  quality:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -22,33 +22,102 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:coverage
-      - run: pnpm test:performance:ci
-      - run: pnpm test:simulations
-      - run: pnpm build
-      - run: pnpm test:e2e
-      - run: pnpm test:visual
-      - run: pnpm audit:prod
-      - run: pnpm zip
-      - name: Verify no production source maps
-        run: test -z "$(find dist -name '*.map' -print -quit)"
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/
-      - name: Upload Phase 2 reports
+
+  performance-and-simulations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:performance:ci
+      - run: pnpm test:simulations
+      - name: Upload performance reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: phase2-smoke-reports
-          path: artifacts/*report*
-          if-no-files-found: ignore
+          name: performance-reports
+          path: artifacts/performance-report.*
+
+  ai-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:ai-evals
+      - name: Upload AI eval reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ai-eval-reports
+          path: artifacts/ai-eval-report.*
+
+  build-flavors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm assert:core-bundle
+      - name: Verify no production source maps
+        run: test -z "$(find dist -name '*.map' -print -quit)"
+      - name: Upload Core and Labs builds
+        uses: actions/upload-artifact@v7
+        with:
+          name: extension-builds
+          path: |
+            dist/core/
+            dist/labs/
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build
+      - run: pnpm test:e2e
+      - run: pnpm test:visual
       - name: Upload Playwright results
         if: always()
         uses: actions/upload-artifact@v7
@@ -58,10 +127,49 @@ jobs:
             playwright-report/
             test-results/
           if-no-files-found: ignore
-      - name: Upload production package
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit:prod
+
+  package:
+    needs:
+      - quality
+      - performance-and-simulations
+      - ai-evals
+      - build-flavors
+      - browser-tests
+      - dependency-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm zip
+      - name: Upload release candidates
         uses: actions/upload-artifact@v7
         with:
-          name: not-sleeping-extension
+          name: not-sleeping-release-candidates
           path: |
-            dist/
-            artifacts/*
+            artifacts/not-sleeping-core-*.zip
+            artifacts/not-sleeping-core-*.sha256
+            artifacts/not-sleeping-labs-*.zip
+            artifacts/not-sleeping-labs-*.sha256

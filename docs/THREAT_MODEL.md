@@ -3,8 +3,8 @@
 ## Overview
 
 Not Sleeping is a local Chrome MV3 extension for fantasy-football decisions.
-Its privileged runtime can access public Sleeper endpoints, optional OpenAI
-endpoints, extension storage, IndexedDB, supported Sleeper pages, and the side
+Its privileged runtime can access public Sleeper endpoints, optional OpenAI and
+Anthropic endpoints, extension storage, IndexedDB, supported Sleeper pages, and the side
 panel. It has no server, account database, payment path, remote-code loader, or
 write-capable Sleeper integration.
 
@@ -22,7 +22,7 @@ Trust boundaries:
    size, age, sender ID, sender URL, host, and capability validation complete.
 3. **Options → Chrome secret storage.** Key entry is trusted only in the
    options page. Session/local storage is restricted to trusted contexts.
-4. **Background → Sleeper/OpenAI/nflverse.** HTTPS responses, model text, web
+4. **Background → Sleeper/OpenAI/Anthropic/nflverse.** HTTPS responses, model text, web
    sources, and public datasets are untrusted and Zod-validated.
 5. **Files → import worker/storage.** User-selected CSV/JSON is untrusted and
    subject to type, signature, size, row, column, depth, field, and identity
@@ -39,13 +39,13 @@ Assumptions:
 - Chrome correctly enforces extension origins, MV3 CSP, storage access levels,
   and host permissions.
 - TLS and the selected providers' infrastructure are outside this repository.
-- The user reviews current OpenAI provider terms and budget controls.
+- The user reviews current provider terms, local law, and budget controls.
 
 ## Attack Surface, Mitigations, and Attacker Stories
 
 ### Credential exfiltration
 
-A malicious page or imported file may attempt to obtain an OpenAI key.
+A malicious page or imported file may attempt to obtain an OpenAI or Anthropic key.
 Mitigations include options-only direct writes, background-only reads,
 trusted-context storage access, credential rejection in runtime messages,
 redaction, no content-script key path, and CSP without remote code.
@@ -129,6 +129,27 @@ pnpm build scripts are allowlisted, lockfile install is frozen in CI,
 Dependabot and CodeQL are enabled, production audit is gated, output rejects
 source maps, and release archives receive SHA-256 checksums.
 
+### Sleeper metadata and news poisoning
+
+Sleeper player metadata is schema-validated and used as an invalidation signal.
+The extension does not invent a Sleeper news endpoint or treat `news_updated`
+as article text. External claims retain source class, URL, timestamp,
+contradictions, and bounded impact; instruction-like evidence is rejected.
+
+### Provider disagreement and stale overlays
+
+AI cannot change legality or reintroduce an excluded candidate. Outputs are
+strictly parsed, adjustments are bounded, state hashes reject late responses,
+and consensus disagreement retains the deterministic baseline. One provider's
+credential is never used in another provider's request.
+
+### Gambling feature exposure in Core
+
+Core resolves the Labs module to a no-op stub at build time. CI scans the Core
+bundle for Labs-only strings and packages Core and Labs separately. The Labs
+workspace requires adult-age and jurisdiction acknowledgement, uses only manual
+inputs, and has no stake, operator link, affiliate, or action path.
+
 Out of scope: attacks requiring control of the user's OS/browser profile,
 Chrome itself, TLS, or upstream provider infrastructure; fantasy strategy
 disagreement without a security boundary failure; and provider availability.
@@ -151,4 +172,4 @@ non-sensitive verbose logging, or a UI-only authorization ambiguity without a
 privileged sink.
 
 Repository: github.com/jtaitt-dev/not-sleeping
-Version: working tree for v0.1.0 initial build
+Version: working tree for v0.3.0 Phase 3 build

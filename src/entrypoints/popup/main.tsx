@@ -23,13 +23,24 @@ type ExtensionStatus = {
     mode: "session" | "remembered" | null;
     masked: string | null;
   };
+  providerKeyStatuses?: Record<
+    "openai" | "anthropic",
+    {
+      available: boolean;
+      mode: "session" | "remembered" | null;
+      masked: string | null;
+    }
+  >;
   players: number;
   context: { supported?: boolean; draftId?: string } | null;
 };
 
 const HAS_EXTENSION_RUNTIME = hasExtensionRuntime();
+const EXTENSION_VERSION = HAS_EXTENSION_RUNTIME
+  ? chrome.runtime.getManifest().version
+  : "0.3.0";
 const PREVIEW_STATUS: ExtensionStatus = {
-  extensionVersion: "0.1.0",
+  extensionVersion: EXTENSION_VERSION,
   keyStatus: { available: false, mode: null, masked: null },
   players: 24,
   context: null,
@@ -48,6 +59,7 @@ function PopupApp() {
     HAS_EXTENSION_RUNTIME ? null : PREVIEW_STATUS,
   );
   const [error, setError] = useState(false);
+  const configuredProviders = providerSummary(status);
 
   useEffect(() => {
     let active = true;
@@ -113,13 +125,11 @@ function PopupApp() {
 
       <section className="popup-status">
         <div>
-          {status?.keyStatus.available ? <CheckCircle2 /> : <KeyRound />}
+          {configuredProviders ? <CheckCircle2 /> : <KeyRound />}
           <span>
-            <strong>OpenAI</strong>
+            <strong>AI providers</strong>
             <small>
-              {status?.keyStatus.available
-                ? `${status.keyStatus.masked} · ${status.keyStatus.mode}`
-                : "Optional key not configured"}
+              {configuredProviders || "Optional keys not configured"}
             </small>
           </span>
           <button
@@ -148,8 +158,8 @@ function PopupApp() {
 
       <footer>
         <span>
-          v{status?.extensionVersion ?? "0.1.0"} · {status?.players ?? 0} cached
-          players
+          v{status?.extensionVersion ?? EXTENSION_VERSION} ·{" "}
+          {status?.players ?? 0} cached players
         </span>
         <button
           type="button"
@@ -169,6 +179,16 @@ function PopupApp() {
       </footer>
     </main>
   );
+}
+
+function providerSummary(status: ExtensionStatus | null): string {
+  if (status?.providerKeyStatuses) {
+    return (["openai", "anthropic"] as const)
+      .filter((provider) => status.providerKeyStatuses?.[provider].available)
+      .map((provider) => (provider === "openai" ? "OpenAI" : "Anthropic"))
+      .join(" · ");
+  }
+  return status?.keyStatus.available ? "OpenAI" : "";
 }
 
 const root = document.querySelector<HTMLDivElement>("#root");

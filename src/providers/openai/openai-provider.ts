@@ -1,7 +1,15 @@
 import { z, type ZodType } from "zod";
 
 import {
-  modelCapabilitySchema,
+  openAIModelCapability,
+  supportsRequestedControls,
+} from "@/providers/ai/capabilities";
+import type {
+  AiProvider,
+  AiStructuredRequest,
+  AiStructuredResult,
+} from "@/providers/ai/types";
+import {
   openAIModelsSchema,
   openAIResponseSchema,
   playerResearchSchema,
@@ -26,32 +34,11 @@ type ProviderOptions = {
   now?: () => number;
 };
 
-type StructuredRequest<T> = {
-  model: string;
-  schemaName: string;
-  schema: ZodType<T>;
-  system: string;
-  input: string;
-  useWebSearch: boolean;
-  allowedDomains?: string[];
-  maxOutputTokens?: number;
-  timeoutMs?: number;
-  signal?: AbortSignal;
-};
+type StructuredRequest<T> = AiStructuredRequest<T>;
+type StructuredResult<T> = AiStructuredResult<T>;
 
-type StructuredResult<T> = {
-  data: T;
-  responseId: string;
-  resolvedModel?: string;
-  usage: {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-  };
-  citationUrls: string[];
-};
-
-export class OpenAIProvider {
+export class OpenAIProvider implements AiProvider {
+  readonly id = "openai" as const;
   private readonly fetcher: typeof fetch;
   private readonly now: () => number;
   private readonly queue: RequestQueue;
@@ -82,7 +69,7 @@ export class OpenAIProvider {
       this.modelCache &&
       this.modelCache.fetchedAt + 60 * 60_000 > this.now()
     ) {
-      return this.modelCache.models.map(modelCapability);
+      return this.modelCache.models.map(openAIModelCapability);
     }
     const key = await this.requireKey();
     const response = await this.fetchWithRetry(`${API_ROOT}/models`, {
@@ -95,7 +82,7 @@ export class OpenAIProvider {
       .filter((id) => /^(?:gpt-|o\d|chatgpt-)/.test(id))
       .toSorted();
     this.modelCache = { fetchedAt: this.now(), models };
-    return models.map(modelCapability);
+    return models.map(openAIModelCapability);
   }
 
   async createStructured<T>(
@@ -103,8 +90,8 @@ export class OpenAIProvider {
   ): Promise<StructuredResult<T>> {
     const settings = await this.options.getSettings();
     this.queue.configure({
-      requestsPerMinute: settings.maxRequestsPerMinute,
-      concurrency: settings.maxConcurrency,
+      requestsPerMinute: settings.aiBudgets.maxRequestsPerMinute,
+      concurrency: settings.aiBudgets.maxConcurrency,
     });
     const dedupeKey = stableContentHash({
       model: request.model,
@@ -117,8 +104,9 @@ export class OpenAIProvider {
       this.runStructured(
         {
           ...request,
-          maxOutputTokens: request.maxOutputTokens ?? settings.maxOutputTokens,
-          timeoutMs: request.timeoutMs ?? settings.requestTimeoutMs,
+          maxOutputTokens:
+            request.maxOutputTokens ?? settings.aiDefaults.maxOutputTokens,
+          timeoutMs: request.timeoutMs ?? settings.aiDefaults.timeoutMs,
         },
         combineSignals(signal, request.signal),
       ),
@@ -188,21 +176,37 @@ export class OpenAIProvider {
     signal: AbortSignal,
   ): Promise<StructuredResult<T>> {
     const key = await this.requireKey();
-    const first = await this.requestResponse(request, key, signal);
+    const capability = openAIModelCapability(request.model);
+    const warnings = supportsRequestedControls(capability, {
+      webSearch: request.useWebSearch,
+      reasoningEffort: request.reasoningEffort,
+      thinkingMode: request.thinkingMode,
+    });
+    const sanitized = {
+      ...request,
+      useWebSearch: request.useWebSearch && capability.webSearch === true,
+      reasoningEffort: capability.reasoningEfforts?.includes(
+        request.reasoningEffort ?? "none",
+      )
+        ? request.reasoningEffort
+        : "none",
+      thinkingMode: "off" as const,
+    };
+    const first = await this.requestResponse(sanitized, key, signal);
     try {
-      return parseStructuredResponse(first, request.schema);
+      return parseStructuredResponse(first, request.schema, warnings);
     } catch (error) {
       if (!isFormattingFailure(error) || signal.aborted) throw error;
       const repair = await this.requestResponse(
         {
-          ...request,
+          ...sanitized,
           system: `${request.system} The previous result failed schema validation. Produce a corrected result without adding unsupported facts.`,
           input: `${request.input}\nRepair the structure only and preserve supported content.`,
         },
         key,
         signal,
       );
-      return parseStructuredResponse(repair, request.schema);
+      return parseStructuredResponse(repair, request.schema, warnings);
     }
   }
 
@@ -226,6 +230,9 @@ export class OpenAIProvider {
       instructions: request.system,
       input: request.input,
       max_output_tokens: request.maxOutputTokens,
+      ...(request.reasoningEffort && request.reasoningEffort !== "none"
+        ? { reasoning: { effort: request.reasoningEffort } }
+        : {}),
       text: {
         format: {
           type: "json_schema",
@@ -326,6 +333,7 @@ export class OpenAIProvider {
 function parseStructuredResponse<T>(
   response: OpenAIResponse,
   schema: ZodType<T>,
+  warnings: string[] = [],
 ): StructuredResult<T> {
   const text = response.output_text ?? extractOutputText(response.output);
   if (!text) {
@@ -349,12 +357,14 @@ function parseStructuredResponse<T>(
     data: parsed.data,
     responseId: response.id,
     ...(response.model ? { resolvedModel: response.model } : {}),
+    provider: "openai",
     usage: {
       inputTokens: usage?.input_tokens ?? 0,
       outputTokens: usage?.output_tokens ?? 0,
       totalTokens: usage?.total_tokens ?? 0,
     },
     citationUrls: extractCitationUrls(response.output),
+    warnings,
   };
 }
 
@@ -393,34 +403,6 @@ function extractCitationUrls(output: unknown[]): string[] {
   };
   visit(output);
   return [...urls];
-}
-
-function modelCapability(id: string): ModelCapability {
-  const current =
-    id === "gpt-5.6" ||
-    id.startsWith("gpt-5.6-sol") ||
-    id.startsWith("gpt-5.6-terra") ||
-    id.startsWith("gpt-5.6-luna");
-  const capability = {
-    modelId: id,
-    structuredOutput:
-      current || id.startsWith("gpt-5") || id.startsWith("gpt-4o"),
-    webSearch: current || id.startsWith("gpt-5"),
-    reasoning: current || /^o\d/.test(id) || id.startsWith("gpt-5"),
-    warnings: [],
-  };
-  const parsed = modelCapabilitySchema.parse(capability);
-  return {
-    id: parsed.modelId,
-    structuredOutput: parsed.structuredOutput,
-    webSearch: parsed.webSearch,
-    reasoning: parsed.reasoning,
-    priceClass: id.endsWith("-luna")
-      ? "low"
-      : id.endsWith("-sol")
-        ? "high"
-        : "standard",
-  };
 }
 
 async function parseErrorResponse(response: Response): Promise<{
