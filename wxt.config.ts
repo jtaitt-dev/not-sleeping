@@ -1,13 +1,17 @@
 import { defineConfig } from "wxt";
+import { resolve } from "node:path";
+
+const buildFlavor =
+  process.env["NOT_SLEEPING_BUILD_FLAVOR"] === "labs" ? "labs" : "core";
 
 export default defineConfig({
   srcDir: "src",
   modules: ["@wxt-dev/module-react"],
   manifestVersion: 3,
   manifest: {
-    name: "Not Sleeping",
+    name: buildFlavor === "labs" ? "Not Sleeping Labs" : "Not Sleeping",
     short_name: "Not Sleeping",
-    version: "0.1.0",
+    version: "0.3.0",
     description:
       "Independent open-source fantasy football intelligence companion for Sleeper.",
     minimum_chrome_version: "116",
@@ -18,6 +22,7 @@ export default defineConfig({
       "https://sleeper.com/*",
       "https://*.sleeper.com/*",
       "https://api.openai.com/*",
+      "https://api.anthropic.com/*",
       "https://api.open-meteo.com/*",
     ],
     optional_host_permissions: ["https://github.com/nflverse/nflverse-data/*"],
@@ -49,4 +54,24 @@ export default defineConfig({
         "script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
     },
   },
+  vite: () => ({
+    define: {
+      __NOT_SLEEPING_BUILD_FLAVOR__: JSON.stringify(buildFlavor),
+    },
+    plugins: [
+      {
+        name: "not-sleeping-build-flavor-module",
+        enforce: "pre",
+        resolveId(source) {
+          if (source !== "virtual:not-sleeping-labs-workspace") return null;
+          return resolve(
+            import.meta.dirname,
+            buildFlavor === "core"
+              ? "src/features/labs/core-stub.tsx"
+              : "src/features/labs/parlay-lab-workspace.tsx",
+          );
+        },
+      },
+    ],
+  }),
 });

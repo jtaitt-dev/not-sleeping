@@ -29,6 +29,27 @@ test("loads the MV3 extension and navigates every primary workspace", async () =
       page.getByRole("heading", { name: workspace.heading, exact: true }),
     ).toBeVisible();
   }
+  await expect(page.getByRole("link", { name: "Labs" })).toHaveCount(0);
+  await page.goto(
+    `chrome-extension://${loaded.extensionId}/sidepanel.html#/labs`,
+  );
+  await expect(page).toHaveURL(/#\/today$/);
+});
+
+test("exposes provider-neutral settings without requiring a key", async () => {
+  const { page } = loaded;
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto(`chrome-extension://${loaded.extensionId}/options.html`);
+  await page.getByRole("button", { name: "AI providers", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Bring your own AI provider key" }),
+  ).toBeVisible();
+  const provider = page.getByLabel("Provider");
+  await expect(provider).toHaveValue("openai");
+  await provider.selectOption("anthropic");
+  await expect(provider).toHaveValue("anthropic");
+  await expect(page.getByLabel("Anthropic API key")).toBeVisible();
+  await expect(page.getByText("Session only", { exact: true })).toBeVisible();
 });
 
 test("recalculates strategy and supports draft decision interactions", async () => {

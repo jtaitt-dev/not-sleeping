@@ -47,6 +47,7 @@ export type Player = {
   yearsExperience?: number;
   status: "active" | "inactive" | "injured" | "unknown";
   injuryStatus?: string;
+  newsUpdatedAt?: number;
   college?: string;
   nflDraftYear?: number;
   nflDraftRound?: number;
@@ -201,6 +202,53 @@ export type PlayerResearch = {
 
 export type KeyMode = "session" | "remembered";
 
+export type AiProviderId = "openai" | "anthropic";
+
+export type AiFeature =
+  | "draft"
+  | "start_sit"
+  | "matchup"
+  | "waiver"
+  | "trade"
+  | "dynasty"
+  | "rookie"
+  | "taxi"
+  | "idp"
+  | "auction"
+  | "best_ball"
+  | "chopped"
+  | "keeper"
+  | "research";
+
+export type AiRoutingMode =
+  "off" | "manual" | "balanced" | "quality" | "consensus";
+
+export type AiReasoningEffort =
+  "none" | "low" | "medium" | "high" | "xhigh" | "max";
+
+export type AiThinkingMode = "off" | "enabled" | "adaptive";
+
+export type AiFeatureConfig = {
+  provider: AiProviderId;
+  model: string;
+  consensusModels: Record<AiProviderId, string>;
+  routingMode: AiRoutingMode;
+  reasoningEffort: AiReasoningEffort;
+  thinkingMode: AiThinkingMode;
+  maxOutputTokens: number;
+  timeoutMs: number;
+  webSearch: boolean;
+};
+
+export type AiBudgetSettings = {
+  maxRequestsPerMinute: number;
+  maxConcurrency: number;
+  dailyRequestLimit: number;
+  dailyInputTokenLimit: number;
+  dailyOutputTokenLimit: number;
+  dailyCostCeilingUsd: number;
+};
+
 export type Theme = "dark" | "light" | "system" | "high_contrast";
 
 export type AppSettings = {
@@ -221,6 +269,11 @@ export type AppSettings = {
   routineModel: string;
   researchModel: string;
   manualModelIds: string[];
+  aiPreset: "economy" | "balanced" | "quality" | "custom";
+  aiDefaults: AiFeatureConfig;
+  aiFeatureOverrides: Partial<Record<AiFeature, AiFeatureConfig>>;
+  aiBudgets: AiBudgetSettings;
+  anthropicManualModelIds: string[];
   enablePublicData: boolean;
   theme: Theme;
   reducedMotion: boolean;
@@ -245,8 +298,15 @@ export type UsageEvent = {
 
 export type ModelCapability = {
   id: string;
+  provider?: AiProviderId;
+  displayName?: string;
   structuredOutput: boolean | "unknown";
   webSearch: boolean | "unknown";
   reasoning: boolean | "unknown";
+  streaming?: boolean | "unknown";
+  thinking?: boolean | "unknown";
+  reasoningEfforts?: AiReasoningEffort[];
+  thinkingModes?: AiThinkingMode[];
+  maxOutputTokens?: number;
   priceClass: "low" | "standard" | "high" | "unknown";
 };

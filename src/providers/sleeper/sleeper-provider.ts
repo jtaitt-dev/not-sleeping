@@ -20,6 +20,10 @@ import {
 } from "@/schemas/sleeper";
 import { db } from "@/services/cache/database";
 import { AppError } from "@/services/errors/app-error";
+import {
+  evidenceChanged,
+  playerEvidenceFingerprint,
+} from "@/services/evidence/evidence-freshness";
 import { normalizePlayerName } from "@/services/ranking/identity";
 import type { Player, Position } from "@/types/domain";
 
@@ -28,7 +32,7 @@ const PROJECTIONS_API_ROOT = "https://api.sleeper.app";
 const PLAYER_CACHE_KEY = "sleeper:nfl-players";
 const PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
 const PROJECTION_TTL_MS = 15 * 60 * 1000;
-const PLAYER_SCHEMA_VERSION = 3;
+const PLAYER_SCHEMA_VERSION = 4;
 const ALLOWED_POSITIONS = new Set<Position>([
   "QB",
   "RB",
@@ -242,18 +246,44 @@ export class SleeperProvider {
         const normalized = normalizeSleeperPlayer(id, record);
         return normalized ? [normalized] : [];
       });
-      await db.transaction("rw", db.players, db.cacheMetadata, async () => {
-        await db.players.clear();
-        await db.players.bulkPut(players);
-        await db.cacheMetadata.put({
-          key: PLAYER_CACHE_KEY,
-          fetchedAt: this.now(),
-          expiresAt: this.now() + PLAYER_TTL_MS,
-          schemaVersion: PLAYER_SCHEMA_VERSION,
-          sourceVersion: "sleeper-v2",
-          sizeBytes: JSON.stringify(raw).length,
-        });
+      const priorPlayers = await db.players.bulkGet(
+        players.map((player) => player.id),
+      );
+      const changedPlayerIds = players.flatMap((player, index) => {
+        const prior = priorPlayers[index];
+        return prior &&
+          evidenceChanged(
+            playerEvidenceFingerprint(prior),
+            playerEvidenceFingerprint(player),
+          )
+          ? [player.id]
+          : [];
       });
+      await db.transaction(
+        "rw",
+        db.players,
+        db.cacheMetadata,
+        db.research,
+        db.evidence,
+        async () => {
+          if (changedPlayerIds.length > 0) {
+            await Promise.all([
+              db.research.where("playerId").anyOf(changedPlayerIds).delete(),
+              db.evidence.where("playerIds").anyOf(changedPlayerIds).delete(),
+            ]);
+          }
+          await db.players.clear();
+          await db.players.bulkPut(players);
+          await db.cacheMetadata.put({
+            key: PLAYER_CACHE_KEY,
+            fetchedAt: this.now(),
+            expiresAt: this.now() + PLAYER_TTL_MS,
+            schemaVersion: PLAYER_SCHEMA_VERSION,
+            sourceVersion: "sleeper-v3-news-metadata",
+            sizeBytes: JSON.stringify(raw).length,
+          });
+        },
+      );
       return { players: players.length, stale: false, fetchedAt: this.now() };
     } catch (error) {
       const count = await db.players.count();
@@ -399,6 +429,9 @@ export function normalizeSleeperPlayer(
       : {}),
     status,
     ...(record.injury_status ? { injuryStatus: record.injury_status } : {}),
+    ...(normalizeTimestamp(record.news_updated) !== undefined
+      ? { newsUpdatedAt: normalizeTimestamp(record.news_updated) }
+      : {}),
     ...(record.college ? { college: record.college } : {}),
     ...(record.search_rank !== null && record.search_rank !== undefined
       ? { searchRank: record.search_rank }
@@ -411,6 +444,21 @@ export function normalizeSleeperPlayer(
       ),
     ],
   };
+}
+
+function normalizeTimestamp(
+  value: number | string | null | undefined,
+): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value < 10_000_000_000 ? value * 1_000 : value;
+  }
+  if (typeof value !== "string" || value.length === 0) return undefined;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    return numeric < 10_000_000_000 ? numeric * 1_000 : numeric;
+  }
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function normalizeSupportedPosition(

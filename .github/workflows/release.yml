@@ -23,7 +23,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: node scripts/verify-version.mjs
-      - run: pnpm validate
+      - run: pnpm validate:phase3
       - run: pnpm zip
       - uses: softprops/action-gh-release@v3
         with:

@@ -12,6 +12,7 @@ import type {
   KeyStatus,
   LiveDraftState,
   Player,
+  AiProviderId,
   Recommendation,
   Strategy,
 } from "@/types/domain";
@@ -80,6 +81,7 @@ export const useAppStore = create<AppState>((set) => ({
         type: "GET_STATUS",
         payload: {},
       });
+      const providerKeyStatus = preferredProviderKeyStatus(status);
       const route = asRecord(status.context);
       const draftId =
         typeof route["draftId"] === "string" ? route["draftId"] : undefined;
@@ -95,7 +97,7 @@ export const useAppStore = create<AppState>((set) => ({
             demoEnabled: false,
             liveState,
             hydrationStatus: "ready",
-            keyStatus: status.keyStatus,
+            keyStatus: providerKeyStatus,
             extensionVersion: status.extensionVersion,
           });
         } catch (error) {
@@ -104,7 +106,7 @@ export const useAppStore = create<AppState>((set) => ({
             liveState: null,
             hydrationStatus: "error",
             runtimeError: safeRuntimeError(error),
-            keyStatus: status.keyStatus,
+            keyStatus: providerKeyStatus,
             extensionVersion: status.extensionVersion,
           });
         }
@@ -115,7 +117,7 @@ export const useAppStore = create<AppState>((set) => ({
         liveState: null,
         fixtureId: status.demo?.fixture ?? "startup",
         hydrationStatus: "ready",
-        keyStatus: status.keyStatus,
+        keyStatus: providerKeyStatus,
         extensionVersion: status.extensionVersion,
       });
     } catch (error) {
@@ -206,8 +208,17 @@ type RuntimeStatus = {
   extensionVersion: string;
   context: unknown;
   keyStatus: KeyStatus;
+  providerKeyStatuses?: Record<AiProviderId, KeyStatus>;
   demo?: { enabled?: boolean; fixture?: string };
 };
+
+function preferredProviderKeyStatus(status: RuntimeStatus): KeyStatus {
+  return status.providerKeyStatuses?.openai.available
+    ? status.providerKeyStatuses.openai
+    : status.providerKeyStatuses?.anthropic.available
+      ? status.providerKeyStatuses.anthropic
+      : status.keyStatus;
+}
 
 export function getActiveFixture(fixtureId: string) {
   const fixture =

@@ -8,6 +8,45 @@ export const MAX_MESSAGE_BYTES = 64 * 1024;
 export const MAX_MESSAGE_AGE_MS = 2 * 60 * 1000;
 
 const id = z.string().min(1).max(80);
+const aiProvider = z.enum(["openai", "anthropic"]);
+const aiFeature = z.enum([
+  "draft",
+  "start_sit",
+  "matchup",
+  "waiver",
+  "trade",
+  "dynasty",
+  "rookie",
+  "taxi",
+  "idp",
+  "auction",
+  "best_ball",
+  "chopped",
+  "keeper",
+  "research",
+]);
+const decisionCandidate = z.object({
+  id,
+  label: z.string().min(1).max(160),
+  position: z.string().max(20).optional(),
+  team: z.string().max(20).optional(),
+  baseValue: z.number().min(-10_000).max(10_000).optional(),
+  adp: z.number().min(0).max(10_000).optional(),
+  projectedPoints: z.number().min(-1_000).max(10_000).optional(),
+  rosterFit: z.number().min(-1).max(1).optional(),
+  scarcity: z.number().min(0).max(1).optional(),
+  risk: z.number().min(0).max(1).optional(),
+  available: z.boolean().optional(),
+  eligible: z.boolean().optional(),
+  alreadySelected: z.boolean().optional(),
+  reasons: z.array(z.string().max(500)).max(12).optional(),
+  metadata: z
+    .record(
+      z.string().max(80),
+      z.union([z.string().max(500), z.number(), z.boolean(), z.null()]),
+    )
+    .optional(),
+});
 const contextPayload = z.object({
   url: z.url().max(2048),
   supported: z.boolean(),
@@ -224,6 +263,14 @@ export const messageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...messageBase,
+    type: z.literal("GET_SLEEPER_PLAYER_CONTEXT"),
+    payload: z.object({
+      playerId: id,
+      force: z.boolean().default(false),
+    }),
+  }),
+  z.object({
+    ...messageBase,
     type: z.literal("GET_DRAFT"),
     payload: z.object({ draftId: id }),
   }),
@@ -268,8 +315,58 @@ export const messageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...messageBase,
+    type: z.literal("TEST_AI_PROVIDER"),
+    payload: z.object({ provider: aiProvider }),
+  }),
+  z.object({
+    ...messageBase,
     type: z.literal("LIST_MODELS"),
     payload: z.object({ force: z.boolean().default(false) }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("LIST_AI_MODELS"),
+    payload: z.object({
+      provider: aiProvider,
+      force: z.boolean().default(false),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("START_REALTIME_DECISION"),
+    payload: z.object({
+      feature: aiFeature,
+      subject: z.string().min(1).max(200),
+      contextSummary: z.string().max(8_000),
+      candidates: z.array(decisionCandidate).max(200),
+      strategy: z.enum([
+        "contender",
+        "balanced",
+        "productive_struggle",
+        "rebuild",
+      ]),
+      riskTolerance: z.number().min(0).max(1),
+      picksUntilNext: z.number().int().min(0).max(1_000).optional(),
+      currentPick: z.number().int().min(1).max(10_000).optional(),
+      facts: z
+        .record(
+          z.string().max(100),
+          z.union([
+            z.string().max(1_000),
+            z.number(),
+            z.boolean(),
+            z.null(),
+            z.array(z.string().max(500)).max(50),
+            z.array(z.number()).max(100),
+          ]),
+        )
+        .optional(),
+    }),
+  }),
+  z.object({
+    ...messageBase,
+    type: z.literal("GET_REALTIME_DECISION"),
+    payload: z.object({ jobId: z.uuid() }),
   }),
   z.object({
     ...messageBase,

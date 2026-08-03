@@ -31,9 +31,9 @@ test("secure options visual baseline", async () => {
   const { page } = loaded;
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.goto(`chrome-extension://${loaded.extensionId}/options.html`);
-  await page.getByRole("button", { name: "OpenAI key", exact: true }).click();
+  await page.getByRole("button", { name: "AI providers", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Bring your own OpenAI key" }),
+    page.getByRole("heading", { name: "Bring your own AI provider key" }),
   ).toBeVisible();
   await expect(page).toHaveScreenshot("secure-key-settings.png", {
     animations: "disabled",

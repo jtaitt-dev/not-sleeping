@@ -1,8 +1,49 @@
 import { z } from "zod";
 
-import type { AppSettings } from "@/types/domain";
+import type { AiFeatureConfig, AppSettings } from "@/types/domain";
 
 export const APP_SETTINGS_KEY = "appSettings";
+
+const aiProviderSchema = z.enum(["openai", "anthropic"]);
+const aiReasoningEffortSchema = z.enum([
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
+const aiThinkingModeSchema = z.enum(["off", "enabled", "adaptive"]);
+const aiFeatureConfigSchema = z.object({
+  provider: aiProviderSchema,
+  model: z.string().min(1).max(160),
+  consensusModels: z.object({
+    openai: z.string().min(1).max(160),
+    anthropic: z.string().min(1).max(160),
+  }),
+  routingMode: z.enum(["off", "manual", "balanced", "quality", "consensus"]),
+  reasoningEffort: aiReasoningEffortSchema,
+  thinkingMode: aiThinkingModeSchema,
+  maxOutputTokens: z.number().int().min(256).max(64_000),
+  timeoutMs: z.number().int().min(10_000).max(180_000),
+  webSearch: z.boolean(),
+});
+const aiFeatureSchema = z.enum([
+  "draft",
+  "start_sit",
+  "matchup",
+  "waiver",
+  "trade",
+  "dynasty",
+  "rookie",
+  "taxi",
+  "idp",
+  "auction",
+  "best_ball",
+  "chopped",
+  "keeper",
+  "research",
+]);
 
 export const appSettingsSchema = z.object({
   settingsVersion: z.number().int().min(1),
@@ -44,6 +85,18 @@ export const appSettingsSchema = z.object({
   routineModel: z.string().min(1).max(120),
   researchModel: z.string().min(1).max(120),
   manualModelIds: z.array(z.string().min(1).max(120)).max(20),
+  aiPreset: z.enum(["economy", "balanced", "quality", "custom"]),
+  aiDefaults: aiFeatureConfigSchema,
+  aiFeatureOverrides: z.partialRecord(aiFeatureSchema, aiFeatureConfigSchema),
+  aiBudgets: z.object({
+    maxRequestsPerMinute: z.number().int().min(1).max(60),
+    maxConcurrency: z.number().int().min(1).max(4),
+    dailyRequestLimit: z.number().int().min(1).max(10_000),
+    dailyInputTokenLimit: z.number().int().min(1_000).max(100_000_000),
+    dailyOutputTokenLimit: z.number().int().min(1_000).max(100_000_000),
+    dailyCostCeilingUsd: z.number().min(0).max(1_000),
+  }),
+  anthropicManualModelIds: z.array(z.string().min(1).max(160)).max(20),
   enablePublicData: z.boolean(),
   theme: z.enum(["dark", "light", "system", "high_contrast"]),
   reducedMotion: z.boolean(),
@@ -54,7 +107,7 @@ export const appSettingsSchema = z.object({
 });
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  settingsVersion: 1,
+  settingsVersion: 2,
   onboardingComplete: false,
   sleeperUsername: "",
   sleeperUserId: "",
@@ -71,6 +124,46 @@ export const DEFAULT_SETTINGS: AppSettings = {
   routineModel: "gpt-5.6-terra",
   researchModel: "gpt-5.6-sol",
   manualModelIds: [],
+  aiPreset: "balanced",
+  aiDefaults: {
+    provider: "openai",
+    model: "gpt-5.6-terra",
+    consensusModels: {
+      openai: "gpt-5.6-terra",
+      anthropic: "claude-sonnet-4-6",
+    },
+    routingMode: "balanced",
+    reasoningEffort: "medium",
+    thinkingMode: "off",
+    maxOutputTokens: 2048,
+    timeoutMs: 60_000,
+    webSearch: false,
+  },
+  aiFeatureOverrides: {
+    research: {
+      provider: "openai",
+      model: "gpt-5.6-sol",
+      consensusModels: {
+        openai: "gpt-5.6-sol",
+        anthropic: "claude-sonnet-4-6",
+      },
+      routingMode: "quality",
+      reasoningEffort: "high",
+      thinkingMode: "off",
+      maxOutputTokens: 4096,
+      timeoutMs: 90_000,
+      webSearch: true,
+    },
+  },
+  aiBudgets: {
+    maxRequestsPerMinute: 4,
+    maxConcurrency: 1,
+    dailyRequestLimit: 100,
+    dailyInputTokenLimit: 1_000_000,
+    dailyOutputTokenLimit: 250_000,
+    dailyCostCeilingUsd: 10,
+  },
+  anthropicManualModelIds: [],
   enablePublicData: false,
   theme: "dark",
   reducedMotion: false,
@@ -85,8 +178,54 @@ export async function getSettings(): Promise<AppSettings> {
     return structuredClone(DEFAULT_SETTINGS);
   }
   const result = await chrome.storage.local.get(APP_SETTINGS_KEY);
-  const parsed = appSettingsSchema.safeParse(result[APP_SETTINGS_KEY]);
-  return parsed.success ? parsed.data : structuredClone(DEFAULT_SETTINGS);
+  return migrateSettings(result[APP_SETTINGS_KEY]);
+}
+
+export function migrateSettings(value: unknown): AppSettings {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return structuredClone(DEFAULT_SETTINGS);
+  }
+  const legacy = value as Partial<AppSettings> & {
+    aiDefaults?: Partial<AiFeatureConfig>;
+  };
+  const defaults = structuredClone(DEFAULT_SETTINGS);
+  const candidate = {
+    ...defaults,
+    ...legacy,
+    settingsVersion: DEFAULT_SETTINGS.settingsVersion,
+    aiDefaults: {
+      ...defaults.aiDefaults,
+      ...(legacy.aiDefaults ?? {}),
+      consensusModels: {
+        ...defaults.aiDefaults.consensusModels,
+        ...(legacy.aiDefaults?.consensusModels ?? {}),
+      },
+    },
+    aiFeatureOverrides: {
+      ...defaults.aiFeatureOverrides,
+      ...Object.fromEntries(
+        Object.entries(legacy.aiFeatureOverrides ?? {}).map(
+          ([feature, config]) => [
+            feature,
+            {
+              ...defaults.aiDefaults,
+              ...config,
+              consensusModels: {
+                ...defaults.aiDefaults.consensusModels,
+                ...config.consensusModels,
+              },
+            },
+          ],
+        ),
+      ),
+    },
+    aiBudgets: {
+      ...defaults.aiBudgets,
+      ...(legacy.aiBudgets ?? {}),
+    },
+  };
+  const parsed = appSettingsSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : defaults;
 }
 
 export async function saveSettings(

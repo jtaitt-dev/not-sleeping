@@ -1,5 +1,8 @@
+import { AnthropicProvider } from "@/providers/ai/anthropic/anthropic-provider";
+import { AiProviderRegistry } from "@/providers/ai/provider-registry";
 import { OpenAIProvider } from "@/providers/openai/openai-provider";
 import { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
+import { SleeperPlayerContextProvider } from "@/providers/sleeper/sleeper-player-context-provider";
 import { OpenMeteoProvider } from "@/providers/weather/open-meteo-provider";
 import { db } from "@/services/cache/database";
 import { showLocalAlert } from "@/services/alerts/alert-service";
@@ -10,6 +13,8 @@ import {
 } from "@/services/context/live-draft-state";
 import { mergeTeamDefenseFallback } from "@/services/context/team-defense-fallback";
 import { AppError, normalizeError } from "@/services/errors/app-error";
+import { DecisionPipeline } from "@/services/decision-pipeline/decision-pipeline";
+import { PlayerResearchService } from "@/services/intelligence/player-research-service";
 import { LeagueService } from "@/services/league/league-service";
 import {
   validateMessage,
@@ -20,23 +25,38 @@ import { exportRedactedDiagnostics } from "@/services/security/diagnostics";
 import { logger } from "@/services/security/logger";
 import {
   getKeyStatus,
+  getAllProviderKeyStatuses,
+  readProviderKeyInServiceWorker,
   readKeyInServiceWorker,
   restrictSecretStorage,
 } from "@/services/storage/key-vault";
 import { getSettings } from "@/services/storage/settings";
-import type { LiveDraftState, Player, Position } from "@/types/domain";
+import type {
+  AiProviderId,
+  LiveDraftState,
+  Player,
+  Position,
+} from "@/types/domain";
 import type { SleeperRoster } from "@/schemas/sleeper";
 
 const CONTEXT_KEY = "currentSleeperContext";
 const DEMO_KEY = "demoMode";
 const ACTIVE_LEAGUE_KEY = "activeLeagueId";
 const sleeper = new SleeperProvider();
+const sleeperPlayerContext = new SleeperPlayerContextProvider(sleeper);
 const weather = new OpenMeteoProvider();
 const leagues = new LeagueService(sleeper);
 const openai = new OpenAIProvider({
   getKey: async () => (await readKeyInServiceWorker()).key,
   getSettings,
 });
+const anthropic = new AnthropicProvider({
+  getKey: async () => (await readProviderKeyInServiceWorker("anthropic")).key,
+  getSettings,
+});
+const aiProviders = new AiProviderRegistry([openai, anthropic]);
+const decisionPipeline = new DecisionPipeline(aiProviders, getSettings);
+const playerResearch = new PlayerResearchService(aiProviders, getSettings);
 const liveDraft = new LiveDraftController(loadLiveDraft);
 const activeRequests = new Map<string, AbortController>();
 
@@ -108,17 +128,20 @@ async function routeMessage(
 ): Promise<unknown> {
   switch (message.type) {
     case "GET_STATUS": {
-      const [context, keyStatus, players, metadata, demo] = await Promise.all([
-        chrome.storage.session.get(CONTEXT_KEY),
-        getKeyStatus(),
-        db.players.count(),
-        db.cacheMetadata.toArray(),
-        chrome.storage.local.get(DEMO_KEY),
-      ]);
+      const [context, keyStatus, providerKeyStatuses, players, metadata, demo] =
+        await Promise.all([
+          chrome.storage.session.get(CONTEXT_KEY),
+          getKeyStatus(),
+          getAllProviderKeyStatuses(),
+          db.players.count(),
+          db.cacheMetadata.toArray(),
+          chrome.storage.local.get(DEMO_KEY),
+        ]);
       return {
         extensionVersion: chrome.runtime.getManifest().version,
         context: context[CONTEXT_KEY] ?? null,
         keyStatus,
+        providerKeyStatuses,
         players,
         cacheMetadata: metadata,
         demo: demo[DEMO_KEY] ?? { enabled: false },
@@ -355,6 +378,11 @@ async function routeMessage(
         return player ? [{ player, count: trend.count }] : [];
       });
     }
+    case "GET_SLEEPER_PLAYER_CONTEXT":
+      return sleeperPlayerContext.get(
+        message.payload.playerId,
+        message.payload.force,
+      );
     case "GET_DRAFT": {
       const [draft, picks, tradedPicks] = await Promise.all([
         sleeper.getDraft(message.payload.draftId),
@@ -373,13 +401,15 @@ async function routeMessage(
       };
     }
     case "RESEARCH_PLAYER": {
-      await assertOpenAIPermission();
       const settings = await getSettings();
+      const researchProvider =
+        settings.aiFeatureOverrides.research?.provider ??
+        settings.aiDefaults.provider;
+      await assertProviderPermission(researchProvider);
       const controller = new AbortController();
       activeRequests.set(message.requestId, controller);
       try {
-        const result = await openai.researchPlayer({
-          model: settings.researchModel,
+        const result = await playerResearch.research({
           playerId: message.payload.playerId,
           playerName: message.payload.playerName,
           leagueContext: message.payload.format,
@@ -402,9 +432,21 @@ async function routeMessage(
     case "TEST_OPENAI":
       await assertOpenAIPermission();
       return openai.testKey();
+    case "TEST_AI_PROVIDER":
+      await assertProviderPermission(message.payload.provider);
+      return aiProviders.get(message.payload.provider).testKey();
     case "LIST_MODELS":
       await assertOpenAIPermission();
       return openai.listModels(message.payload.force);
+    case "LIST_AI_MODELS":
+      await assertProviderPermission(message.payload.provider);
+      return aiProviders
+        .get(message.payload.provider)
+        .listModels(message.payload.force);
+    case "START_REALTIME_DECISION":
+      return decisionPipeline.start(message.payload);
+    case "GET_REALTIME_DECISION":
+      return decisionPipeline.get(message.payload.jobId);
     case "CLEAR_CACHE":
       await clearCache(message.payload.scope);
       return { cleared: message.payload.scope };
@@ -536,17 +578,23 @@ async function optionalSleeper<T>(
 }
 
 async function assertOpenAIPermission(): Promise<void> {
+  return assertProviderPermission("openai");
+}
+
+async function assertProviderPermission(provider: AiProviderId): Promise<void> {
+  const origin =
+    provider === "anthropic"
+      ? "https://api.anthropic.com/*"
+      : "https://api.openai.com/*";
   const permitted = await chrome.permissions.contains({
-    origins: ["https://api.openai.com/*"],
+    origins: [origin],
   });
   if (!permitted) {
     throw new AppError({
       code: "PERMISSION_FAILURE",
-      message: "OpenAI access is disabled for this extension.",
-      safeDetail:
-        "Chrome has not granted the extension access to api.openai.com.",
-      suggestedAction:
-        "Open the extension details, allow api.openai.com access, and retry.",
+      message: `${provider === "anthropic" ? "Anthropic" : "OpenAI"} access is disabled for this extension.`,
+      safeDetail: `Chrome has not granted the extension access to ${new URL(origin).hostname}.`,
+      suggestedAction: `Open the extension details, allow ${new URL(origin).hostname} access, and retry.`,
       retryable: false,
     });
   }

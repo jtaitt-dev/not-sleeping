@@ -1,0 +1,234 @@
+[
+  {
+    "id": "draft-invalid-board-leader",
+    "feature": "draft",
+    "strategy": "balanced",
+    "riskTolerance": 0.5,
+    "currentPick": 5,
+    "picksUntilNext": 18,
+    "expectedRecommendationId": "qb-valid",
+    "candidates": [
+      {
+        "id": "rb-picked",
+        "label": "Picked RB",
+        "baseValue": 99,
+        "alreadySelected": true
+      },
+      {
+        "id": "qb-valid",
+        "label": "Valid QB",
+        "position": "QB",
+        "baseValue": 91,
+        "adp": 6
+      },
+      {
+        "id": "wr-valid",
+        "label": "Valid WR",
+        "position": "WR",
+        "baseValue": 72,
+        "adp": 19
+      }
+    ]
+  },
+  {
+    "id": "start-sit-inactive-exclusion",
+    "feature": "start_sit",
+    "strategy": "contender",
+    "riskTolerance": 0.35,
+    "expectedRecommendationId": "active-starter",
+    "candidates": [
+      {
+        "id": "inactive-star",
+        "label": "Inactive Star",
+        "baseValue": 98,
+        "eligible": false
+      },
+      {
+        "id": "active-starter",
+        "label": "Active Starter",
+        "baseValue": 78,
+        "projectedPoints": 78,
+        "risk": 0.2
+      },
+      {
+        "id": "bench-option",
+        "label": "Bench Option",
+        "baseValue": 61,
+        "projectedPoints": 61,
+        "risk": 0.3
+      }
+    ]
+  },
+  {
+    "id": "waiver-availability",
+    "feature": "waiver",
+    "strategy": "balanced",
+    "riskTolerance": 0.5,
+    "expectedRecommendationId": "free-agent",
+    "candidates": [
+      {
+        "id": "rostered",
+        "label": "Rostered Player",
+        "baseValue": 96,
+        "available": false
+      },
+      {
+        "id": "free-agent",
+        "label": "Free Agent",
+        "baseValue": 83,
+        "scarcity": 0.7
+      },
+      { "id": "backup", "label": "Backup", "baseValue": 58 }
+    ]
+  },
+  {
+    "id": "trade-legal-assets",
+    "feature": "trade",
+    "strategy": "rebuild",
+    "riskTolerance": 0.55,
+    "expectedRecommendationId": "young-asset",
+    "candidates": [
+      {
+        "id": "young-asset",
+        "label": "Young Asset",
+        "baseValue": 82,
+        "metadata": { "age": 22 }
+      },
+      {
+        "id": "veteran",
+        "label": "Veteran",
+        "baseValue": 80,
+        "metadata": { "age": 31 }
+      }
+    ]
+  },
+  {
+    "id": "rookie-eligibility",
+    "feature": "rookie",
+    "strategy": "rebuild",
+    "riskTolerance": 0.65,
+    "expectedRecommendationId": "rookie-a",
+    "candidates": [
+      {
+        "id": "veteran",
+        "label": "Veteran",
+        "baseValue": 100,
+        "eligible": false
+      },
+      {
+        "id": "rookie-a",
+        "label": "Rookie A",
+        "baseValue": 84,
+        "metadata": { "yearsExperience": 0 }
+      },
+      {
+        "id": "rookie-b",
+        "label": "Rookie B",
+        "baseValue": 70,
+        "metadata": { "yearsExperience": 0 }
+      }
+    ]
+  },
+  {
+    "id": "taxi-eligibility",
+    "feature": "taxi",
+    "strategy": "productive_struggle",
+    "riskTolerance": 0.6,
+    "expectedRecommendationId": "taxi-young",
+    "candidates": [
+      {
+        "id": "taxi-old",
+        "label": "Ineligible Veteran",
+        "baseValue": 95,
+        "eligible": false
+      },
+      {
+        "id": "taxi-young",
+        "label": "Taxi Prospect",
+        "baseValue": 79,
+        "metadata": { "yearsExperience": 1 }
+      }
+    ]
+  },
+  {
+    "id": "idp-role",
+    "feature": "idp",
+    "strategy": "balanced",
+    "riskTolerance": 0.45,
+    "expectedRecommendationId": "linebacker",
+    "candidates": [
+      {
+        "id": "linebacker",
+        "label": "Three-down LB",
+        "position": "LB",
+        "baseValue": 87,
+        "risk": 0.2
+      },
+      {
+        "id": "edge",
+        "label": "Rotational Edge",
+        "position": "EDGE",
+        "baseValue": 65,
+        "risk": 0.7
+      }
+    ]
+  },
+  {
+    "id": "auction-budget-legality",
+    "feature": "auction",
+    "strategy": "contender",
+    "riskTolerance": 0.4,
+    "expectedRecommendationId": "legal-nomination",
+    "candidates": [
+      {
+        "id": "over-budget",
+        "label": "Over Budget",
+        "baseValue": 99,
+        "eligible": false
+      },
+      { "id": "legal-nomination", "label": "Legal Nomination", "baseValue": 81 }
+    ]
+  },
+  {
+    "id": "chopped-survival",
+    "feature": "chopped",
+    "strategy": "contender",
+    "riskTolerance": 0.2,
+    "expectedRecommendationId": "safe-floor",
+    "candidates": [
+      {
+        "id": "safe-floor",
+        "label": "Safe Floor",
+        "baseValue": 82,
+        "risk": 0.1
+      },
+      {
+        "id": "volatile",
+        "label": "Volatile Ceiling",
+        "baseValue": 82,
+        "risk": 0.9
+      }
+    ]
+  },
+  {
+    "id": "keeper-youth-adjustment",
+    "feature": "keeper",
+    "strategy": "rebuild",
+    "riskTolerance": 0.5,
+    "expectedRecommendationId": "young-keeper",
+    "candidates": [
+      {
+        "id": "young-keeper",
+        "label": "Young Keeper",
+        "baseValue": 80,
+        "metadata": { "age": 22 }
+      },
+      {
+        "id": "old-keeper",
+        "label": "Older Keeper",
+        "baseValue": 80,
+        "metadata": { "age": 32 }
+      }
+    ]
+  }
+]

@@ -120,6 +120,7 @@ export const sleeperPlayerSchema = z
     years_exp: z.number().nullable().optional(),
     status: nullableString,
     injury_status: nullableString,
+    news_updated: z.union([z.number(), z.string()]).nullable().optional(),
     college: nullableString,
     birth_date: nullableString,
     search_rank: z.number().nullable().optional(),
