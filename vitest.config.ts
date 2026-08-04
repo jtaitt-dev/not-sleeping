@@ -26,13 +26,17 @@ export default defineConfig({
         "src/schemas/**/*.ts",
       ],
       exclude: ["**/*.d.ts"],
-      // Set just under the measured baseline (76.59/65.11/77.18/78.90 over
-      // 3,785 statements) so this ratchets upward without failing on variance.
+      // One point under the measured baseline (76.59/65.11/77.18/78.90 over
+      // 3,785 statements). v8 coverage is deterministic for a given
+      // code + test set, so the gap is not absorbing run-to-run variance — it
+      // only tolerates a small refactor. One point is roughly 38 statements;
+      // anything larger landing uncovered should fail here. Raise these
+      // alongside any change that improves the numbers.
       thresholds: {
-        statements: 75,
-        branches: 63,
-        functions: 75,
-        lines: 77,
+        statements: 76,
+        branches: 64,
+        functions: 76,
+        lines: 78,
       },
     },
   },
