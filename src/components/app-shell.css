@@ -4,15 +4,28 @@
   color: var(--text-primary);
 }
 
+/* Rows were sized by position, so the optional back header shifted every row
+   down one and handed the flexible row to the header rather than the workspace:
+   the header stretched and centred itself in the leftover height while the
+   screen it labels collapsed underneath. A column gives the free space to the
+   workspace no matter how many optional bars sit above it. */
 .app-shell {
-  display: grid;
+  display: flex;
   min-width: 300px;
   min-height: 100vh;
+  flex-direction: column;
   background: var(--background-canvas);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.app-shell > .active-workspace {
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .league-header {
+  /* Containing block for the league switcher popover, so it is bounded by the
+     panel rather than by the trigger's own column. */
+  position: relative;
   display: grid;
   min-height: 104px;
   align-items: center;

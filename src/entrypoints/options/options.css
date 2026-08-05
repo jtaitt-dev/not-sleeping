@@ -72,9 +72,13 @@ body {
   color: var(--text-primary);
 }
 
+/* Twelve entries make the list long enough that an inset rail alone stops
+   reading as "you are here"; the tint plus a full border carries it. */
 .options-sidebar nav button.active {
-  box-shadow: inset 2px 0 var(--accent-primary);
+  border: 1px solid rgb(0 206 184 / 45%);
+  background: rgb(0 206 184 / 10%);
   color: var(--accent-primary);
+  padding: 0 8px;
 }
 
 .options-sidebar nav svg {
@@ -688,4 +692,61 @@ body {
   color: var(--text-secondary);
   font-size: var(--font-label);
   line-height: 1.5;
+}
+
+/* A numbered path through first-run rather than a wall of equal settings. */
+.onboarding-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+  list-style: none;
+}
+
+.onboarding-steps > li {
+  display: grid;
+  align-items: start;
+  gap: 11px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-medium, 10px);
+  padding: 12px;
+  background: var(--surface-raised);
+}
+
+.onboarding-steps > li[data-done="true"] {
+  border-color: rgb(0 206 184 / 45%);
+}
+
+.onboarding-steps > li > div {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+}
+
+.onboarding-steps p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.step-mark {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+  font-size: 12px;
+  place-items: center;
+}
+
+.onboarding-steps > li[data-done="true"] .step-mark {
+  background: rgb(0 206 184 / 18%);
+  color: var(--accent-primary);
+}
+
+.step-mark svg {
+  width: 14px;
+  height: 14px;
 }

@@ -150,15 +150,112 @@
   padding-top: 7px;
 }
 
-.evidence-drawer {
+/* A sheet rather than an inline aside, so opening it does not reflow the
+   decision it is explaining out from under the reader's thumb. */
+.evidence-sheet-layer {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
   display: grid;
-  gap: 10px;
+  align-items: end;
+}
+
+.evidence-scrim {
+  position: absolute;
+  border: 0;
+  inset: 0;
+  background: rgb(0 0 0 / 55%);
+  cursor: pointer;
+}
+
+.evidence-drawer {
+  position: relative;
+  display: grid;
+  max-height: 82vh;
+  overflow-y: auto;
   border-color: color-mix(
     in srgb,
     var(--accent-primary) 28%,
     var(--border-default)
   );
-  padding: 12px;
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  padding: 8px 12px 12px;
+  gap: 10px;
+  animation: evidence-sheet-in 180ms ease-out;
+}
+
+@keyframes evidence-sheet-in {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evidence-drawer {
+    animation: none;
+  }
+}
+
+.sheet-grabber {
+  width: 34px;
+  height: 4px;
+  border-radius: 999px;
+  margin: 0 auto 2px;
+  background: var(--border-default);
+}
+
+/* The split is the point of the sheet: sourced on one side, estimated on the
+   other, each with its own heading rather than a lowercase nature label. */
+.evidence-group {
+  display: grid;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--surface-raised);
+}
+
+.evidence-group > header {
+  display: grid;
+  gap: 2px;
+}
+
+.evidence-group h3 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.evidence-group > header small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.evidence-group[data-tone="fact"] {
+  box-shadow: inset 3px 0 0 var(--positive, var(--accent-primary));
+}
+
+.evidence-group[data-tone="inference"] {
+  box-shadow: inset 3px 0 0 var(--research, var(--accent-primary));
+}
+
+.evidence-group > article {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+}
+
+.evidence-group > article > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.evidence-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .evidence-drawer > header,
@@ -624,7 +721,7 @@
   display: grid;
   align-items: center;
   gap: 8px;
-  grid-template-columns: 22px minmax(130px, 1fr) auto minmax(170px, auto);
+  grid-template-columns: 22px minmax(130px, 1fr) minmax(150px, 190px);
   padding: 10px;
 }
 
@@ -634,14 +731,12 @@
   text-align: center;
 }
 
-.waiver-values,
-.faab-band {
+.waiver-values {
   display: flex;
   gap: 8px;
 }
 
-.waiver-values > span,
-.faab-band > span {
+.waiver-values > span {
   display: grid;
   min-width: 38px;
 }
@@ -654,8 +749,65 @@
   font-size: 11px;
 }
 
-.faab-band strong {
-  font-size: 11px;
+/* One number to act on, and a track showing the room either side of it. */
+.faab-band {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.faab-bid {
+  display: grid;
+  margin: 0;
+  gap: 1px;
+}
+
+.faab-bid strong {
+  color: var(--accent-primary);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.faab-range {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.faab-track {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+}
+
+.faab-reasonable {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary) 42%, transparent);
+}
+
+.faab-tick {
+  position: absolute;
+  top: -2px;
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  margin-left: -1px;
+  background: var(--accent-primary);
+}
+
+.faab-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .asset-picker {

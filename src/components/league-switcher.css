@@ -1,5 +1,7 @@
+/* The popover is anchored to the header, not to this trigger. The trigger sits
+   in the middle column, so a 370px panel hung from its right edge ran off the
+   left of a 400px panel and clipped the search field and the Sync control. */
 .league-switcher {
-  position: relative;
   min-width: 0;
 }
 
@@ -56,10 +58,10 @@
 .league-switcher-popover {
   position: absolute;
   z-index: 30;
-  top: calc(100% + 8px);
-  right: 0;
+  top: calc(100% - 4px);
+  right: 10px;
   display: grid;
-  width: min(370px, calc(100vw - 16px));
+  width: min(370px, calc(100vw - 20px));
   max-height: min(650px, calc(100vh - 130px));
   overflow: hidden;
   border: 1px solid var(--border-strong);

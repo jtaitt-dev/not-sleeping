@@ -85,11 +85,53 @@ test("groups More and never strands a sub-screen", async () => {
   await expect(page.getByRole("heading", { name: "More" })).toBeVisible();
 });
 
+/**
+ * "Advanced" used to be where the cache controls, the log level and the
+ * launcher position ended up because none of them named a home. Each section
+ * now stands for one subject, so this walks every one of them to prove none
+ * became a dead nav entry during the split.
+ */
+test("settings opens on getting started and every section renders", async () => {
+  const { page } = loaded;
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto(`chrome-extension://${loaded.extensionId}/options.html`);
+  await expect(
+    page.getByRole("heading", { name: "Getting started", level: 1 }),
+  ).toBeVisible();
+
+  const sections = [
+    "Getting started",
+    "Sleeper account",
+    "AI provider key",
+    "Draft defaults",
+    "Analysis",
+    "Data & cache",
+    "Import & export",
+    "Appearance",
+    "Accessibility",
+    "Diagnostics",
+    "Privacy",
+    "About",
+  ];
+  for (const section of sections) {
+    await page.getByRole("button", { name: section, exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: section, level: 1 }),
+    ).toBeVisible();
+    // A section that renders no panel would leave the body empty.
+    await expect(
+      page.locator(".options-panel .section-header").first(),
+    ).toBeVisible();
+  }
+});
+
 test("exposes provider-neutral settings without requiring a key", async () => {
   const { page } = loaded;
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.goto(`chrome-extension://${loaded.extensionId}/options.html`);
-  await page.getByRole("button", { name: "AI providers", exact: true }).click();
+  await page
+    .getByRole("button", { name: "AI provider key", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Bring your own AI provider key" }),
   ).toBeVisible();
