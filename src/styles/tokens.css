@@ -1,44 +1,108 @@
+/**
+ * Sleeper-native design tokens.
+ *
+ * Two rules drive this file and explain most of what looks unusual:
+ *
+ * 1. Depth comes from stepping lightness, never from drawing a border. The
+ *    previous near-black fills plus white hairlines were the single biggest
+ *    reason the panel read as a different product to Sleeper.
+ * 2. Surfaces and the tokens drawn on them must move together. Lightening the
+ *    ladder without re-deriving the muted and semantic tones puts a dozen
+ *    pairs under WCAG AA at once: #7f8a9e passes on #070b14 and fails on
+ *    #293142.
+ *
+ * There are two surface families here, not one — light text on the dark
+ * ladder, and dark ink on pastel fills (draft-board cells, accent buttons).
+ * Any contrast check must cover both. Never apply alpha to ink in the second
+ * family: alpha on dark-on-light always drags the result toward the fill.
+ */
 :root {
   color-scheme: dark;
-  --background-canvas: #070b14;
-  --background-sidebar: #0b101c;
-  --background-surface: #111827;
-  --background-surface-hover: #172033;
-  --background-surface-active: #1c2940;
-  --background-elevated: #182235;
-  --background-overlay: rgb(2 6 16 / 78%);
 
-  --text-primary: #f7f9fc;
-  --text-secondary: #c0c8d6;
-  --text-muted: #7f8a9e;
-  --text-disabled: #515b6d;
-  --text-inverse: #061016;
+  /* Surface ladder, sampled from sleeper.com rather than invented. */
+  --surface-page: #181c28;
+  --surface-alt: #212635;
+  --surface-card: #293142;
+  --surface-raised: #2f394a;
+  --surface-hover: #333d50;
+  --surface-draftboard: #030616;
+  --surface-scrim: rgb(4 7 18 / 72%);
 
-  --border-subtle: rgb(255 255 255 / 6%);
-  --border-default: rgb(255 255 255 / 10%);
-  --border-strong: rgb(255 255 255 / 18%);
-  --border-focus: #22e6c3;
+  /* Zebra striping darkens. Lightening it composites to #212a46 and pulls
+     every alternate row under AA. */
+  --surface-zebra: rgb(0 0 0 / 18%);
 
-  --accent-primary: #22e6c3;
-  --accent-primary-hover: #4aefd1;
-  --accent-primary-active: #17c9aa;
-  --accent-primary-muted: rgb(34 230 195 / 14%);
+  /* Text ramp re-derived against the lightened ladder. */
+  --text-primary: #ffffff;
+  --text-secondary: #c3c8d4;
+  --text-muted: #acaeb4;
+  --text-disabled: #7c8290;
+  --text-inverse: #06231f;
 
-  --status-success: #34d399;
-  --status-warning: #fbbf24;
-  --status-danger: #fb7185;
-  --status-info: #60a5fa;
+  /* Teal means deterministic: local, offline-capable, always available. */
+  --accent-primary: #00ceb8;
+  --accent-primary-hover: #25e0cb;
+  --accent-primary-active: #00b5a2;
+  --accent-primary-muted: rgb(0 206 184 / 14%);
+  --accent-ink: #06231f;
 
-  --position-qb: #f472b6;
-  --position-rb: #2dd4bf;
-  --position-wr: #38bdf8;
-  --position-te: #f59e0b;
-  --position-flex: #a78bfa;
-  --position-k: #c084fc;
-  --position-def: #4ade80;
+  /* Violet means research-adjusted. Always signed, always bounded, never
+     shown without the local figure beside it. */
+  --research: #cf91ea;
+  --research-tint: rgb(189 102 226 / 12%);
+
+  --status-success: #6ddfb6;
+  --status-warning: #fcc740;
+  --status-danger: #fc8c9c;
+  --status-danger-strong: #fca3b0;
+  --status-info: #99c5fc;
+
+  --onclock: #d5b101;
+  --onclock-ink: #2b2200;
+
+  /* Positions carry two values. Chips draw the -text colour on an 18% tint of
+     the fill, so the text variants are lighter than Sleeper's own: an 18% tint
+     over #333d50 is far brighter than over #181c28, and Sleeper's values fail
+     AA inside this panel. Do not "correct" them back. */
+  --position-qb: #dd3349;
+  --position-qb-text: #ee99a4;
+  --position-rb: #73c3a6;
+  --position-rb-text: #97d3bd;
+  --position-wr: #58a7f4;
+  --position-wr-text: #94c7f8;
+  --position-te: #e8a13a;
+  --position-te-text: #eebb71;
+  --position-flex: #bd66e2;
+  --position-flex-text: #d9a8ee;
+  --position-k: #bd66e2;
+  --position-k-text: #d9a8ee;
+  --position-def: #8e9199;
+  --position-def-text: #bcbec3;
   --position-dl: #fb923c;
+  --position-dl-text: #fcb275;
   --position-lb: #facc15;
+  --position-lb-text: #facc15;
   --position-db: #818cf8;
+  --position-db-text: #b3bafb;
+  --position-tint: 18%;
+
+  /* Draft-board cells: the inverted family. Solid ink only. */
+  --cell-rb: #73c3a6;
+  --cell-rb-ink: #0d2a20;
+  --cell-wr: #46a2ca;
+  --cell-wr-ink: #08222e;
+  --cell-empty: #212635;
+
+  /* Type scale. 11px is a hard floor for labels — the shipped UI ran on 7, 8,
+     9 and 10px, which is the "text looks off" defect this redesign starts
+     from. Numeric columns use tabular-nums. */
+  --font-label: 11px;
+  --font-body: 13px;
+  --font-name: 14px;
+  --font-title: 16px;
+  --font-metric: 18px;
+  --font-card-title: 22px;
+  --font-hero: 40px;
 
   --radius-small: 6px;
   --radius-medium: 10px;
@@ -60,4 +124,28 @@
   --duration-fast: 100ms;
   --duration-normal: 180ms;
   --duration-slow: 260ms;
+
+  /* ---------------------------------------------------------------------
+   * Compatibility aliases.
+   *
+   * Every existing stylesheet references these names. Re-pointing them at the
+   * ladder above moves all 28 routes onto the Sleeper palette in one step,
+   * instead of requiring a simultaneous rewrite of ten stylesheets. New rules
+   * should use the ladder names directly; these can retire as callers migrate.
+   * ------------------------------------------------------------------- */
+  --background-canvas: var(--surface-page);
+  --background-sidebar: var(--surface-page);
+  --background-surface: var(--surface-card);
+  --background-surface-hover: var(--surface-hover);
+  --background-surface-active: var(--surface-raised);
+  --background-elevated: var(--surface-raised);
+  --background-overlay: var(--surface-scrim);
+
+  /* Borders step down to near-nothing: the ladder carries depth now. Keeping
+     them defined rather than deleted avoids collapsing layouts that use a
+     border for structural rhythm. */
+  --border-subtle: transparent;
+  --border-default: rgb(255 255 255 / 5%);
+  --border-strong: rgb(255 255 255 / 11%);
+  --border-focus: var(--accent-primary);
 }

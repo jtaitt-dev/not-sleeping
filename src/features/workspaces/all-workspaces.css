@@ -40,7 +40,7 @@
   border-radius: var(--radius-small);
   background: var(--background-sidebar);
   color: var(--text-primary);
-  font-size: 10px;
+  font-size: 12px;
   padding: 0 7px;
 }
 
@@ -57,7 +57,7 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 9px;
+  font-size: 11px;
   padding: 0 8px;
 }
 
@@ -120,13 +120,13 @@
 }
 
 .result-list strong {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .result-list small,
 .player-profile header p {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .result-list svg {
@@ -194,13 +194,13 @@
 
 .profile-facts dt {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
 .profile-facts dd {
   margin: 0;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -215,7 +215,7 @@
 
 .research-card p {
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .research-card .button {
@@ -237,7 +237,7 @@
 .insight > span,
 .insight small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .insight strong {
@@ -306,7 +306,7 @@
 
 .slot-label {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 750;
 }
 
@@ -315,17 +315,17 @@
 }
 
 .roster-list strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .roster-list small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .roster-list > div > b {
   color: var(--accent-primary);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .needs-card {
@@ -346,12 +346,12 @@
 
 .need-meter b,
 .need-meter strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .need-meter small {
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
 }
 
 .need-meter > span:nth-child(2) {
@@ -384,7 +384,7 @@
 }
 
 .callout p {
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .strategy-switch {
@@ -408,7 +408,7 @@
   background: var(--background-sidebar);
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 8px;
+  font-size: 11px;
   padding: 0 8px;
   text-transform: capitalize;
 }
@@ -444,7 +444,7 @@
 .horizon-chart > div > b {
   align-self: center;
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .horizon-chart > div > span {
@@ -475,7 +475,7 @@
   top: -13px;
   right: 0;
   left: 0;
-  font-size: 7px;
+  font-size: 11px;
   font-style: normal;
   text-align: center;
 }
@@ -487,7 +487,7 @@
   left: 28px;
   display: grid;
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
   grid-template-columns: repeat(3, 1fr);
   text-align: center;
 }
@@ -509,7 +509,7 @@
 
 .timeline article > span {
   color: var(--accent-primary);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 750;
   text-transform: uppercase;
 }
@@ -522,7 +522,7 @@
 .timeline p,
 .about-grid p {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .trade-builder {
@@ -559,7 +559,7 @@
 
 .trade-asset strong {
   overflow: hidden;
-  font-size: 9px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -567,7 +567,7 @@
 .trade-asset small,
 .mini-empty {
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
 }
 
 .trade-asset .icon-button {
@@ -579,7 +579,7 @@
   display: grid;
   justify-items: center;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .trade-swap svg {
@@ -610,7 +610,7 @@
 
 .trade-balance small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .trade-balance > div {
@@ -631,7 +631,7 @@
 .trade-result > p,
 .trade-result li {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .trade-result > p {
@@ -671,7 +671,7 @@
 .watch-card label,
 .watch-card footer {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .watch-card label {
@@ -686,7 +686,7 @@
   border-radius: var(--radius-small);
   background: var(--background-sidebar);
   color: var(--text-secondary);
-  font-size: 8px;
+  font-size: 11px;
   padding: 6px;
 }
 
@@ -701,7 +701,7 @@
 
 .compare-picker span {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .compare-grid {
@@ -736,7 +736,7 @@
 
 .compare-player > p {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .compare-player dl {
@@ -749,7 +749,7 @@
   align-items: center;
   justify-content: space-between;
   border-top: 1px solid var(--border-subtle);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .compare-player dd {
@@ -785,13 +785,13 @@
   border-bottom: 1px solid var(--border-subtle);
   grid-template-columns: 30px minmax(150px, 1fr) 62px 52px 48px;
   padding: 0 9px;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .ranking-table > div:first-child {
   min-height: 27px;
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
@@ -814,7 +814,7 @@
 
 .ranking-table small {
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
 }
 
 .ranking-table > div > strong {
@@ -848,7 +848,7 @@
 .import-result p {
   max-width: 270px;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .source-row {
@@ -879,12 +879,12 @@
 }
 
 .source-row strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .source-row small {
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
 }
 
 .import-result {
@@ -920,7 +920,7 @@
   display: flex;
   justify-content: space-between;
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
   padding-top: 4px;
 }
 
@@ -936,7 +936,7 @@
   border-bottom: 1px solid var(--border-subtle);
   grid-template-columns: 1fr 80px 78px;
   padding: 0 9px;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .usage-table > div:last-child {
@@ -950,7 +950,7 @@
 .usage-table small,
 .usage-table > div > span:nth-child(2) {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .settings-sections {
@@ -995,7 +995,7 @@
 .settings-card > p,
 .settings-card li {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .settings-card .button {
@@ -1018,7 +1018,7 @@
   min-width: 0;
   gap: 3px;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1049,12 +1049,12 @@
 }
 
 .toggle-row strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .toggle-row small {
   color: var(--text-muted);
-  font-size: 7px;
+  font-size: 11px;
 }
 
 .toggle-row input {
@@ -1107,7 +1107,7 @@
 .alert-type-grid .button {
   min-height: 26px;
   padding: 0 7px;
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .freshness-settings-card {
@@ -1125,7 +1125,7 @@
   min-width: 0;
   gap: 3px;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .freshness-setting-grid input {
@@ -1148,7 +1148,7 @@
   gap: 7px;
   border-top: 1px solid var(--border-subtle);
   grid-template-columns: 18px 1fr auto;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .diagnostic-list svg {
@@ -1178,7 +1178,7 @@
 
 .redaction-card p {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .about-hero {
@@ -1200,7 +1200,7 @@
 .about-hero > div > p {
   max-width: 580px;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .about-hero > div > div {
@@ -1208,7 +1208,7 @@
   align-items: center;
   gap: 12px;
   margin-top: 5px;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .button-link {
@@ -1241,7 +1241,7 @@
 
 .acknowledgements p {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 @media (max-width: 470px) {
