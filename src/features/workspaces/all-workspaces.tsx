@@ -23,6 +23,7 @@ import {
   Star,
   Trash2,
   Upload,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -1064,6 +1065,8 @@ export function SettingsWorkspace() {
     leagues: {},
   });
   const [alertsPermitted, setAlertsPermitted] = useState(false);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountNotice, setAccountNotice] = useState("");
   const [sourcePreferences, setSourcePreferences] = useState<SourcePreferences>(
     DEFAULT_SOURCE_PREFERENCES,
   );
@@ -1179,6 +1182,34 @@ export function SettingsWorkspace() {
     void saveAlertSettings(updated).then(setAlertSettings);
   }
 
+  async function connectSleeperAccount() {
+    const username = settings.sleeperUsername.trim();
+    if (username.length === 0) return;
+    setAccountBusy(true);
+    setAccountNotice("");
+    setSaveError("");
+    try {
+      const user = await requestRuntime<{
+        user_id: string;
+        username?: string | null;
+      }>({ type: "RESOLVE_USER", payload: { username } });
+      setSettings(await getSettings());
+      // sync() also selects a league, so the switcher is usable immediately
+      // rather than merely populated.
+      await useLeagueStore.getState().sync();
+      const count = useLeagueStore.getState().catalog.length;
+      setAccountNotice(
+        `Connected as ${user.username ?? username} · ${count} ${
+          count === 1 ? "league" : "leagues"
+        } loaded.`,
+      );
+    } catch (error) {
+      setSaveError(safeRuntimeError(error).message);
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
   function updateFreshness(domain: FreshnessDomain, seconds: number) {
     const updated = {
       ...freshnessOverrides,
@@ -1194,6 +1225,50 @@ export function SettingsWorkspace() {
       subtitle="Quick controls for this side panel. Security-sensitive key setup opens separately."
     >
       <div className="settings-sections">
+        <section className="surface settings-card">
+          <header>
+            <UserRound />
+            <div>
+              <h2>Sleeper account</h2>
+              <p>Public username only. No password or Sleeper token.</p>
+            </div>
+            <StatusBadge tone={settings.sleeperUserId ? "success" : "warning"}>
+              {settings.sleeperUserId ? "Connected" : "Not connected"}
+            </StatusBadge>
+          </header>
+          <p>
+            {settings.sleeperUserId
+              ? "Every league across all seasons is loaded. Use the switcher at the top of the panel to move between them."
+              : "Workspaces show demo data until an account is connected. Connecting loads every league across all seasons."}
+          </p>
+          <label className="capability-override-field">
+            <span>Sleeper username</span>
+            <input
+              type="text"
+              value={settings.sleeperUsername}
+              maxLength={64}
+              placeholder="Your Sleeper username"
+              onChange={(event) =>
+                updateSetting("sleeperUsername", event.target.value)
+              }
+            />
+          </label>
+          <Button
+            variant="primary"
+            size="small"
+            disabled={
+              accountBusy || settings.sleeperUsername.trim().length === 0
+            }
+            onClick={() => void connectSleeperAccount()}
+          >
+            {accountBusy
+              ? "Connecting…"
+              : settings.sleeperUserId
+                ? "Reconnect and resync leagues"
+                : "Connect and load my leagues"}
+          </Button>
+          {accountNotice ? <p>{accountNotice}</p> : null}
+        </section>
         <section className="surface settings-card">
           <header>
             <KeyRound />
