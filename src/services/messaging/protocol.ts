@@ -101,11 +101,15 @@ export const messageSchema = z.discriminatedUnion("type", [
     type: z.literal("SYNC_LEAGUES"),
     payload: z.object({
       userId: id,
+      // Both optional: the worker derives them from Sleeper's live NFL state.
+      // Callers can't know the real season during the offseason, when the
+      // calendar year has already rolled past the active NFL season.
       seasons: z
         .array(z.string().regex(/^\d{4}$/))
         .min(1)
-        .max(8),
-      week: z.number().int().min(0).max(30),
+        .max(8)
+        .optional(),
+      week: z.number().int().min(0).max(30).optional(),
     }),
   }),
   z.object({

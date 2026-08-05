@@ -293,6 +293,49 @@ function OptionsApp() {
     }
   }
 
+  async function connectSleeperAccount() {
+    const username = settings.sleeperUsername.trim();
+    if (username.length === 0) {
+      setError("Enter your Sleeper username first.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const user = await requestRuntime<{
+        user_id: string;
+        username?: string | null;
+      }>({ type: "RESOLVE_USER", payload: { username } });
+      // The worker persists the resolved id. Mirror only the two account
+      // fields so any other unsaved edit on this page survives.
+      const stored = await getSettings();
+      setSettings((current) => ({
+        ...current,
+        sleeperUsername: stored.sleeperUsername,
+        sleeperUserId: stored.sleeperUserId,
+      }));
+      // Populate the catalog immediately — a resolved id with an empty league
+      // list still looks broken to the user.
+      const catalog = await requestRuntime<unknown[]>({
+        type: "SYNC_LEAGUES",
+        payload: { userId: user.user_id },
+      });
+      setNotice(
+        `Connected as ${user.username ?? username} · ${catalog.length} ${
+          catalog.length === 1 ? "league" : "leagues"
+        } found across all seasons.`,
+      );
+    } catch (caught) {
+      const safe = safeRuntimeError(caught);
+      setError(
+        `${safe.message} ${safe.safeDetail} ${safe.suggestedAction} (${safe.diagnosticCode})`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refreshModels() {
     setBusy(true);
     setError("");
@@ -530,6 +573,33 @@ function OptionsApp() {
                   />
                 </Field>
               </div>
+              <div className="key-actions">
+                <Button
+                  variant="primary"
+                  icon={<UserRound />}
+                  onClick={() => void connectSleeperAccount()}
+                  disabled={
+                    busy || settings.sleeperUsername.trim().length === 0
+                  }
+                >
+                  {settings.sleeperUserId
+                    ? "Reconnect and resync leagues"
+                    : "Connect account and load leagues"}
+                </Button>
+              </div>
+              {settings.sleeperUserId ? null : (
+                <div className="security-callout">
+                  <UserRound />
+                  <div>
+                    <strong>No Sleeper account connected</strong>
+                    <p>
+                      League workspaces fall back to demo data until an account
+                      is connected. Enter the public username above and connect
+                      to load every league across all seasons.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="security-callout">
                 <Database />
                 <div>
