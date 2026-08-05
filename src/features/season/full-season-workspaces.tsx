@@ -2359,7 +2359,7 @@ function NoLeagueWorkspace({ title }: { title: string }) {
     >
       <EmptyState
         title="No league selected"
-        detail="Connect a Sleeper username in Settings, then sync and select a league."
+        detail="Open the Settings workspace in this panel, connect your Sleeper username, then pick a league here."
       />
       <Button variant="primary" onClick={() => open(true)}>
         Choose league

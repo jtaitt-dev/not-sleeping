@@ -18,6 +18,12 @@ semantic versioning.
 
 - Added prompt-injection rejection, source URL classification, cross-league epoch isolation, notification privacy defaults, and bounded uncited-AI effects.
 
+## [0.4.1] - 2026-08-05
+
+### Fixed
+
+- The Sleeper account connect control is now in the side panel's Settings workspace, where people look for it. It previously existed only on the extension options page in a separate tab, while the league empty state told users to "connect a Sleeper username in Settings" — the panel workspace that had no such control.
+
 ## [0.4.0] - 2026-08-05
 
 ### Fixed
@@ -62,6 +68,7 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.3.0...v0.4.0
 [0.1.0]: https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.1.0

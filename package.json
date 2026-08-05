@@ -1,6 +1,6 @@
 {
   "name": "not-sleeping",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Independent, open-source fantasy football intelligence companion for Sleeper.",
   "type": "module",
   "private": true,
