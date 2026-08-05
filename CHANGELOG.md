@@ -18,6 +18,26 @@ semantic versioning.
 
 - Added prompt-injection rejection, source URL classification, cross-league epoch isolation, notification privacy defaults, and bounded uncited-AI effects.
 
+## [0.6.0] - 2026-08-05
+
+### Changed
+
+- A waiver row states one bid instead of six numbers. The spread becomes the track underneath it: the band runs conservative to aggressive with a tick at the expected winning bid, and roster fit and priority move into the footer sentence so exactly one figure in the row is bold.
+- The evidence drawer is a bottom sheet split into what a source reported and what the model worked out. The two used to be interleaved with the distinction printed as a lowercase word beside the source chip, so a projection read exactly like a confirmed report.
+- Settings has twelve sections, each naming one subject. Seven broad tabs were why "Advanced" had collected the cache controls, the diagnostic log level and the launcher position — none of them belonged there, they just had nowhere else to go.
+
+### Fixed
+
+- Screens reached through More no longer open with the back header stretched across empty space and the screen itself collapsed below it. The shell sized its rows by position, so adding the header shifted every row down one and handed the flexible row to the header rather than to the workspace. All 21 More-level destinations were affected.
+- The league switcher opens fully inside the panel. It hung a 370px popover off a trigger sitting in the header's middle column, so at the panel's real width it ran past the left edge and clipped the search field and the Sync control.
+- "Clear cache" clears the cache. The control was rendered without a handler and silently did nothing, although the service worker had implemented and handled `CLEAR_CACHE` all along.
+- The visual baseline follows the settings nav rename instead of failing on CI while the rest of the browser suite passed, and no longer compares against a screenshot two versions stale — a whole settings restructure had stayed inside the diff tolerance unnoticed.
+
+### Added
+
+- A redacted diagnostics export on the settings page, wired to the `EXPORT_DIAGNOSTICS` message that previously had only one caller in the side panel.
+- Tests covering the pieces that carry meaning on their own: the four FAAB bids never inverting across a 72-case sweep, the range bar's band and tick geometry including the degenerate all-equal case, every `EvidenceNature` landing on a deliberate side of the fact/estimate split, and a walk through all twelve settings sections.
+
 ## [0.5.0] - 2026-08-05
 
 ### Changed
@@ -93,7 +113,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.3.0...v0.4.0
