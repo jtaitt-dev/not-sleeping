@@ -98,8 +98,10 @@ export function observeSleeperNavigation(
   };
   window.addEventListener("popstate", emit);
   window.addEventListener("hashchange", emit);
-  const navigation = (window as Window & { navigation?: EventTarget })
-    .navigation;
+  // Deliberately not intersected with Window: newer lib.dom types declare
+  // navigation as always present, which would make the runtime guard below
+  // look redundant even though content scripts run in arbitrary page contexts.
+  const navigation = (window as { navigation?: EventTarget }).navigation;
   navigation?.addEventListener("navigatesuccess", emit);
   const fallback = window.setInterval(() => {
     if (document.visibilityState === "visible") emit();
