@@ -18,6 +18,31 @@ semantic versioning.
 
 - Added prompt-injection rejection, source URL classification, cross-league epoch isolation, notification privacy defaults, and bounded uncited-AI effects.
 
+## [0.5.0] - 2026-08-05
+
+### Changed
+
+- Adopted the Sleeper surface ladder. Depth now comes from stepped lightness rather than near-black fills plus white hairlines, which was the main reason the panel read as a different product.
+- Raised every label to an 11px floor. 154 declarations sat below it — 12 at 7px, 54 at 8px, 53 at 9px and 35 at 10px — against only 16 at 11px.
+- Replaced seven underline tabs with six filled pills (Today / Draft / Team / Players / Trade / More), dropping to five at 320px.
+- Grouped More into five sections with search and per-entry descriptions, replacing one flat list of 21 destinations.
+- Draft recommendations state Local, Research and Contextual separately instead of a single blended score.
+- Tightened coverage thresholds to one point under the measured baseline.
+
+### Added
+
+- A collapsible "How this score was built" table listing every factor with its own note, so a recommendation can be audited rather than taken on trust. The research row is tinted and never rendered without the local figure beside it.
+- Per-factor contributions on deterministic decisions, with a test pinning the parts to the whole.
+- A back header on every screen reached through More, which keeps More lit in the nav, so no destination can strand you.
+- An explicit risk callout before a key can be remembered on the device.
+
+### Fixed
+
+- Starter slots respect position eligibility. The list zipped a score-ordered roster against the slot array by index, so the top-scoring player was labelled QB whatever they played and a quarterback could land in a running-back slot.
+- Start & Sit collapses unfilled slots into one collective state instead of repeating an identical empty row until it fills the panel.
+- Trade rows use fixed outer tracks, so the player name no longer wraps under its own meta line.
+- Position chips draw a lightened ink on a tint of their fill rather than the fill colour itself, which measured 2.68:1 across 310 nodes.
+
 ## [0.4.1] - 2026-08-05
 
 ### Fixed
@@ -68,7 +93,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.3.0...v0.4.0
 [0.1.0]: https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.1.0
