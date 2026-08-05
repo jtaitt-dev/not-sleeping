@@ -33,12 +33,26 @@ export type DecisionInput = {
   >;
 };
 
+/**
+ * One addend of a deterministic score. The engine already computes these
+ * separately and then sums them; surfacing them is what makes a recommendation
+ * auditable rather than a number with a sentence attached.
+ */
+export type ScoreFactor = {
+  key: "base" | "roster_fit" | "scarcity" | "risk" | "strategy" | "urgency";
+  label: string;
+  /** Signed contribution in score points. `base` carries the starting value. */
+  impact: number;
+  note: string;
+};
+
 export type RankedDecisionCandidate = DecisionCandidate & {
   score: number;
   confidence: number;
   nextPickSurvival: number;
   legal: boolean;
   reasons: string[];
+  factors: ScoreFactor[];
 };
 
 export type DeterministicDecision = {

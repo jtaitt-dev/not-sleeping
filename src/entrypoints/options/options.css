@@ -657,3 +657,35 @@ body {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Amber, not the danger rose: this is a risk to acknowledge before proceeding,
+   not an error that has already happened. */
+.risk-callout {
+  display: grid;
+  align-items: start;
+  padding: 11px 12px;
+  border-radius: var(--radius-medium);
+  background: color-mix(in srgb, var(--status-warning) 12%, transparent);
+  gap: 10px;
+  grid-template-columns: 18px 1fr;
+}
+
+.risk-callout svg {
+  width: 18px;
+  height: 18px;
+  color: var(--status-warning);
+}
+
+.risk-callout strong {
+  display: block;
+  color: var(--status-warning);
+  font-size: var(--font-body);
+  font-weight: 800;
+}
+
+.risk-callout p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-label);
+  line-height: 1.5;
+}
