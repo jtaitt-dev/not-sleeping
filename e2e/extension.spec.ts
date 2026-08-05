@@ -15,25 +15,74 @@ test.afterAll(async () => {
 
 test("loads the MV3 extension and navigates every primary workspace", async () => {
   const { page } = loaded;
+  const primaryNav = page.getByRole("navigation", { name: "Primary" });
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+
+  // Six pills is the contract at 400px; a seventh needs 533px.
+  await expect(primaryNav.getByRole("link")).toHaveCount(6);
+
   for (const workspace of [
     { link: "Draft", heading: "Best contextual fits" },
-    { link: "Start/Sit", heading: "Start & Sit" },
-    { link: "Waivers", heading: "Waiver Wire" },
+    { link: "Team", heading: "Team" },
+    { link: "Players", heading: "Players" },
     { link: "Trade", heading: "Trade Center" },
-    { link: "Dynasty", heading: "Dynasty Center" },
     { link: "More", heading: "More" },
   ]) {
-    await page.getByRole("link", { name: workspace.link, exact: true }).click();
+    await primaryNav
+      .getByRole("link", { name: workspace.link, exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { name: workspace.heading, exact: true }),
     ).toBeVisible();
   }
+
   await expect(page.getByRole("link", { name: "Labs" })).toHaveCount(0);
   await page.goto(
     `chrome-extension://${loaded.extensionId}/sidepanel.html#/labs`,
   );
   await expect(page).toHaveURL(/#\/today$/);
+});
+
+test("groups More and never strands a sub-screen", async () => {
+  const { page } = loaded;
+  const primaryNav = page.getByRole("navigation", { name: "Primary" });
+  await primaryNav.getByRole("link", { name: "More", exact: true }).click();
+
+  // Grouped, not one flat list of 21 destinations.
+  for (const group of [
+    "This week",
+    "Roster",
+    "Drafts",
+    "Leagues & data",
+    "App",
+  ]) {
+    await expect(page.getByRole("navigation", { name: group })).toBeVisible();
+  }
+
+  // Search narrows the index.
+  await page.getByPlaceholder("Search tools").fill("taxi");
+  await expect(page.getByRole("navigation", { name: "Roster" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "This week" })).toHaveCount(
+    0,
+  );
+  await page.getByPlaceholder("Search tools").fill("");
+
+  // A More-level screen keeps More lit and always offers a way back.
+  await page
+    .getByRole("navigation", { name: "Roster" })
+    .getByRole("link", { name: /Taxi Squad/ })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Taxi Squad", exact: true }),
+  ).toBeVisible();
+  await expect(
+    primaryNav.getByRole("link", { name: "More", exact: true }),
+  ).toHaveClass(/active/);
+
+  const back = page.getByRole("button", { name: "Back to More" });
+  await expect(back).toBeVisible();
+  await back.click();
+  await expect(page.getByRole("heading", { name: "More" })).toBeVisible();
 });
 
 test("exposes provider-neutral settings without requiring a key", async () => {
