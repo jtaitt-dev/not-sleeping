@@ -279,51 +279,80 @@ export function StartSitWorkspace() {
             {context.lineupType === "best_ball" ? "Status" : "Actions"}
           </span>
         </header>
-        {plan.assignments.map((assignment) => {
-          const player = players.find(
-            (candidate) => candidate.playerId === assignment.playerId,
-          );
-          return (
-            <div className="lineup-row" key={assignment.slotIndex}>
-              <PositionBadge position={assignment.slot as Player["position"]} />
-              <span>
-                <strong>{player?.name ?? "Empty slot"}</strong>
-                <small>
-                  {player
-                    ? `${Math.round(player.model.confidence * 100)}% confidence · ${lateNewsAction(player)}`
-                    : "No legal assignment"}
-                </small>
-              </span>
-              <strong className="tabular">
-                {player ? player.model.expectedPoints.toFixed(1) : "—"}
-              </strong>
-              <span className="row-actions">
-                {player && context.lineupType === "classic" ? (
-                  <>
-                    <IconButton
-                      label={`${locked.includes(player.playerId) ? "Unlock" : "Lock"} ${player.name}`}
-                      onClick={() =>
-                        setLocked(toggleId(locked, player.playerId))
-                      }
-                    >
-                      <Lock data-active={locked.includes(player.playerId)} />
-                    </IconButton>
-                    <IconButton
-                      label={`Exclude ${player.name}`}
-                      onClick={() =>
-                        setExcluded(toggleId(excluded, player.playerId))
-                      }
-                    >
-                      <X />
-                    </IconButton>
-                  </>
-                ) : context.lineupType === "best_ball" ? (
-                  <small>No manual move</small>
-                ) : null}
-              </span>
-            </div>
-          );
-        })}
+        {plan.assignments
+          .filter((assignment) => assignment.playerId)
+          .map((assignment) => {
+            const player = players.find(
+              (candidate) => candidate.playerId === assignment.playerId,
+            );
+            return (
+              <div className="lineup-row" key={assignment.slotIndex}>
+                <PositionBadge
+                  position={assignment.slot as Player["position"]}
+                />
+                <span>
+                  <strong>{player?.name ?? "Empty slot"}</strong>
+                  <small>
+                    {player
+                      ? `${Math.round(player.model.confidence * 100)}% confidence · ${lateNewsAction(player)}`
+                      : "No legal assignment"}
+                  </small>
+                </span>
+                <strong className="tabular">
+                  {player ? player.model.expectedPoints.toFixed(1) : "—"}
+                </strong>
+                <span className="row-actions">
+                  {player && context.lineupType === "classic" ? (
+                    <>
+                      <IconButton
+                        label={`${locked.includes(player.playerId) ? "Unlock" : "Lock"} ${player.name}`}
+                        onClick={() =>
+                          setLocked(toggleId(locked, player.playerId))
+                        }
+                      >
+                        <Lock data-active={locked.includes(player.playerId)} />
+                      </IconButton>
+                      <IconButton
+                        label={`Exclude ${player.name}`}
+                        onClick={() =>
+                          setExcluded(toggleId(excluded, player.playerId))
+                        }
+                      >
+                        <X />
+                      </IconButton>
+                    </>
+                  ) : context.lineupType === "best_ball" ? (
+                    <small>No manual move</small>
+                  ) : null}
+                </span>
+              </div>
+            );
+          })}
+        {plan.emptySlots.length > 0 ? (
+          // One collective state, not the same row repeated until it fills the
+          // panel: the empty case was the default case and read as the screen.
+          <div className="lineup-empty">
+            <strong>
+              {plan.emptySlots.length} of {plan.assignments.length} slots have
+              no legal assignment
+            </strong>
+            <p>
+              Add eligible players, or clear an exclusion, to fill these. Every
+              slot below still needs a starter.
+            </p>
+            <ul aria-label="Slots with no legal assignment">
+              {plan.assignments
+                .filter((assignment) => !assignment.playerId)
+                .map((assignment) => (
+                  <li key={assignment.slotIndex}>
+                    <PositionBadge
+                      position={assignment.slot as Player["position"]}
+                    />
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
       {context.lineupType === "best_ball" ? (
         <section className="planning-grid">
