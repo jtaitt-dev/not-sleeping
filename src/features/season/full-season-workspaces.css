@@ -1342,3 +1342,34 @@
     grid-column: 3;
   }
 }
+
+/* One collective state for unfilled slots. Repeating an identical empty row
+   per slot made the empty case read as the screen's default content. */
+.lineup-empty {
+  display: grid;
+  padding: 12px;
+  background: var(--surface-alt);
+  gap: 8px;
+}
+
+.lineup-empty strong {
+  color: var(--text-primary);
+  font-size: var(--font-body);
+  font-weight: 800;
+}
+
+.lineup-empty p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  line-height: 1.5;
+}
+
+.lineup-empty ul {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  gap: 5px;
+  list-style: none;
+}

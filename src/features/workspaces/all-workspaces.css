@@ -544,17 +544,21 @@
   margin-bottom: 7px;
 }
 
+/* Fixed outer tracks. With auto columns the chip and action grew with their
+   own content and starved the name, so it wrapped under its own meta line. */
 .trade-asset {
   display: grid;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border-top: 1px solid var(--border-subtle);
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) 26px;
 }
 
 .trade-asset > span {
   display: grid;
+  min-width: 0;
+  gap: 1px;
 }
 
 .trade-asset strong {
@@ -566,8 +570,11 @@
 
 .trade-asset small,
 .mini-empty {
+  overflow: hidden;
   color: var(--text-muted);
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trade-asset .icon-button {

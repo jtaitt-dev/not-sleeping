@@ -358,6 +358,53 @@ export function PlayersWorkspace() {
   );
 }
 
+const STARTER_SLOTS = [
+  "QB",
+  "RB",
+  "RB",
+  "WR",
+  "WR",
+  "WR",
+  "TE",
+  "FLEX",
+  "SF",
+] as const;
+
+/** Which positions may legally fill each starting slot. */
+const SLOT_ELIGIBILITY: Record<string, readonly string[]> = {
+  QB: ["QB"],
+  RB: ["RB"],
+  WR: ["WR"],
+  TE: ["TE"],
+  FLEX: ["RB", "WR", "TE"],
+  SF: ["QB", "RB", "WR", "TE"],
+};
+
+/**
+ * Places each player in the first slot its position is eligible for.
+ *
+ * This previously zipped a score-ordered list against the slot array by index,
+ * so the highest-scoring player was labelled QB whatever they actually played
+ * and a quarterback could appear in a running-back slot.
+ */
+export function assignStarterSlots<T extends { player: { position: string } }>(
+  entries: T[],
+): Array<{ slot: string; entry: T | null }> {
+  const filled: Array<T | null> = STARTER_SLOTS.map(() => null);
+  for (const entry of entries) {
+    const index = STARTER_SLOTS.findIndex(
+      (slot, slotIndex) =>
+        filled[slotIndex] === null &&
+        (SLOT_ELIGIBILITY[slot] ?? []).includes(entry.player.position),
+    );
+    if (index >= 0) filled[index] = entry;
+  }
+  return STARTER_SLOTS.map((slot, index) => ({
+    slot,
+    entry: filled[index] ?? null,
+  }));
+}
+
 export function TeamWorkspace() {
   const fixtureId = useAppStore((state) => state.fixtureId);
   const draftStep = useAppStore((state) => state.draftStep);
@@ -412,21 +459,28 @@ export function TeamWorkspace() {
             <StatusBadge tone="info">12-team SF</StatusBadge>
           </header>
           <div className="roster-list">
-            {roster.map((entry, index) => (
-              <div key={entry.player.id}>
-                <span className="slot-label">
-                  {
-                    ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SF"][
-                      index
-                    ]
-                  }
-                </span>
-                <PositionBadge position={entry.player.position} />
-                <span>
-                  <strong>{entry.player.fullName}</strong>
-                  <small>{entry.player.team}</small>
-                </span>
-                <b>{entry.contextualScore}</b>
+            {assignStarterSlots(roster).map(({ slot, entry }, index) => (
+              <div key={`${slot}-${index}`}>
+                <span className="slot-label">{slot}</span>
+                {entry ? (
+                  <>
+                    <PositionBadge position={entry.player.position} />
+                    <span>
+                      <strong>{entry.player.fullName}</strong>
+                      <small>{entry.player.team}</small>
+                    </span>
+                    <b>{entry.contextualScore}</b>
+                  </>
+                ) : (
+                  <>
+                    <PositionBadge position={slot as Player["position"]} />
+                    <span>
+                      <strong>Open</strong>
+                      <small>No eligible player rostered</small>
+                    </span>
+                    <b>—</b>
+                  </>
+                )}
               </div>
             ))}
           </div>
