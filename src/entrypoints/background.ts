@@ -196,12 +196,14 @@ async function routeMessage(
       });
       return user;
     }
-    case "SYNC_LEAGUES":
+    case "SYNC_LEAGUES": {
+      const defaults = await resolveSyncWindow();
       return leagues.syncCatalog({
         userId: message.payload.userId,
-        seasons: message.payload.seasons,
-        week: message.payload.week,
+        seasons: message.payload.seasons ?? defaults.seasons,
+        week: message.payload.week ?? defaults.week,
       });
+    }
     case "GET_LEAGUES": {
       const [catalog, active] = await Promise.all([
         leagues.getCatalog(),
@@ -393,13 +395,6 @@ async function routeMessage(
     }
     case "GET_LIVE_DRAFT":
       return loadLiveDraft(message.payload.draftId);
-    case "GET_RECOMMENDATIONS": {
-      return {
-        source: "local",
-        strategy: message.payload.strategy,
-        riskTolerance: message.payload.riskTolerance,
-      };
-    }
     case "RESEARCH_PLAYER": {
       const settings = await getSettings();
       const researchProvider =
@@ -575,6 +570,31 @@ async function optionalSleeper<T>(
     });
     return null;
   }
+}
+
+// Sleeper's league endpoints are per-season, so "every league I'm in" means
+// asking for every season the account could have played. Capped at the
+// protocol's season limit; seasons with no leagues simply return empty.
+const MAX_SYNC_SEASONS = 8;
+
+/**
+ * The active NFL season is not the calendar year once the season rolls over,
+ * so both the season list and the current week come from Sleeper's own state
+ * rather than the client's clock.
+ */
+async function resolveSyncWindow(): Promise<{
+  seasons: string[];
+  week: number;
+}> {
+  const state = await optionalSleeper(() => sleeper.getNflState());
+  const parsed = Number(state?.season);
+  const latest = Number.isFinite(parsed) ? parsed : new Date().getFullYear();
+  return {
+    seasons: Array.from({ length: MAX_SYNC_SEASONS }, (_, index) =>
+      String(latest - index),
+    ),
+    week: state?.week ?? 1,
+  };
 }
 
 async function assertOpenAIPermission(): Promise<void> {

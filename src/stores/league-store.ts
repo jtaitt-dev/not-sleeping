@@ -107,16 +107,12 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
         set({ status: "ready" });
         return;
       }
-      const currentSeason = new Date().getFullYear();
+      // Season and week are omitted on purpose: the worker resolves them from
+      // Sleeper's live NFL state. The calendar year is the wrong season during
+      // the offseason, and week 1 was simply wrong for most of the year.
       const catalog = await requestRuntime<LeagueCatalogItem[]>({
         type: "SYNC_LEAGUES",
-        payload: {
-          userId: settings.sleeperUserId,
-          seasons: [currentSeason, currentSeason - 1, currentSeason - 2].map(
-            String,
-          ),
-          week: 1,
-        },
+        payload: { userId: settings.sleeperUserId },
       });
       set({ catalog, status: "ready" });
       if (!get().activeContext && catalog[0])

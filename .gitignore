@@ -14,3 +14,7 @@ artifacts/*.sha256
 *.log
 .DS_Store
 Thumbs.db
+
+# Transient eval report; the durable reports in artifacts/ are checked in on
+# purpose (see docs/MODEL_VALIDATION.md) but this intermediate is not.
+artifacts/ai-eval-vitest.json

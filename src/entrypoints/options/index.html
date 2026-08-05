@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
+    <!-- Authoritative over wxt.config.ts: WXT derives options_ui from this
+         entrypoint, so the config's open_in_tab was silently discarded and the
+         key-management UI opened in a cramped popup instead of a full tab. -->
+    <meta name="manifest.open_in_tab" content="true" />
     <title>Not Sleeping Settings</title>
   </head>
   <body>

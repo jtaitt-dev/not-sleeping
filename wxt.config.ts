@@ -11,7 +11,6 @@ export default defineConfig({
   manifest: {
     name: buildFlavor === "labs" ? "Not Sleeping Labs" : "Not Sleeping",
     short_name: "Not Sleeping",
-    version: "0.3.0",
     description:
       "Independent open-source fantasy football intelligence companion for Sleeper.",
     minimum_chrome_version: "116",

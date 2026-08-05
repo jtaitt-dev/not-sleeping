@@ -3,13 +3,42 @@ import { z } from "zod";
 const nullableString = z.string().nullable().optional();
 const flexibleRecord = z.record(z.string(), z.unknown());
 
+// Sleeper sends an explicit `null` — not an omitted key — for empty maps, empty
+// lists, and unset flags. Zod's `.default()` and `.optional()` only fire on
+// `undefined`, so a bare `.default({})` throws on ordinary league payloads.
+// Every container and flag below folds null in before defaulting.
+// The trailing `.optional()` matters: a bare `.transform()` turns the object key
+// from optional into required-with-undefined, which breaks every caller that
+// builds a Sleeper-shaped literal.
+const recordOrEmpty = flexibleRecord
+  .nullish()
+  .transform((value) => value ?? {});
+const optionalRecord = flexibleRecord
+  .nullish()
+  .transform((value) => value ?? undefined)
+  .optional();
+const numericRecordOrEmpty = z
+  .record(z.string(), z.number().nullable())
+  .nullish()
+  .transform((value) => value ?? {});
+const listOrEmpty = <Item extends z.ZodType>(item: Item) =>
+  z
+    .array(item)
+    .nullish()
+    .transform((value) => value ?? []);
+const optionalBoolean = z
+  .boolean()
+  .nullish()
+  .transform((value) => value ?? undefined)
+  .optional();
+
 export const sleeperUserSchema = z
   .object({
     user_id: z.string(),
     username: nullableString,
     display_name: nullableString,
     avatar: nullableString,
-    metadata: flexibleRecord.optional(),
+    metadata: optionalRecord,
   })
   .loose();
 
@@ -24,17 +53,17 @@ export const sleeperLeagueSchema = z
     total_rosters: z.number().int().optional(),
     draft_id: nullableString,
     avatar: nullableString,
-    settings: flexibleRecord.default({}),
-    scoring_settings: flexibleRecord.default({}),
-    roster_positions: z.array(z.string()).default([]),
-    metadata: flexibleRecord.optional(),
+    settings: recordOrEmpty,
+    scoring_settings: recordOrEmpty,
+    roster_positions: listOrEmpty(z.string()),
+    metadata: optionalRecord,
     previous_league_id: nullableString,
   })
   .loose();
 
 export const sleeperLeagueUserSchema = sleeperUserSchema.extend({
-  is_owner: z.boolean().optional(),
-  metadata: flexibleRecord.optional(),
+  is_owner: optionalBoolean,
+  metadata: optionalRecord,
 });
 
 export const sleeperRosterSchema = z
@@ -47,8 +76,8 @@ export const sleeperRosterSchema = z
     reserve: z.array(z.string()).nullable().optional(),
     taxi: z.array(z.string()).nullable().optional(),
     co_owners: z.array(z.string()).nullable().optional(),
-    settings: flexibleRecord.default({}),
-    metadata: flexibleRecord.optional(),
+    settings: recordOrEmpty,
+    metadata: optionalRecord,
   })
   .loose();
 
@@ -63,8 +92,8 @@ export const sleeperDraftSchema = z
     start_time: z.number().nullable().optional(),
     last_picked: z.number().nullable().optional(),
     last_message_time: z.number().nullable().optional(),
-    settings: flexibleRecord.default({}),
-    metadata: flexibleRecord.default({}),
+    settings: recordOrEmpty,
+    metadata: recordOrEmpty,
     draft_order: z.record(z.string(), z.number()).nullable().optional(),
     slot_to_roster_id: z.record(z.string(), z.number()).nullable().optional(),
     creators: z.array(z.string()).optional(),
@@ -80,7 +109,7 @@ export const sleeperDraftPickSchema = z
     draft_slot: z.number().int(),
     pick_no: z.number().int(),
     is_keeper: z.boolean().nullable().optional(),
-    metadata: flexibleRecord.default({}),
+    metadata: recordOrEmpty,
   })
   .loose();
 
@@ -137,7 +166,7 @@ export const sleeperPlayersSchema = z.record(z.string(), sleeperPlayerSchema);
 export const sleeperProjectionSchema = z
   .object({
     player_id: z.string(),
-    stats: z.record(z.string(), z.number().nullable()).default({}),
+    stats: numericRecordOrEmpty,
   })
   .loose();
 
@@ -160,7 +189,7 @@ export const sleeperMatchupSchema = z
     custom_points: z.number().nullable().optional(),
     players: z.array(z.string()).nullable().default([]),
     starters: z.array(z.string()).nullable().default([]),
-    players_points: z.record(z.string(), z.number().nullable()).default({}),
+    players_points: numericRecordOrEmpty,
     starters_points: z.array(z.number().nullable()).nullable().optional(),
   })
   .loose();
@@ -174,24 +203,22 @@ export const sleeperTransactionSchema = z
     creator: nullableString,
     created: z.number().nullable().optional(),
     status_updated: z.number().nullable().optional(),
-    roster_ids: z.array(z.number().int()).default([]),
-    consenter_ids: z.array(z.number().int()).default([]),
+    roster_ids: listOrEmpty(z.number().int()),
+    consenter_ids: listOrEmpty(z.number().int()),
     adds: z.record(z.string(), z.number().int()).nullable().optional(),
     drops: z.record(z.string(), z.number().int()).nullable().optional(),
-    draft_picks: z.array(sleeperTradedPickSchema).default([]),
-    waiver_budget: z
-      .array(
-        z
-          .object({
-            sender: z.number().int(),
-            receiver: z.number().int(),
-            amount: z.number(),
-          })
-          .loose(),
-      )
-      .default([]),
-    settings: flexibleRecord.default({}),
-    metadata: flexibleRecord.default({}),
+    draft_picks: listOrEmpty(sleeperTradedPickSchema),
+    waiver_budget: listOrEmpty(
+      z
+        .object({
+          sender: z.number().int(),
+          receiver: z.number().int(),
+          amount: z.number(),
+        })
+        .loose(),
+    ),
+    settings: recordOrEmpty,
+    metadata: recordOrEmpty,
   })
   .loose();
 

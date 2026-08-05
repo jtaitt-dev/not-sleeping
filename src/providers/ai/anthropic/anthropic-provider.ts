@@ -289,10 +289,18 @@ function supportedThinking<T>(
   request: AiStructuredRequest<T> & { maxOutputTokens: number },
   capability: ModelCapability,
 ): Record<string, unknown> | undefined {
-  const mode = request.thinkingMode ?? "off";
-  if (mode === "off" || !capability.thinkingModes?.includes(mode)) {
-    return undefined;
-  }
+  const requested = request.thinkingMode ?? "off";
+  if (requested === "off") return undefined;
+  const supported = capability.thinkingModes ?? [];
+  // A stored preference may name a mode this model dropped. Substitute the
+  // model's own thinking mode rather than sending a rejected parameter: newer
+  // models answer `budget_tokens` with HTTP 400.
+  const mode = supported.includes(requested)
+    ? requested
+    : supported.includes("adaptive")
+      ? "adaptive"
+      : undefined;
+  if (mode === undefined) return undefined;
   if (mode === "adaptive") return { type: "adaptive" };
   if (request.maxOutputTokens <= 1_024) return undefined;
   return {
