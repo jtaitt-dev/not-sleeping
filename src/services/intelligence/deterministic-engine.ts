@@ -6,6 +6,7 @@ import type {
   DecisionInput,
   DeterministicDecision,
   RankedDecisionCandidate,
+  ScoreFactor,
 } from "./types";
 
 export function evaluateDeterministicDecision(
@@ -108,6 +109,58 @@ function rankCandidate(
       ? "Improves roster construction."
       : "Roster fit is neutral or modest.",
   ].slice(0, 6);
+  // Keep the addends, not just their sum: the panel shows how the score was
+  // built, and recomputing them at the UI would let the two drift apart.
+  const factors: ScoreFactor[] = [
+    {
+      key: "base",
+      label: "Base value",
+      impact: round(base),
+      note: "Imported ranks, projections, and local fallback value",
+    },
+    {
+      key: "roster_fit",
+      label: "Roster fit",
+      impact: round(rosterFit),
+      note:
+        rosterFit > 2
+          ? "Fills a thin spot in the current build"
+          : rosterFit < -2
+            ? "Duplicates an existing strength"
+            : "Neutral for this roster",
+    },
+    {
+      key: "scarcity",
+      label: "Positional scarcity",
+      impact: round(scarcity),
+      note: "How quickly comparable options disappear",
+    },
+    {
+      key: "risk",
+      label: "Risk vs tolerance",
+      impact: round(riskAdjustment),
+      note:
+        riskAdjustment >= 0
+          ? "Safer than the configured tolerance"
+          : "Riskier than the configured tolerance",
+    },
+    {
+      key: "strategy",
+      label: "Strategy fit",
+      impact: round(strategyAdjustment),
+      note: `Weighted for a ${input.strategy.replaceAll("_", " ")} plan`,
+    },
+    ...(input.feature === "draft"
+      ? [
+          {
+            key: "urgency" as const,
+            label: "Pick urgency",
+            impact: round(urgency),
+            note: `${Math.round(survival * 100)}% chance to survive to your next pick`,
+          },
+        ]
+      : []),
+  ];
   return {
     ...candidate,
     score,
@@ -115,6 +168,7 @@ function rankCandidate(
     nextPickSurvival: survival,
     legal: true,
     reasons,
+    factors,
   };
 }
 

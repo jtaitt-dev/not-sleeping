@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
 import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-intelligence-card";
 import { Button, IconButton } from "@/components/ui/button";
+import { ScoreBreakdown } from "@/components/intelligence/score-breakdown";
 import { CompactTabs } from "@/components/ui/compact-tabs";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
 import {
@@ -521,21 +522,41 @@ function TopRecommendation({
         </div>
         <dl className="recommendation-metrics">
           <div>
-            <dt>Score</dt>
+            <dt>Local</dt>
+            <dd>{recommendation.localScore}</dd>
+          </div>
+          <div data-research={recommendation.researchAdjustment !== 0}>
+            <dt>Research</dt>
+            <dd>
+              {recommendation.researchAdjustment === 0
+                ? "—"
+                : `${recommendation.researchAdjustment > 0 ? "+" : ""}${recommendation.researchAdjustment}`}
+            </dd>
+          </div>
+          <div>
+            <dt>Contextual</dt>
             <dd>{recommendation.contextualScore}</dd>
           </div>
           <div>
             <dt>At next pick</dt>
             <dd>{recommendation.nextPickAvailability}%</dd>
           </div>
-          <div>
-            <dt>VOR</dt>
-            <dd>
-              {recommendation.valueOverReplacement > 0 ? "+" : ""}
-              {recommendation.valueOverReplacement}
-            </dd>
-          </div>
         </dl>
+        <ScoreBreakdown
+          localScore={recommendation.localScore}
+          factors={recommendation.components.map((component) => ({
+            key: component.key,
+            label: component.label,
+            impact: component.value,
+            note: component.reason,
+          }))}
+          {...(recommendation.researchAdjustment !== 0
+            ? {
+                researchAdjustment: recommendation.researchAdjustment,
+                researchBound: 8,
+              }
+            : {})}
+        />
       </div>
       <footer>
         <Button

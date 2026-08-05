@@ -124,11 +124,15 @@
   width: 13px;
 }
 
+/* Identity sits beside the avatar; metrics take their own full-width row.
+   Keeping metrics in the same row starved the name column: at four metrics the
+   fixed track demands ~200px of a 400px panel, collapsing the player name and
+   description to a sliver. */
 .top-recommendation__body {
   display: grid;
   align-items: center;
   gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   padding: 12px 10px 10px;
 }
 
@@ -183,10 +187,10 @@
 .recommendation-metrics {
   display: grid;
   gap: 7px;
-  border-left: 1px solid var(--border-default);
-  grid-template-columns: repeat(3, minmax(48px, 1fr));
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
-  padding-left: 10px;
+  padding-top: 10px;
 }
 
 .recommendation-metrics div {
@@ -627,4 +631,16 @@
   .recent-picks-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Violet marks a research-adjusted figure so AI influence is never mistaken
+   for a deterministic one. */
+.recommendation-metrics div[data-research="true"] dd {
+  color: var(--research);
+}
+
+/* The breakdown is a full-width row of the hero card. Left in column one it
+   sizes that track to its own width and starves the identity column. */
+.top-recommendation__body > .score-breakdown {
+  grid-column: 1 / -1;
 }

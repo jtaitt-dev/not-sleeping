@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Sun,
   Trash2,
+  TriangleAlert,
   UserRound,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
@@ -700,19 +701,34 @@ function OptionsApp() {
                   </label>
                 </div>
                 {keyMode === "remembered" ? (
-                  <label className="remember-confirm">
-                    <input
-                      type="checkbox"
-                      checked={rememberConfirmed}
-                      onChange={(event) =>
-                        setRememberConfirmed(event.target.checked)
-                      }
-                    />
-                    <span>
-                      I understand that anyone with access to this browser
-                      profile may be able to use the saved key.
-                    </span>
-                  </label>
+                  <>
+                    <div className="risk-callout" role="note">
+                      <TriangleAlert aria-hidden="true" />
+                      <div>
+                        <strong>Remembering a key carries real risk</strong>
+                        <p>
+                          Client-side secrets can be extracted by sufficiently
+                          privileged software. A remembered key persists on this
+                          device until you remove it. Prefer session-only
+                          storage, and use a dedicated key with the minimum
+                          permissions and budget the features need.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="remember-confirm">
+                      <input
+                        type="checkbox"
+                        checked={rememberConfirmed}
+                        onChange={(event) =>
+                          setRememberConfirmed(event.target.checked)
+                        }
+                      />
+                      <span>
+                        I understand the risks — anyone with access to this
+                        browser profile may be able to use the saved key.
+                      </span>
+                    </label>
+                  </>
                 ) : null}
                 <div className="key-actions">
                   <Button
