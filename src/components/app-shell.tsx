@@ -2,7 +2,8 @@ import {
   Activity,
   BadgeDollarSign,
   CalendarClock,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleGauge,
   Database,
   DraftingCompass,
@@ -37,41 +38,219 @@ import type { LeagueWorkspaceState } from "@/types/league";
 
 import "./app-shell.css";
 
+/**
+ * Six labelled pills is the ceiling at 400px; a seventh needs 533px. At 320px
+ * the row drops to five and Players moves under More.
+ */
 const primaryNavigation = [
-  { to: "/today", label: "Today", icon: Zap },
-  { to: "/draft", label: "Draft", icon: DraftingCompass },
-  { to: "/start-sit", label: "Start/Sit", icon: Users },
-  { to: "/waivers", label: "Waivers", icon: WalletCards },
-  { to: "/trade", label: "Trade", icon: GitCompareArrows },
-  { to: "/dynasty", label: "Dynasty", icon: Activity },
-  { to: "/more", label: "More", icon: Ellipsis },
+  { to: "/today", label: "Today", icon: Zap, narrow: true },
+  { to: "/draft", label: "Draft", icon: DraftingCompass, narrow: true },
+  { to: "/team", label: "Team", icon: WalletCards, narrow: true },
+  { to: "/players", label: "Players", icon: Users, narrow: false },
+  { to: "/trade", label: "Trade", icon: GitCompareArrows, narrow: true },
+  { to: "/more", label: "More", icon: Ellipsis, narrow: true },
 ] as const;
 
-const moreNavigation = [
-  { to: "/leagues", label: "Leagues", icon: Users },
-  { to: "/mock-draft", label: "Mock Draft Lab", icon: DraftingCompass },
-  { to: "/matchup", label: "Matchup Center", icon: GitCompareArrows },
-  { to: "/chopped", label: "Chopped Survival", icon: ShieldCheck },
-  { to: "/players", label: "Players", icon: Users },
-  { to: "/rookie", label: "Rookie Center", icon: Star },
-  { to: "/taxi", label: "Taxi Squad", icon: WalletCards },
-  { to: "/idp", label: "IDP Center", icon: ShieldHalf },
-  { to: "/auction", label: "Auction Room", icon: BadgeDollarSign },
-  { to: "/team", label: "My Team", icon: WalletCards },
-  { to: "/compare", label: "Compare", icon: GitCompareArrows },
-  { to: "/rankings", label: "Rankings", icon: ListOrdered },
-  { to: "/watchlist", label: "Watchlist", icon: Star },
-  { to: "/research", label: "Research", icon: Newspaper },
-  { to: "/data-center", label: "Data Center", icon: Database },
-  { to: "/usage", label: "Usage", icon: CircleGauge },
-  { to: "/settings", label: "Settings", icon: Settings },
-  { to: "/diagnostics", label: "Diagnostics", icon: ShieldCheck },
-  { to: "/calendar", label: "Deadlines", icon: CalendarClock },
-  { to: "/about", label: "About", icon: Eye },
-  ...(IS_LABS_BUILD
-    ? [{ to: "/labs", label: "Labs", icon: FlaskConical }]
-    : []),
-] as const;
+type MoreItem = {
+  to: string;
+  label: string;
+  detail: string;
+  icon: typeof Zap;
+};
+
+/**
+ * Grouped rather than flat. The previous single list put 21 destinations in
+ * 966px of ungrouped, unsearchable scroll inside a 400px panel.
+ */
+const moreSections: Array<{ title: string; items: MoreItem[] }> = [
+  {
+    title: "This week",
+    items: [
+      {
+        to: "/start-sit",
+        label: "Start & Sit",
+        detail: "Legal lineup by slot",
+        icon: Users,
+      },
+      {
+        to: "/waivers",
+        label: "Waivers",
+        detail: "FAAB bids and claims",
+        icon: WalletCards,
+      },
+      {
+        to: "/matchup",
+        label: "Matchup Center",
+        detail: "Win odds this week",
+        icon: GitCompareArrows,
+      },
+      {
+        to: "/chopped",
+        label: "Chopped Survival",
+        detail: "Elimination odds",
+        icon: ShieldCheck,
+      },
+      {
+        to: "/research",
+        label: "Research",
+        detail: "Sourced player context",
+        icon: Newspaper,
+      },
+      {
+        to: "/calendar",
+        label: "Deadlines",
+        detail: "What is due next",
+        icon: CalendarClock,
+      },
+    ],
+  },
+  {
+    title: "Roster",
+    items: [
+      {
+        to: "/team",
+        label: "My Team",
+        detail: "Current roster",
+        icon: WalletCards,
+      },
+      {
+        to: "/players",
+        label: "Players",
+        detail: "Search the player index",
+        icon: Users,
+      },
+      {
+        to: "/dynasty",
+        label: "Dynasty",
+        detail: "Long-term value",
+        icon: Activity,
+      },
+      {
+        to: "/rankings",
+        label: "Rankings",
+        detail: "Ordered player values",
+        icon: ListOrdered,
+      },
+      {
+        to: "/compare",
+        label: "Compare",
+        detail: "Side-by-side players",
+        icon: GitCompareArrows,
+      },
+      {
+        to: "/watchlist",
+        label: "Watchlist",
+        detail: "Players you follow",
+        icon: Star,
+      },
+      {
+        to: "/rookie",
+        label: "Rookie Center",
+        detail: "Incoming class",
+        icon: Star,
+      },
+      {
+        to: "/taxi",
+        label: "Taxi Squad",
+        detail: "Eligibility and moves",
+        icon: WalletCards,
+      },
+      {
+        to: "/idp",
+        label: "IDP Center",
+        detail: "Defensive players",
+        icon: ShieldHalf,
+      },
+    ],
+  },
+  {
+    title: "Drafts",
+    items: [
+      {
+        to: "/mock-draft",
+        label: "Mock Draft Lab",
+        detail: "Practice against agents",
+        icon: DraftingCompass,
+      },
+      {
+        to: "/auction",
+        label: "Auction Room",
+        detail: "Budget and nominations",
+        icon: BadgeDollarSign,
+      },
+    ],
+  },
+  {
+    title: "Leagues & data",
+    items: [
+      {
+        to: "/leagues",
+        label: "Leagues",
+        detail: "Switch or sync leagues",
+        icon: Users,
+      },
+      {
+        to: "/data-center",
+        label: "Data Center",
+        detail: "Caches and imports",
+        icon: Database,
+      },
+      {
+        to: "/usage",
+        label: "Usage",
+        detail: "Requests and budget",
+        icon: CircleGauge,
+      },
+    ],
+  },
+  {
+    title: "App",
+    items: [
+      {
+        to: "/settings",
+        label: "Settings",
+        detail: "Account, keys, appearance",
+        icon: Settings,
+      },
+      {
+        to: "/diagnostics",
+        label: "Diagnostics",
+        detail: "Redacted export",
+        icon: ShieldCheck,
+      },
+      {
+        to: "/about",
+        label: "About",
+        detail: "Version and licence",
+        icon: Eye,
+      },
+      ...(IS_LABS_BUILD
+        ? [
+            {
+              to: "/labs",
+              label: "Labs",
+              detail: "Research-only tools",
+              icon: FlaskConical,
+            },
+          ]
+        : []),
+    ],
+  },
+];
+
+const moreItems = moreSections.flatMap((section) => section.items);
+const primaryPaths = new Set<string>(
+  primaryNavigation.map((entry) => entry.to),
+);
+
+/** True for any destination reached through More rather than a primary pill. */
+function isMoreLevelPath(pathname: string): boolean {
+  return !primaryPaths.has(pathname) && pathname !== "/";
+}
+
+function moreItemFor(pathname: string): MoreItem | undefined {
+  return moreItems.find((item) => item.to === pathname);
+}
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -111,6 +290,8 @@ export function AppShell() {
     leagueContext && location.pathname !== "/draft",
   );
   const restoredLeague = useRef<string | null>(null);
+  const onMoreLevelScreen = isMoreLevelPath(location.pathname);
+  const currentMoreItem = moreItemFor(location.pathname);
 
   useEffect(() => {
     if (!leagueContext || restoredLeague.current === leagueContext.leagueId)
@@ -268,17 +449,34 @@ export function AppShell() {
       </header>
 
       <nav className="primary-navigation" aria-label="Primary">
-        {primaryNavigation.map(({ to, label, icon: Icon }) => (
+        {primaryNavigation.map(({ to, label, icon: Icon, narrow }) => (
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) => (isActive ? "active" : "")}
+            data-narrow={narrow}
+            // More stays lit while you are inside anything it leads to, so the
+            // nav never shows an empty selection on a sub-screen.
+            className={({ isActive }) =>
+              isActive || (to === "/more" && onMoreLevelScreen) ? "active" : ""
+            }
           >
             <Icon aria-hidden="true" />
             <span>{label}</span>
           </NavLink>
         ))}
       </nav>
+
+      {onMoreLevelScreen ? (
+        <div className="subscreen-header">
+          <IconButton label="Back to More" onClick={() => navigate("/more")}>
+            <ChevronLeft />
+          </IconButton>
+          <div>
+            <strong>{currentMoreItem?.label ?? "Back"}</strong>
+            <span>{currentMoreItem?.detail ?? "Return to More"}</span>
+          </div>
+        </div>
+      ) : null}
 
       <main className="active-workspace">
         <Outlet />
@@ -334,24 +532,67 @@ function draftStatusLabel(status: string): string {
 }
 
 export function MoreWorkspace() {
+  const [query, setQuery] = useState("");
+  const normalized = query.trim().toLowerCase();
+  const sections = moreSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) =>
+        normalized.length === 0
+          ? true
+          : `${item.label} ${item.detail}`.toLowerCase().includes(normalized),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
+  const matchCount = sections.reduce(
+    (total, section) => total + section.items.length,
+    0,
+  );
+
   return (
     <section className="more-workspace workspace-page">
       <header className="workspace-heading">
         <div>
           <h1>More</h1>
-          <p>Analysis tools, data controls, and project information.</p>
+          <p>Everything not on the main tabs, grouped by what you are doing.</p>
         </div>
         <StatusBadge tone="success">All systems operational</StatusBadge>
       </header>
-      <nav className="more-menu" aria-label="More tools">
-        {moreNavigation.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to}>
-            <Icon aria-hidden="true" />
-            <span>{label}</span>
-            <ChevronDown aria-hidden="true" />
-          </NavLink>
-        ))}
-      </nav>
+
+      <label className="more-search">
+        <Search aria-hidden="true" />
+        <span className="sr-only">Search destinations</span>
+        <input
+          type="search"
+          value={query}
+          placeholder="Search tools"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+
+      {sections.map((section) => (
+        <nav
+          className="more-menu"
+          aria-label={section.title}
+          key={section.title}
+        >
+          <h2>{section.title}</h2>
+          {section.items.map(({ to, label, detail, icon: Icon }) => (
+            <NavLink key={`${section.title}-${to}`} to={to}>
+              <Icon aria-hidden="true" />
+              <span>
+                <strong>{label}</strong>
+                <small>{detail}</small>
+              </span>
+              <ChevronRight aria-hidden="true" />
+            </NavLink>
+          ))}
+        </nav>
+      ))}
+
+      {matchCount === 0 ? (
+        <p className="more-empty">Nothing matches “{query}”.</p>
+      ) : null}
     </section>
   );
 }

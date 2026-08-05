@@ -49,7 +49,7 @@
 
 .league-switcher-copy small {
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 11px;
   text-transform: capitalize;
 }
 
@@ -92,7 +92,7 @@
 .league-switcher-popover header small,
 .league-switcher-popover footer {
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .league-search {
@@ -128,7 +128,7 @@
 
 .league-switcher-list h2 {
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   padding: 5px 7px;
   text-transform: uppercase;
@@ -181,7 +181,7 @@
 
 .league-option small {
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 11px;
   text-transform: capitalize;
 }
 
@@ -210,6 +210,6 @@
   background: transparent;
   color: var(--accent-primary);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }

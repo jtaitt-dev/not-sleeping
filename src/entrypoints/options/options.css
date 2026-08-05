@@ -43,7 +43,7 @@ body {
 .options-sidebar > header span,
 .options-sidebar footer {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .options-sidebar nav {
@@ -61,7 +61,7 @@ body {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   padding: 0 9px;
   text-align: left;
 }
@@ -147,7 +147,7 @@ body {
   max-width: 680px;
   margin-top: 3px;
   color: var(--text-muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .options-notice {
@@ -160,7 +160,7 @@ body {
   border-radius: var(--radius-small);
   background: rgb(52 211 153 / 8%);
   color: var(--status-success);
-  font-size: 9px;
+  font-size: 11px;
   margin-top: 14px;
   padding: 0 9px;
 }
@@ -202,12 +202,12 @@ body {
 }
 
 .form-field strong {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .form-field small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .form-field input:not([type="range"]),
@@ -217,7 +217,7 @@ body {
   border-radius: var(--radius-small);
   background: var(--background-sidebar);
   color: var(--text-primary);
-  font-size: 9px;
+  font-size: 11px;
   padding: 0 8px;
 }
 
@@ -241,7 +241,7 @@ body {
 
 .feature-routing > div:first-child p {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .feature-routing-grid {
@@ -267,7 +267,7 @@ body {
 }
 
 .feature-routing-grid strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .feature-routing-grid input,
@@ -278,7 +278,7 @@ body {
   border-radius: var(--radius-small);
   background: var(--background-sidebar);
   color: var(--text-primary);
-  font-size: 8px;
+  font-size: 11px;
   padding: 0 7px;
 }
 
@@ -288,7 +288,7 @@ body {
   align-items: center;
   gap: 6px;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .feature-capability-toggle input {
@@ -315,12 +315,12 @@ body {
 }
 
 .settings-toggle strong {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .settings-toggle small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .settings-toggle input {
@@ -373,13 +373,13 @@ body {
 }
 
 .security-callout strong {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .security-callout p {
   margin-top: 2px;
   color: var(--text-secondary);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .key-panel {
@@ -413,7 +413,7 @@ body {
   border: 0;
   background: transparent;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .key-field button {
@@ -464,12 +464,12 @@ body {
 }
 
 .storage-choice strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .storage-choice small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .remember-confirm {
@@ -477,7 +477,7 @@ body {
   align-items: flex-start;
   gap: 7px;
   color: var(--status-warning);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .remember-confirm input {
@@ -532,7 +532,7 @@ body {
   display: flex;
   gap: 5px;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .privacy-card li svg {
@@ -545,7 +545,7 @@ body {
   align-items: center;
   gap: 5px;
   justify-self: start;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .docs-link svg {
@@ -588,7 +588,7 @@ body {
 }
 
 .theme-grid strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .maintenance-grid {
@@ -619,12 +619,12 @@ body {
 }
 
 .maintenance-grid strong {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .maintenance-grid p {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 @media (max-width: 850px) {

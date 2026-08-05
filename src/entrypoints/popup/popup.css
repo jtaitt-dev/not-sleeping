@@ -47,7 +47,7 @@ body {
 .popup-brand span,
 .popup-status small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .popup-context {
@@ -65,7 +65,7 @@ body {
   align-items: center;
   gap: 6px;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .live-dot {
@@ -110,28 +110,28 @@ body {
 }
 
 .popup-status strong {
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .popup-status button {
   background: transparent;
   color: var(--accent-primary);
   cursor: pointer;
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .popup-error {
   border-radius: var(--radius-small);
   background: rgb(251 191 36 / 10%);
   color: var(--status-warning);
-  font-size: 8px;
+  font-size: 11px;
   padding: 6px;
 }
 
 .popup > footer {
   justify-content: space-between;
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .popup > footer button,
@@ -142,7 +142,7 @@ body {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 8px;
+  font-size: 11px;
   text-decoration: none;
 }
 
