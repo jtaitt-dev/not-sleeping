@@ -26,6 +26,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { StatusBadge } from "@/components/ui/badges";
@@ -823,16 +824,6 @@ export function WaiverWireWorkspace() {
                   </small>
                 </span>
               </div>
-              <div className="waiver-values">
-                <span>
-                  <small>Priority</small>
-                  <strong>{recommendation.addPriority.toFixed(0)}</strong>
-                </span>
-                <span>
-                  <small>Fit</small>
-                  <strong>{Math.round(recommendation.rosterFit * 100)}%</strong>
-                </span>
-              </div>
               {recommendation.faab ? (
                 <FaabBand faab={recommendation.faab} />
               ) : (
@@ -847,6 +838,10 @@ export function WaiverWireWorkspace() {
                     (entry) =>
                       entry.playerId === recommendation.dropCandidateId,
                   )?.name ?? "No legal drop"}
+                </span>
+                <span>
+                  Fits your roster {Math.round(recommendation.rosterFit * 100)}%
+                  · priority {recommendation.addPriority.toFixed(0)} of 100
                 </span>
                 <span>Manual claim only</span>
               </footer>
@@ -2445,30 +2440,100 @@ function EvidenceDrawer({
   onClose: () => void;
 }) {
   const evidence = leagueEvidence(context, decision);
+  const established = evidence.filter((item) => isSourcedFact(item.nature));
+  const estimated = evidence.filter((item) => !isSourcedFact(item.nature));
   return (
-    <aside className="surface evidence-drawer" aria-label="Evidence drawer">
+    <div className="evidence-sheet-layer">
+      <button
+        type="button"
+        className="evidence-scrim"
+        aria-label="Close evidence"
+        onClick={onClose}
+      />
+      <aside
+        className="surface evidence-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Evidence drawer"
+      >
+        <span className="sheet-grabber" aria-hidden="true" />
+        <header>
+          <div>
+            <small>Why we think this</small>
+            <h2>{decision.decision}</h2>
+          </div>
+          <IconButton label="Close evidence" onClick={onClose}>
+            <X />
+          </IconButton>
+        </header>
+        <EvidenceGroup
+          title="What we know"
+          caption="Reported by a source we can link to."
+          tone="fact"
+          items={established}
+          emptyCopy="Nothing here is confirmed by a source yet."
+        />
+        <EvidenceGroup
+          title="What we worked out"
+          caption="Our own estimate, not a reported fact."
+          tone="inference"
+          items={estimated}
+          emptyCopy="No estimate was needed for this call."
+        >
+          <article className="evidence-inference">
+            <span>
+              <StatusBadge tone="warning">model</StatusBadge>
+              <small>inference</small>
+            </span>
+            <strong>{decision.factor}</strong>
+            <p>
+              Worth about ±
+              {Math.max(0.5, Math.round(decision.confidence * 4 * 10) / 10)}{" "}
+              points either way.
+            </p>
+          </article>
+        </EvidenceGroup>
+        <footer>
+          <span>Conflicts: none detected in current evidence</span>
+          <span>Retrieved {decision.freshness}</span>
+        </footer>
+      </aside>
+    </div>
+  );
+}
+
+/**
+ * `fact` and `report` trace back to something published; the rest is estimated.
+ * The drawer used to interleave them and print the nature as a lowercase aside,
+ * so a projection read exactly like a confirmed report.
+ */
+export function isSourcedFact(nature: EvidenceItem["nature"]): boolean {
+  return nature === "fact" || nature === "report";
+}
+
+function EvidenceGroup({
+  title,
+  caption,
+  tone,
+  items,
+  emptyCopy,
+  children,
+}: {
+  title: string;
+  caption: string;
+  tone: "fact" | "inference";
+  items: EvidenceItem[];
+  emptyCopy: string;
+  children?: ReactNode;
+}) {
+  return (
+    <section className="evidence-group" data-tone={tone}>
       <header>
-        <div>
-          <small>Evidence drawer</small>
-          <h2>{decision.decision}</h2>
-        </div>
-        <IconButton label="Close evidence" onClick={onClose}>
-          <X />
-        </IconButton>
+        <h3>{title}</h3>
+        <small>{caption}</small>
       </header>
-      <div className="evidence-summary">
-        <span>
-          <small>Model inference</small>
-          <strong>{decision.factor}</strong>
-        </span>
-        <span>
-          <small>Bounded impact</small>
-          <strong>
-            ±{Math.max(0.5, Math.round(decision.confidence * 4 * 10) / 10)} pts
-          </strong>
-        </span>
-      </div>
-      {evidence.map((item) => (
+      {children}
+      {items.map((item) => (
         <article key={item.id}>
           <span>
             <StatusBadge
@@ -2489,11 +2554,10 @@ function EvidenceDrawer({
           </a>
         </article>
       ))}
-      <footer>
-        <span>Conflicts: none detected in current evidence</span>
-        <span>Retrieved {decision.freshness}</span>
-      </footer>
-    </aside>
+      {items.length === 0 && !children ? (
+        <p className="evidence-empty">{emptyCopy}</p>
+      ) : null}
+    </section>
   );
 }
 
@@ -2627,29 +2691,51 @@ function Insight({
   );
 }
 
-function FaabBand({
+/**
+ * A waiver row used to print four bids side by side at equal weight, which
+ * left the reader to work out which one to actually enter. The bid to enter is
+ * the only number that carries weight now; the rest becomes the track it sits
+ * on, so the spread stays visible without competing to be read as the answer.
+ */
+export function FaabBand({
   faab,
 }: {
   faab: NonNullable<ReturnType<typeof recommendWaiver>["faab"]>;
 }) {
+  const floor = faab.conservativeBid;
+  const ceiling = Math.max(faab.maximumRationalBid, floor + 1);
+  const span = ceiling - floor;
+  const offset = (bid: number) =>
+    `${Math.min(100, Math.max(0, ((bid - floor) / span) * 100))}%`;
   return (
     <div className="faab-band">
-      <span>
-        <small>Conservative</small>
-        <strong>${faab.conservativeBid}</strong>
-      </span>
-      <span>
-        <small>Expected</small>
+      <p className="faab-bid">
+        <small>Bid</small>
         <strong>${faab.expectedWinningBid}</strong>
-      </span>
-      <span>
-        <small>Aggressive</small>
-        <strong>${faab.aggressiveBid}</strong>
-      </span>
-      <span>
-        <small>Max</small>
-        <strong>${faab.maximumRationalBid}</strong>
-      </span>
+      </p>
+      <div
+        className="faab-range"
+        role="img"
+        aria-label={`Reasonable between $${floor} and $${faab.aggressiveBid}; $${faab.maximumRationalBid} is the most this player is worth.`}
+      >
+        <span className="faab-track">
+          <span
+            className="faab-reasonable"
+            style={{
+              left: offset(floor),
+              right: `calc(100% - ${offset(faab.aggressiveBid)})`,
+            }}
+          />
+          <span
+            className="faab-tick"
+            style={{ left: offset(faab.expectedWinningBid) }}
+          />
+        </span>
+        <span className="faab-scale" aria-hidden="true">
+          <small>${floor}</small>
+          <small>${faab.maximumRationalBid} max</small>
+        </span>
+      </div>
     </div>
   );
 }

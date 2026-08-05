@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-05T19:53:16.944Z",
+  "generatedAt": "2026-08-05T20:33:03.386Z",
   "seedRange": {
     "first": 20260802,
     "last": 20260881
@@ -91,9 +91,9 @@
     "rosterCompletionRate": 1,
     "strategyAdherence": 1,
     "averageAuctionBudgetUtilization": 0.7831681415929207,
-    "averageRecommendationLatencyMs": 1.0706324999999766,
-    "p95RecommendationLatencyMs": 2.3189999999995052,
-    "maximumRecommendationLatencyMs": 6.690700000000106,
+    "averageRecommendationLatencyMs": 0.9454087499999503,
+    "p95RecommendationLatencyMs": 2.378099999999904,
+    "maximumRecommendationLatencyMs": 6.022300000000541,
     "availabilityProbabilityCalibration": "proxy_only",
     "cacheHitRate": "not_instrumented"
   },

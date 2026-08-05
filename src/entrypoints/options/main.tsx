@@ -1,12 +1,15 @@
 import {
+  Accessibility,
   Bot,
   Check,
   CircleHelp,
   Database,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
   Gauge,
+  Info,
   KeyRound,
   Laptop,
   LockKeyhole,
@@ -54,26 +57,43 @@ import "@/styles/globals.css";
 import "./options.css";
 
 type SettingsTab =
-  | "general"
+  | "onboarding"
   | "account"
   | "providers"
+  | "general"
   | "models"
-  | "privacy"
+  | "data"
+  | "transfer"
   | "appearance"
-  | "advanced";
+  | "accessibility"
+  | "diagnostics"
+  | "privacy"
+  | "about";
 
+/**
+ * Seven broad tabs meant "Advanced" collected the cache controls, the log
+ * level and the launcher position purely because none of them fit elsewhere.
+ * Each section now names one subject, so a control can be found by guessing.
+ */
 const tabs: Array<{
   id: SettingsTab;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }> = [
-  { id: "general", label: "General", icon: SlidersHorizontal },
+  { id: "onboarding", label: "Getting started", icon: CircleHelp },
   { id: "account", label: "Sleeper account", icon: UserRound },
-  { id: "providers", label: "AI providers", icon: KeyRound },
-  { id: "models", label: "Models & limits", icon: Bot },
-  { id: "privacy", label: "Privacy", icon: ShieldCheck },
+  // The handoff calls this "OpenAI key"; the page also ships an Anthropic
+  // provider, so naming it for one of the two would mislabel the other.
+  { id: "providers", label: "AI provider key", icon: KeyRound },
+  { id: "general", label: "Draft defaults", icon: SlidersHorizontal },
+  { id: "models", label: "Analysis", icon: Bot },
+  { id: "data", label: "Data & cache", icon: Database },
+  { id: "transfer", label: "Import & export", icon: Download },
   { id: "appearance", label: "Appearance", icon: Moon },
-  { id: "advanced", label: "Advanced", icon: Gauge },
+  { id: "accessibility", label: "Accessibility", icon: Accessibility },
+  { id: "diagnostics", label: "Diagnostics", icon: Gauge },
+  { id: "privacy", label: "Privacy", icon: ShieldCheck },
+  { id: "about", label: "About", icon: Info },
 ];
 
 const AI_FEATURES: Array<{ id: AiFeature; label: string }> = [
@@ -103,7 +123,7 @@ function hasExtensionApi(): boolean {
 }
 
 function OptionsApp() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("onboarding");
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const emptyKeyStatus: KeyStatus = {
     available: false,
@@ -364,6 +384,64 @@ function OptionsApp() {
     }
   }
 
+  /** The control existed with no handler attached, so it silently did nothing. */
+  async function clearCache() {
+    setBusy(true);
+    setError("");
+    try {
+      await requestRuntime({
+        type: "CLEAR_CACHE",
+        payload: { scope: "all" },
+      });
+      setNotice("Cleared cached player, league, draft, and research data.");
+    } catch (caught) {
+      const safe = safeRuntimeError(caught);
+      setError(
+        `${safe.message} ${safe.safeDetail} ${safe.suggestedAction} (${safe.diagnosticCode})`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportDiagnostics() {
+    setBusy(true);
+    setError("");
+    try {
+      const bundle = await requestRuntime<unknown>({
+        type: "EXPORT_DIAGNOSTICS",
+        payload: {},
+      });
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `not-sleeping-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setNotice("Exported a redacted diagnostics bundle.");
+    } catch (caught) {
+      const safe = safeRuntimeError(caught);
+      setError(
+        `${safe.message} ${safe.safeDetail} ${safe.suggestedAction} (${safe.diagnosticCode})`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openSidePanelDataCenter() {
+    if (!HAS_EXTENSION_API) return;
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (tab?.windowId === undefined) return;
+    await chrome.sidePanel.open({ windowId: tab.windowId });
+  }
+
   async function togglePublicData(enabled: boolean) {
     if (!HAS_EXTENSION_API) {
       update("enablePublicData", enabled);
@@ -443,6 +521,69 @@ function OptionsApp() {
         {error ? <InlineError title="Action failed" detail={error} /> : null}
 
         <div className="options-panel">
+          {activeTab === "onboarding" ? (
+            <>
+              <SectionHeader
+                title="Getting started"
+                detail="Two steps, and only the first is required."
+              />
+              <ol className="onboarding-steps">
+                <li data-done={settings.sleeperUserId.length > 0}>
+                  <span className="step-mark" aria-hidden="true">
+                    {settings.sleeperUserId ? <Check /> : 1}
+                  </span>
+                  <div>
+                    <strong>Connect your Sleeper account</strong>
+                    <p>
+                      {settings.sleeperUserId
+                        ? "Connected. Every league across all seasons is loaded."
+                        : "Enter your public Sleeper username. No password is involved. Until this is done, every workspace shows demo data."}
+                    </p>
+                    <Button
+                      size="small"
+                      variant={settings.sleeperUserId ? "ghost" : "primary"}
+                      onClick={() => setActiveTab("account")}
+                    >
+                      {settings.sleeperUserId
+                        ? "Manage account"
+                        : "Connect account"}
+                    </Button>
+                  </div>
+                </li>
+                <li data-done={keyStatus.available}>
+                  <span className="step-mark" aria-hidden="true">
+                    {keyStatus.available ? <Check /> : 2}
+                  </span>
+                  <div>
+                    <strong>Add an OpenAI key — optional</strong>
+                    <p>
+                      Ranking, sync, imports and trade evaluation all work
+                      without one. A key only adds written research on top.
+                    </p>
+                    <Button
+                      size="small"
+                      variant="ghost"
+                      onClick={() => setActiveTab("providers")}
+                    >
+                      {keyStatus.available ? "Manage key" : "Add a key"}
+                    </Button>
+                  </div>
+                </li>
+              </ol>
+              <div className="security-callout">
+                <Database />
+                <div>
+                  <strong>Nothing is ever submitted for you</strong>
+                  <p>
+                    Not Sleeping reads Sleeper's public API. It cannot draft,
+                    trade, or set a lineup — every recommendation is something
+                    you carry out yourself in Sleeper.
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : null}
+
           {activeTab === "general" ? (
             <>
               <SectionHeader
@@ -507,37 +648,7 @@ function OptionsApp() {
                     }
                   />
                 </Field>
-                <Field
-                  label="Research depth"
-                  detail="Applies to manually requested player research."
-                >
-                  <select
-                    value={settings.researchDepth}
-                    onChange={(event) =>
-                      update(
-                        "researchDepth",
-                        event.target.value as AppSettings["researchDepth"],
-                      )
-                    }
-                  >
-                    <option value="quick">Quick</option>
-                    <option value="standard">Standard</option>
-                    <option value="deep">Deep</option>
-                  </select>
-                </Field>
               </div>
-              <SettingsToggle
-                label="Automatic analysis"
-                detail="Analyze supported context changes when a key is available."
-                checked={settings.automaticAnalysis}
-                onChange={(value) => update("automaticAnalysis", value)}
-              />
-              <SettingsToggle
-                label="In-page launcher"
-                detail="Show a small Not Sleeping launcher on supported Sleeper pages."
-                checked={settings.launcherEnabled}
-                onChange={(value) => update("launcherEnabled", value)}
-              />
             </>
           ) : null}
 
@@ -774,6 +885,36 @@ function OptionsApp() {
 
           {activeTab === "models" ? (
             <>
+              <SectionHeader
+                title="How much analysis to run"
+                detail="Every feature answers deterministically first; these control the optional layer on top."
+              />
+              <div className="form-grid">
+                <Field
+                  label="Research depth"
+                  detail="Applies to manually requested player research."
+                >
+                  <select
+                    value={settings.researchDepth}
+                    onChange={(event) =>
+                      update(
+                        "researchDepth",
+                        event.target.value as AppSettings["researchDepth"],
+                      )
+                    }
+                  >
+                    <option value="quick">Quick</option>
+                    <option value="standard">Standard</option>
+                    <option value="deep">Deep</option>
+                  </select>
+                </Field>
+              </div>
+              <SettingsToggle
+                label="Automatic analysis"
+                detail="Analyze supported context changes when a key is available."
+                checked={settings.automaticAnalysis}
+                onChange={(value) => update("automaticAnalysis", value)}
+              />
               <SectionHeader
                 title="Dynamic model selection"
                 detail="Models and capability controls are loaded from the selected provider; unknown controls stay disabled instead of being guessed."
@@ -1216,12 +1357,6 @@ function OptionsApp() {
                   ]}
                 />
               </div>
-              <SettingsToggle
-                label="Enable public data enrichment"
-                detail="Allow verified nflverse roster metadata downloads. Off by default."
-                checked={settings.enablePublicData}
-                onChange={(value) => void togglePublicData(value)}
-              />
               <a
                 className="docs-link"
                 href="https://github.com/jtaitt-dev/not-sleeping/blob/main/SECURITY.md"
@@ -1265,25 +1400,10 @@ function OptionsApp() {
                 ))}
               </div>
               <SettingsToggle
-                label="Reduce motion"
-                detail="Minimize non-essential animation and transitions."
-                checked={settings.reducedMotion}
-                onChange={(value) => update("reducedMotion", value)}
-              />
-              <SettingsToggle
-                label="High-contrast controls"
-                detail="Increase borders and control contrast independent of theme."
-                checked={settings.highContrast}
-                onChange={(value) => update("highContrast", value)}
-              />
-            </>
-          ) : null}
-
-          {activeTab === "advanced" ? (
-            <>
-              <SectionHeader
-                title="Advanced controls"
-                detail="Operational limits, launcher placement, and safe maintenance actions."
+                label="In-page launcher"
+                detail="Show a small Not Sleeping launcher on supported Sleeper pages."
+                checked={settings.launcherEnabled}
+                onChange={(value) => update("launcherEnabled", value)}
               />
               <div className="form-grid">
                 <Field
@@ -1303,6 +1423,134 @@ function OptionsApp() {
                     <option value="bottom_left">Bottom left</option>
                   </select>
                 </Field>
+              </div>
+            </>
+          ) : null}
+
+          {activeTab === "accessibility" ? (
+            <>
+              <SectionHeader
+                title="Accessibility"
+                detail="These apply everywhere, independent of the theme you picked."
+              />
+              <SettingsToggle
+                label="Reduce motion"
+                detail="Minimize non-essential animation and transitions."
+                checked={settings.reducedMotion}
+                onChange={(value) => update("reducedMotion", value)}
+              />
+              <SettingsToggle
+                label="High-contrast controls"
+                detail="Increase borders and control contrast independent of theme."
+                checked={settings.highContrast}
+                onChange={(value) => update("highContrast", value)}
+              />
+            </>
+          ) : null}
+
+          {activeTab === "data" ? (
+            <>
+              <SectionHeader
+                title="Data & cache"
+                detail="What Not Sleeping keeps on this device, and how to clear it."
+              />
+              <SettingsToggle
+                label="Enable public data enrichment"
+                detail="Allow verified nflverse roster metadata downloads. Off by default."
+                checked={settings.enablePublicData}
+                onChange={(value) => void togglePublicData(value)}
+              />
+              <div className="maintenance-grid">
+                <article>
+                  <Database />
+                  <div>
+                    <strong>Cached public data</strong>
+                    <p>
+                      Clear player, league, draft, and research cache without
+                      affecting settings.
+                    </p>
+                  </div>
+                  <Button
+                    size="small"
+                    onClick={() => void clearCache()}
+                    disabled={busy}
+                  >
+                    Clear cache
+                  </Button>
+                </article>
+                <article>
+                  <RefreshCw />
+                  <div>
+                    <strong>Reset preferences</strong>
+                    <p>
+                      Restore defaults. Saved keys require a separate explicit
+                      removal.
+                    </p>
+                  </div>
+                  <Button
+                    size="small"
+                    variant="danger"
+                    onClick={() => setSettings(DEFAULT_SETTINGS)}
+                  >
+                    Reset settings
+                  </Button>
+                </article>
+              </div>
+            </>
+          ) : null}
+
+          {activeTab === "transfer" ? (
+            <>
+              <SectionHeader
+                title="Import & export"
+                detail="Move rankings in, and take a redacted copy of your setup out."
+              />
+              <div className="maintenance-grid">
+                <article>
+                  <Download />
+                  <div>
+                    <strong>Export redacted diagnostics</strong>
+                    <p>
+                      A support bundle with keys, usernames and league IDs
+                      stripped out before it leaves the device.
+                    </p>
+                  </div>
+                  <Button
+                    size="small"
+                    onClick={() => void exportDiagnostics()}
+                    disabled={busy}
+                  >
+                    Export
+                  </Button>
+                </article>
+                <article>
+                  <SlidersHorizontal />
+                  <div>
+                    <strong>Import rankings</strong>
+                    <p>
+                      Custom rankings are imported from the side panel's Data
+                      Center, where the parsed result can be previewed first.
+                    </p>
+                  </div>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    onClick={() => void openSidePanelDataCenter()}
+                  >
+                    Open Data Center
+                  </Button>
+                </article>
+              </div>
+            </>
+          ) : null}
+
+          {activeTab === "diagnostics" ? (
+            <>
+              <SectionHeader
+                title="Diagnostics"
+                detail="Logging detail for troubleshooting. Production defaults are deliberately quiet."
+              />
+              <div className="form-grid">
                 <Field
                   label="Diagnostic log level"
                   detail="Production defaults to warnings and errors."
@@ -1323,36 +1571,52 @@ function OptionsApp() {
                   </select>
                 </Field>
               </div>
-              <div className="maintenance-grid">
-                <article>
-                  <Database />
-                  <div>
-                    <strong>Cached public data</strong>
-                    <p>
-                      Clear player, league, draft, and research cache without
-                      affecting settings.
-                    </p>
-                  </div>
-                  <Button size="small">Clear cache</Button>
-                </article>
-                <article>
-                  <RefreshCw />
-                  <div>
-                    <strong>Reset preferences</strong>
-                    <p>
-                      Restore defaults. Saved keys require a separate explicit
-                      removal.
-                    </p>
-                  </div>
-                  <Button
-                    size="small"
-                    variant="danger"
-                    onClick={() => setSettings(DEFAULT_SETTINGS)}
-                  >
-                    Reset settings
-                  </Button>
-                </article>
+              <div className="security-callout">
+                <CircleHelp />
+                <div>
+                  <strong>Logs stay on this device</strong>
+                  <p>
+                    Nothing is transmitted anywhere. Use Import &amp; export to
+                    produce a redacted bundle if you need to share one.
+                  </p>
+                </div>
               </div>
+            </>
+          ) : null}
+
+          {activeTab === "about" ? (
+            <>
+              <SectionHeader
+                title="About Not Sleeping"
+                detail={`Version ${chrome.runtime.getManifest().version} · an independent companion, not affiliated with Sleeper.`}
+              />
+              <div className="security-callout">
+                <ShieldCheck />
+                <div>
+                  <strong>Read-only by design</strong>
+                  <p>
+                    Not Sleeping never submits a draft pick, trade, waiver claim
+                    or lineup. It reads Sleeper's public API and tells you what
+                    it would do; carrying that out stays your decision.
+                  </p>
+                </div>
+              </div>
+              <a
+                className="docs-link"
+                href="https://github.com/jtaitt-dev/not-sleeping"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Source and issue tracker <ExternalLink />
+              </a>
+              <a
+                className="docs-link"
+                href="https://github.com/jtaitt-dev/not-sleeping/blob/main/CHANGELOG.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                What changed in this version <ExternalLink />
+              </a>
             </>
           ) : null}
         </div>
