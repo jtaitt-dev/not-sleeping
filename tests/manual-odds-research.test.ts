@@ -7,11 +7,11 @@ import {
   deViggedProbability,
   marketHold,
   type ManualOddsLeg,
-} from "@/features/labs/parlay-analysis";
+} from "@/features/research/manual-odds-analysis";
 
 const now = Date.UTC(2026, 8, 10, 18, 0, 0);
 
-describe("Labs-only responsible scenario analysis", () => {
+describe("advanced manual-odds responsible scenario analysis", () => {
   it("shows a watchlist instead of constructing from missing prices", () => {
     const result = buildResponsibleParlayCandidates([blankLeg("1")], { now });
     expect(result).toMatchObject({
@@ -108,6 +108,15 @@ describe("Labs-only responsible scenario analysis", () => {
     );
     expect(result.outcome).toBe("no_responsible_parlay");
     expect(result.rejectedLegs[0]?.reason).toContain("no longer");
+  });
+
+  it("fails closed when no verified legal player pool is available", () => {
+    const result = buildResponsibleParlayCandidates(
+      [suppliedLeg("1"), suppliedLeg("2")],
+      { now, allowedPlayerIds: [] },
+    );
+    expect(result.outcome).toBe("no_responsible_parlay");
+    expect(result.rejectedLegs).toHaveLength(2);
   });
 });
 

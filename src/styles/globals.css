@@ -66,6 +66,19 @@ a {
   color: var(--accent-primary);
 }
 
+.safe-external-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 h1,
 h2,
 h3,

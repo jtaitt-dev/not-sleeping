@@ -7,6 +7,14 @@ semantic versioning.
 
 ### Added
 
+- One unified Not Sleeping build and release artifact with Advanced Research
+  included behind a disabled-by-default acknowledgement and enablement gate.
+- A second 21+ and jurisdiction gate, direct-route enforcement, cooldown,
+  disable control, and persistent informational-use warning for Manual Odds
+  Research.
+- Unified-build and browser assertions covering one manifest, one artifact,
+  default feature absence, direct-route locking, both opt-in layers, and no
+  stake or operator-link controls.
 - Universal multi-season league switcher with favorite/recent sorting, isolated per-league state, and atomic rapid switching.
 - Today, Start & Sit/Best Ball, Matchup, Chopped Survival, Waiver, Trade, Dynasty, Rookie, Taxi, IDP, Auction, Mock Draft Lab, Research, and Deadline workspaces.
 - Exact ordered-slot lineup optimizer, arbitrary scoring translation, deterministic weather, evidence provenance, configurable source policy, and opt-in local alerts.
@@ -16,6 +24,9 @@ semantic versioning.
 
 ### Security
 
+- Classified the unified manual-odds artifact as limited-beta/sideload only;
+  Chrome Web Store submission requires fresh policy and legal approval because
+  packaged code remains reviewable even when runtime-gated.
 - Added prompt-injection rejection, source URL classification, cross-league epoch isolation, notification privacy defaults, and bounded uncited-AI effects.
 
 ## [0.6.0] - 2026-08-05

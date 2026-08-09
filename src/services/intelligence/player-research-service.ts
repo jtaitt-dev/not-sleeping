@@ -7,6 +7,10 @@ import { resolveFeatureConfig } from "@/services/intelligence/feature-config";
 import type { AiStructuredResult } from "@/providers/ai/types";
 import { AiProviderRegistry } from "@/providers/ai/provider-registry";
 import type { AppSettings } from "@/types/domain";
+import {
+  isSourceAllowed,
+  type SourcePreferences,
+} from "@/providers/evidence/evidence-adapters";
 
 export class PlayerResearchService {
   constructor(
@@ -20,6 +24,7 @@ export class PlayerResearchService {
     leagueContext: string;
     depth: "quick" | "standard" | "deep";
     allowedDomains?: string[];
+    sourcePreferences?: SourcePreferences;
     signal?: AbortSignal;
   }): Promise<AiStructuredResult<PlayerResearchOutput>> {
     const settings = await this.getSettings();
@@ -65,7 +70,17 @@ export class PlayerResearchService {
         ...result.data,
         citations: result.data.citations.filter((citation) => {
           const valid = validateExternalHttpsUrl(citation.url);
-          return valid !== null && citedUrls.has(valid);
+          return (
+            valid !== null &&
+            citedUrls.has(valid) &&
+            (!request.sourcePreferences ||
+              isSourceAllowed(
+                valid,
+                undefined,
+                `${citation.title} ${citation.publisher}`,
+                request.sourcePreferences,
+              ))
+          );
         }),
       },
     };

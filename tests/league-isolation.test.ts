@@ -118,6 +118,7 @@ function context(leagueId: string): LeagueContext {
 
 function snapshot(leagueId: string): LeagueSnapshot {
   return {
+    userId: "user-1",
     leagueId,
     week: 1,
     fetchedAt: Date.now(),

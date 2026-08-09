@@ -53,14 +53,14 @@ export function buildLiveDraftState(
   const draftSettings = input.draft.settings;
   const leagueSettings = input.league?.settings ?? {};
   const teams =
-    positiveInteger(input.league?.total_rosters) ??
-    positiveInteger(draftSettings["teams"]) ??
-    positiveInteger(draftSettings["num_teams"]) ??
-    objectSize(input.draft.draft_order) ??
-    objectSize(input.draft.slot_to_roster_id) ??
+    positiveInteger(input.league?.total_rosters, 64) ??
+    positiveInteger(draftSettings["teams"], 64) ??
+    positiveInteger(draftSettings["num_teams"], 64) ??
+    objectSize(input.draft.draft_order, 64) ??
+    objectSize(input.draft.slot_to_roster_id, 64) ??
     12;
   const rounds =
-    positiveInteger(draftSettings["rounds"]) ??
+    positiveInteger(draftSettings["rounds"], 80) ??
     Math.max(1, Math.ceil(input.picks.length / teams));
   const rosterPositions = input.league?.roster_positions.length
     ? input.league.roster_positions
@@ -373,7 +373,10 @@ function rosterPositionsFromDraftSettings(
     ["slots_bn", "BN"],
   ];
   return mapping.flatMap(([key, position]) =>
-    Array.from({ length: positiveInteger(settings[key]) ?? 0 }, () => position),
+    Array.from(
+      { length: positiveInteger(settings[key], 80) ?? 0 },
+      () => position,
+    ),
   );
 }
 
@@ -411,16 +414,19 @@ function finiteNumber(value: unknown): number | undefined {
     : undefined;
 }
 
-function positiveInteger(value: unknown): number | undefined {
+function positiveInteger(value: unknown, maximum: number): number | undefined {
   const number = finiteNumber(value);
-  return number !== undefined && number >= 1 ? Math.floor(number) : undefined;
+  return number !== undefined && number >= 1 && number <= maximum
+    ? Math.floor(number)
+    : undefined;
 }
 
 function objectSize(
   value: Record<string, unknown> | null | undefined,
+  maximum: number,
 ): number | undefined {
   const size = Object.keys(value ?? {}).length;
-  return size > 0 ? size : undefined;
+  return size > 0 && size <= maximum ? size : undefined;
 }
 
 function stringValue(value: unknown): string | undefined {

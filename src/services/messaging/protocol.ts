@@ -64,7 +64,7 @@ export const messageSchema = z.discriminatedUnion("type", [
   z.object({
     ...messageBase,
     type: z.literal("GET_STATUS"),
-    payload: z.object({}),
+    payload: z.object({ tabId: z.number().int().nonnegative().optional() }),
   }),
   z.object({
     ...messageBase,
@@ -74,7 +74,7 @@ export const messageSchema = z.discriminatedUnion("type", [
   z.object({
     ...messageBase,
     type: z.literal("GET_CONTEXT"),
-    payload: z.object({}),
+    payload: z.object({ tabId: z.number().int().nonnegative().optional() }),
   }),
   z.object({
     ...messageBase,
@@ -84,7 +84,10 @@ export const messageSchema = z.discriminatedUnion("type", [
   z.object({
     ...messageBase,
     type: z.literal("REFRESH_CONTEXT"),
-    payload: z.object({ force: z.boolean().default(false) }),
+    payload: z.object({
+      force: z.boolean().default(false),
+      tabId: z.number().int().nonnegative().optional(),
+    }),
   }),
   z.object({
     ...messageBase,
@@ -115,7 +118,7 @@ export const messageSchema = z.discriminatedUnion("type", [
   z.object({
     ...messageBase,
     type: z.literal("GET_LEAGUES"),
-    payload: z.object({}),
+    payload: z.object({ userId: id }),
   }),
   z.object({
     ...messageBase,
@@ -129,14 +132,14 @@ export const messageSchema = z.discriminatedUnion("type", [
   z.object({
     ...messageBase,
     type: z.literal("FAVORITE_LEAGUE"),
-    payload: z.object({ leagueId: id, favorite: z.boolean() }),
+    payload: z.object({ userId: id, leagueId: id, favorite: z.boolean() }),
   }),
   z.object({
     ...messageBase,
     type: z.literal("SET_LEAGUE_OVERRIDES"),
     payload: z.object({
-      leagueId: id,
       userId: id,
+      leagueId: id,
       overrides: z.object({
         leagueType: z
           .enum(["redraft", "keeper", "dynasty", "unknown"])
@@ -188,6 +191,7 @@ export const messageSchema = z.discriminatedUnion("type", [
     ...messageBase,
     type: z.literal("GET_LEAGUE_SNAPSHOT"),
     payload: z.object({
+      userId: id,
       leagueId: id,
       week: z.number().int().min(0).max(30),
     }),
@@ -196,7 +200,9 @@ export const messageSchema = z.discriminatedUnion("type", [
     ...messageBase,
     type: z.literal("SAVE_LEAGUE_WORKSPACE"),
     payload: z.object({
+      userId: id,
       leagueId: id,
+      season: z.string().regex(/^\d{4}$/),
       workspace: z.string().min(1).max(120),
       week: z.number().int().min(0).max(30),
       scrollTop: z.number().min(0).max(10_000_000),
@@ -220,7 +226,12 @@ export const messageSchema = z.discriminatedUnion("type", [
   z.object({
     ...messageBase,
     type: z.literal("GET_LEAGUE_WORKSPACE"),
-    payload: z.object({ leagueId: id, workspace: z.string().min(1).max(120) }),
+    payload: z.object({
+      userId: id,
+      leagueId: id,
+      season: z.string().regex(/^\d{4}$/),
+      workspace: z.string().min(1).max(120),
+    }),
   }),
   z.object({
     ...messageBase,

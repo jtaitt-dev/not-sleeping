@@ -405,7 +405,7 @@
   height: 30px;
   place-items: center;
   border-radius: 50%;
-  background: linear-gradient(135deg, #78337f, #265a91);
+  background: #4f2a9d;
   color: var(--text-primary);
   font-size: 12px;
   font-weight: 800;

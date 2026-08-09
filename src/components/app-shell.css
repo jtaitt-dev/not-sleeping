@@ -31,9 +31,7 @@
   align-items: center;
   gap: 7px 10px;
   border-bottom: 1px solid var(--border-subtle);
-  background:
-    radial-gradient(circle at 75% -20%, rgb(34 230 195 / 7%), transparent 48%),
-    var(--background-sidebar);
+  background: var(--background-sidebar);
   grid-template-columns: minmax(118px, 1fr) minmax(124px, 1.25fr) auto;
   padding: 8px 10px 7px;
 }
@@ -105,7 +103,7 @@
   place-items: center;
   border: 1px solid rgb(244 114 182 / 40%);
   border-radius: 50%;
-  background: linear-gradient(135deg, #9f2c92, #4f2a9d);
+  background: #4f2a9d;
   font-size: 12px;
   font-weight: 750;
 }

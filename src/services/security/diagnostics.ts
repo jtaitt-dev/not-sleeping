@@ -25,6 +25,14 @@ export async function exportRedactedDiagnostics(): Promise<
       ).userAgentData?.platform ?? "unavailable",
     online: navigator.onLine,
     userAlias,
+    build: {
+      product: "unified",
+      advancedResearchAcknowledged:
+        settings.advancedResearchAcknowledgedAt !== null,
+      advancedResearchEnabled:
+        settings.advancedResearchAcknowledgedAt !== null &&
+        settings.advancedResearchEnabled,
+    },
     settings: {
       ...settings,
       sleeperUsername: "[REDACTED]",

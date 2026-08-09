@@ -1,7 +1,7 @@
 import { aiDecisionOverlaySchema } from "@/schemas/ai/decision";
 import type { AiDecisionOverlayOutput } from "@/schemas/ai/decision";
 import type { AiStructuredResult } from "@/providers/ai/types";
-import { normalizeError } from "@/services/errors/app-error";
+import { AppError, normalizeError } from "@/services/errors/app-error";
 import { AiBudgetGuard } from "@/services/intelligence/budget-guard";
 import { evaluateDeterministicDecision } from "@/services/intelligence/deterministic-engine";
 import { resolveFeatureConfig } from "@/services/intelligence/feature-config";
@@ -16,6 +16,8 @@ import type {
   AppSettings,
 } from "@/types/domain";
 import { AiProviderRegistry } from "@/providers/ai/provider-registry";
+import { resolveAvailableModelSelection } from "@/services/intelligence/model-selection";
+import { recordUsage } from "@/services/usage/usage-service";
 
 // A live draft starts a decision per pick, each retaining its full ranked
 // baseline. Nothing ever removed them, so the maps grew for the lifetime of the
@@ -70,6 +72,7 @@ export class DecisionPipeline {
   ): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
+    const startedAt = this.now();
     try {
       const settings = await this.getSettings();
       const config = resolveFeatureConfig(settings, input.feature);
@@ -84,9 +87,10 @@ export class DecisionPipeline {
       }, Promise.resolve());
       const settled = await Promise.allSettled(
         targets.map(async (target): Promise<ProviderOverlayResult> => {
-          const provider = this.providers.get(target.provider);
+          const resolved = await this.resolveTarget(target);
+          const provider = this.providers.get(resolved.provider);
           const result = await provider.createStructured({
-            model: target.model,
+            model: resolved.model,
             schemaName: "realtime_decision_overlay",
             schema: aiDecisionOverlaySchema,
             system: systemPrompt(input.feature),
@@ -100,7 +104,7 @@ export class DecisionPipeline {
             reasoningEffort: config.reasoningEffort,
             thinkingMode: config.thinkingMode,
           });
-          return { ...target, result };
+          return { ...resolved, result };
         }),
       );
       const successful = settled.flatMap((result) =>
@@ -122,6 +126,15 @@ export class DecisionPipeline {
           completed.model,
           completed.result.usage,
         );
+        await recordUsage({
+          feature: input.feature,
+          model: completed.model,
+          status: "success",
+          inputTokens: completed.result.usage.inputTokens,
+          outputTokens: completed.result.usage.outputTokens,
+          totalTokens: completed.result.usage.totalTokens,
+          durationMs: Math.max(0, this.now() - startedAt),
+        }).catch(() => undefined);
       }
       const current = this.jobs.get(jobId);
       if (!current) return;
@@ -142,6 +155,15 @@ export class DecisionPipeline {
       });
       this.jobs.set(jobId, { ...current, aiStatus: "ready", overlay });
     } catch (error) {
+      await recordUsage({
+        feature: input.feature,
+        status: "failure",
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        durationMs: Math.max(0, this.now() - startedAt),
+        diagnosticCode: normalizeError(error).diagnosticCode,
+      }).catch(() => undefined);
       const current = this.jobs.get(jobId);
       if (!current) return;
       const safe = normalizeError(error);
@@ -151,6 +173,36 @@ export class DecisionPipeline {
         error: `${safe.message} ${safe.suggestedAction}`,
       });
     }
+  }
+
+  private async resolveTarget(target: {
+    provider: AiProviderId;
+    model: string;
+  }): Promise<ResolvedTarget> {
+    const requestedProvider = this.providers.get(target.provider);
+    const requestedModels = await requestedProvider.listModels();
+    const requestedAvailable = requestedModels.some(
+      (model) =>
+        model.id === target.model && model.provider === target.provider,
+    );
+    const lunaModels = requestedAvailable
+      ? requestedModels
+      : await this.providers.get("openai").listModels();
+    const resolved = resolveAvailableModelSelection({
+      requestedProvider: target.provider,
+      requestedModel: target.model,
+      requestedModels,
+      lunaModels,
+    });
+    if (resolved) return resolved;
+    throw new AppError({
+      code: "UNSUPPORTED_MODEL",
+      message: "No valid AI model is available.",
+      safeDetail: `The selected ${target.provider} model is unavailable and Luna is not available as a fallback.`,
+      suggestedAction:
+        "Refresh the model list or continue with local analysis.",
+      retryable: false,
+    });
   }
 }
 
@@ -166,8 +218,13 @@ function evictOldest<V>(map: Map<string, V>, limit: number): void {
 type ProviderOverlayResult = {
   provider: AiProviderId;
   model: string;
+  requestedProvider: AiProviderId;
+  requestedModel: string;
+  fallbackUsed: boolean;
   result: AiStructuredResult<AiDecisionOverlayOutput>;
 };
+
+type ResolvedTarget = Omit<ProviderOverlayResult, "result">;
 
 function providerTargets(
   config: AiFeatureConfig,
@@ -256,6 +313,13 @@ function reconcileProviderResults(input: {
     ),
     warnings: unique([
       ...normalized.flatMap((entry) => entry.result.warnings),
+      ...normalized.flatMap((entry) =>
+        entry.fallbackUsed
+          ? [
+              `${entry.requestedProvider}:${entry.requestedModel} was unavailable; OpenAI ${entry.model} was used instead.`,
+            ]
+          : [],
+      ),
       ...normalized.flatMap((entry) =>
         entry.valid
           ? []

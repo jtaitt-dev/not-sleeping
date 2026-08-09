@@ -1,86 +1,96 @@
-# Security Review — 2026-08-02
+# Security Review — 2026-08-08
 
-Scope: the complete 282-file Phase 3 working tree, including the Chrome MV3
-entrypoints, provider-neutral BYOK boundaries, storage, runtime messaging,
-imports, external evidence, league isolation, Core/Labs build separation,
-Parlay Lab safeguards, dependencies, CI, packaging, and release automation.
+Scope: the complete v0.6.0 working tree after the unified Chrome MV3 build,
+league-derived manual mock drafts, per-tab live-draft context, account-scoped
+storage, provider-key handling, and Advanced Research safeguards were completed.
 
 ## Result
 
-A completed Codex Security standard scan recorded one high-confidence,
-low-severity finding and no critical, high, or medium findings. The low finding
-was fixed before release validation:
+The app-backed Codex Security standard scan reviewed eight security surfaces.
+Twelve discovery candidates were centrally validated after remediation. No
+reportable finding survived validation, attack-path analysis, and reportability
+gates. Coverage is complete for the source scope.
 
-- External citation validation now rejects canonical localhost-style names,
-  single-label/local hosts, non-public IPv4 and IPv6 literals, IPv4-mapped IPv6,
-  and private destinations embedded in NAT64 or 6to4 forms.
-- The original read-only probe now rejects all five private/link-local examples,
-  returns `false` from the navigation helper, and records no `window.open` call.
-- Public HTTPS DNS, IPv4, and IPv6 controls remain accepted.
+The sealed report and canonical artifacts are preserved in
+[`artifacts/security-scan-2026-08-08`](../artifacts/security-scan-2026-08-08/report.md).
+The scan ID is `83a0dd7d-978b-46e5-92be-eed3a3bdfb0b`.
 
-The scan also reproduced a same-user AI budget-ledger race. Attack-path policy
-classified it as reliability/cost-control hardening rather than an
-attacker-reachable vulnerability because only trusted extension UI can start
-decisions. It was fixed anyway: reserve, record, and snapshot operations are
-now serialized, and concurrent Chrome-storage and memory-path tests prove that
-requests and usage updates cannot be lost.
+## Remediations validated
 
-The review additionally confirmed:
-
-- provider-specific, background-only key access and credential redaction
-- sender, host, schema, size, age, capability, and credential rejection
-- read-only Sleeper access and league/draft-scoped caches and state
-- strict structured AI output, bounded adjustments, legal-ID reconciliation,
-  stale-state rejection, and deterministic-first behavior
-- React rendering without HTML injection or executable model/source content
-- bounded queue, retry, timeout, cancellation, token, request, and cost controls
-- import signature/size/shape limits and CSV formula protection
-- independent Core and Labs builds with a passing Core exclusion assertion
-- current, sourced, user-supplied Labs markets and no stake, operator,
-  affiliate, scraping, or bet-placement path
-- enforced 21+ and jurisdiction acknowledgement, non-bypassable 24-hour
-  cooldown, permanent disable, and no scenario history
-- no remote code, production source maps, unsafe shell construction, or known
-  production dependency vulnerabilities
+- Live Sleeper context is keyed by Chrome tab and sent only to the subscribed
+  side-panel port for that tab.
+- Catalogs, active selections, workspaces, and mock drafts are bound to
+  exact account, league, season, and draft identities with injective keys.
+- Stale rapid league selections cannot persist or replace the latest context.
+- Sleeper responses have streaming byte caps, structural limits, record caps,
+  and exact league, roster, draft, and season identity checks.
+- Every Sleeper request crosses one allowlisted read-only boundary that permits
+  only HTTPS `GET` requests to the public API.
+- Research honors official/trusted/blocked/social source preferences in both
+  the provider request and returned citation set.
+- External links reject credentials, sensitive query names, credential-shaped
+  values, fragments, non-public literal addresses, non-HTTPS URLs, and
+  nonstandard ports; a hostname confirmation is required before navigation.
+- Manual odds analysis remains locked until an adult acknowledgement,
+  jurisdiction acknowledgement, selected league, and nonempty verified legal
+  player pool all exist.
+- OpenAI and Anthropic origins are optional host permissions. `activeTab` and
+  `tabs` are absent from the production manifest.
+- Provider-key status is masked through the service worker. Session-only
+  storage remains the default; remembered storage requires confirmation.
+- Usage screens use recorded events rather than static sample data.
+- The production bundle assertion fails if permissions regress, AI hosts become
+  mandatory, legacy flavor paths return, or source maps are shipped.
 
 ## Verification
 
-The post-fix `pnpm validate:phase3` run passed:
+All checks used Node 24.14.0:
 
-- 25 test files: 201 passed, 1 skipped (202 total)
-- coverage: 89.89% statements, 84.58% branches, 92.85% functions, 92.92% lines
-- standard lineup: 1.892 ms median, 2.451 ms p95 over 50 measured iterations
-- large IDP lineup: 8.102 ms median, 10.277 ms p95
-- 80 deterministic simulation seeds with zero invariant failures
+- formatting, strict ESLint, and strict TypeScript: passed
+- unit/integration: 40 files passed, 1 skipped; 329 tests passed, 2 skipped
+- coverage: 77.97% statements, 66.49% branches, 79.19% functions, 80.31% lines
+- read-only live Sleeper audit: four leagues, 1,212 picks, zero illegal picks
+- exhaustive simulations: 5,000/5,000, zero invariant failures, 100% roster
+  completion and recommendation-rank stability
+- standard lineup: 2.233 ms median, 3.013 ms p95
+- large IDP lineup: 8.338 ms median, 9.877 ms p95
 - AI evaluations: 10/10
-- Core build: 24 files; Labs build: 29 files
-- Core bundle exclusion: passed across 24 files and 6 Labs-only tokens
-- Chromium E2E: 9/9, including a 150-pick manual mock with no duplicates
+- Chromium MV3 end-to-end: 12/12
 - visual baselines: 2/2
 - production dependency audit: no known vulnerabilities
+- unified build: 28 files, 1.28 MB, no production source maps
 
-Commands:
+The release archive contains 32 entries, one root manifest, no source maps, and
+no `core/` or `labs/` paths. It is 400,017 bytes. SHA-256:
+`BE0A62E1E340609F4779BDF0442AD5C682E32D69E04CCE72BD6B3F7E13905962`.
 
-```bash
-pnpm exec vitest run tests/imports-security.test.ts tests/budget-guard.test.ts
-pnpm typecheck
-pnpm exec eslint src/services/security/url.ts src/services/intelligence/budget-guard.ts tests/imports-security.test.ts tests/budget-guard.test.ts --max-warnings 0
-pnpm validate:phase3
-```
+## Platform limitations
 
-## Review limitations
+Chrome does not offer a storage ACL between trusted pages belonging to the same
+extension origin. Exposure is reduced through session-only storage by default,
+trusted-context storage access levels, a strict self-only extension CSP, no
+remote code, masked status responses, and explicit confirmation before a key is
+remembered.
 
-An earlier Deep Security Scan could not start discovery because the host failed
-to spawn its coordinator process with `EPERM`; it reviewed no repository file
-and was not treated as evidence. The completed standard scan used the supported
-parent-review fallback and closed all 282 inventory rows.
+After a user confirms an external hostname, Chrome controls DNS resolution and
+HTTP redirects. The extension therefore removes sensitive URL material, blocks
+unsafe literal destinations, requires HTTPS on port 443, shows the hostname,
+and opens with `noopener,noreferrer`.
 
-Browser-control tooling could not attach to the already signed-in Chrome
-session, so no live Sleeper account data or real provider credentials were
-exercised. Product behavior was instead validated with the loaded-extension
-Playwright suite, deterministic provider fixtures, and the complete manual mock
-draft flow.
+The package contains manual-odds research and remains limited-beta/sideload
+only until a fresh Chrome Web Store policy and legal review approves it.
 
-Automated checks do not prove absence of vulnerabilities. Re-run the threat
-model when permissions, host access, key handling, provider tools, citation
-behavior, import formats, Labs data sources, or release infrastructure change.
+## Browser evidence
+
+Chrome control reused the already-open signed-in Sleeper tab at the Big Bucks
+predraft route. No additional visible Chrome profile or window was launched.
+Loaded-extension browser validation ran headlessly and supplied the side-panel,
+options, offline, accessibility, minimum-width, route-propagation, and full
+manual-draft evidence.
+
+## Re-review triggers
+
+Repeat this review whenever manifest permissions, provider-key storage,
+runtime-message capabilities, external sources, import formats, Sleeper API
+routes, account identity, manual-odds behavior, or release infrastructure
+changes.

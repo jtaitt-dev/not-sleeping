@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import type { AiFeatureConfig, AppSettings } from "@/types/domain";
+import {
+  isModelIdentifierShapeValid,
+  LUNA_MODEL_ID,
+} from "@/services/intelligence/model-selection";
 
 export const APP_SETTINGS_KEY = "appSettings";
 
@@ -45,22 +49,13 @@ const aiFeatureSchema = z.enum([
   "research",
 ]);
 
-export const appSettingsSchema = z.object({
-  settingsVersion: z.number().int().min(1),
-  onboardingComplete: z.boolean(),
-  sleeperUsername: z.string().max(64),
-  sleeperUserId: z.string().max(32),
-  defaultMode: z.enum([
-    "redraft",
-    "keeper",
-    "dynasty_startup",
-    "dynasty_rookie",
-    "best_ball",
-    "unknown",
-  ]),
-  modeOverrides: z.record(
-    z.string().max(80),
-    z.enum([
+export const appSettingsSchema = z
+  .object({
+    settingsVersion: z.number().int().min(1),
+    onboardingComplete: z.boolean(),
+    sleeperUsername: z.string().max(64),
+    sleeperUserId: z.string().max(32),
+    defaultMode: z.enum([
       "redraft",
       "keeper",
       "dynasty_startup",
@@ -68,46 +63,67 @@ export const appSettingsSchema = z.object({
       "best_ball",
       "unknown",
     ]),
-  ),
-  defaultStrategy: z.enum([
-    "contender",
-    "balanced",
-    "productive_struggle",
-    "rebuild",
-  ]),
-  riskTolerance: z.number().min(0).max(1),
-  researchDepth: z.enum(["quick", "standard", "deep"]),
-  automaticAnalysis: z.boolean(),
-  maxRequestsPerMinute: z.number().int().min(1).max(12),
-  maxConcurrency: z.number().int().min(1).max(2),
-  maxOutputTokens: z.number().int().min(256).max(16_384),
-  requestTimeoutMs: z.number().int().min(10_000).max(180_000),
-  routineModel: z.string().min(1).max(120),
-  researchModel: z.string().min(1).max(120),
-  manualModelIds: z.array(z.string().min(1).max(120)).max(20),
-  aiPreset: z.enum(["economy", "balanced", "quality", "custom"]),
-  aiDefaults: aiFeatureConfigSchema,
-  aiFeatureOverrides: z.partialRecord(aiFeatureSchema, aiFeatureConfigSchema),
-  aiBudgets: z.object({
-    maxRequestsPerMinute: z.number().int().min(1).max(60),
-    maxConcurrency: z.number().int().min(1).max(4),
-    dailyRequestLimit: z.number().int().min(1).max(10_000),
-    dailyInputTokenLimit: z.number().int().min(1_000).max(100_000_000),
-    dailyOutputTokenLimit: z.number().int().min(1_000).max(100_000_000),
-    dailyCostCeilingUsd: z.number().min(0).max(1_000),
-  }),
-  anthropicManualModelIds: z.array(z.string().min(1).max(160)).max(20),
-  enablePublicData: z.boolean(),
-  theme: z.enum(["dark", "light", "system", "high_contrast"]),
-  reducedMotion: z.boolean(),
-  highContrast: z.boolean(),
-  launcherEnabled: z.boolean(),
-  launcherPosition: z.enum(["bottom_left", "bottom_right"]),
-  logLevel: z.enum(["debug", "info", "warning", "error"]),
-});
+    modeOverrides: z.record(
+      z.string().max(80),
+      z.enum([
+        "redraft",
+        "keeper",
+        "dynasty_startup",
+        "dynasty_rookie",
+        "best_ball",
+        "unknown",
+      ]),
+    ),
+    defaultStrategy: z.enum([
+      "contender",
+      "balanced",
+      "productive_struggle",
+      "rebuild",
+    ]),
+    riskTolerance: z.number().min(0).max(1),
+    researchDepth: z.enum(["quick", "standard", "deep"]),
+    automaticAnalysis: z.boolean(),
+    advancedResearchAcknowledgedAt: z.number().int().positive().nullable(),
+    advancedResearchEnabled: z.boolean(),
+    maxRequestsPerMinute: z.number().int().min(1).max(12),
+    maxConcurrency: z.number().int().min(1).max(2),
+    maxOutputTokens: z.number().int().min(256).max(16_384),
+    requestTimeoutMs: z.number().int().min(10_000).max(180_000),
+    routineModel: z.string().min(1).max(120),
+    researchModel: z.string().min(1).max(120),
+    manualModelIds: z.array(z.string().min(1).max(120)).max(20),
+    aiPreset: z.enum(["economy", "balanced", "quality", "custom"]),
+    aiDefaults: aiFeatureConfigSchema,
+    aiFeatureOverrides: z.partialRecord(aiFeatureSchema, aiFeatureConfigSchema),
+    aiBudgets: z.object({
+      maxRequestsPerMinute: z.number().int().min(1).max(60),
+      maxConcurrency: z.number().int().min(1).max(4),
+      dailyRequestLimit: z.number().int().min(1).max(10_000),
+      dailyInputTokenLimit: z.number().int().min(1_000).max(100_000_000),
+      dailyOutputTokenLimit: z.number().int().min(1_000).max(100_000_000),
+      dailyCostCeilingUsd: z.number().min(0).max(1_000),
+    }),
+    anthropicManualModelIds: z.array(z.string().min(1).max(160)).max(20),
+    enablePublicData: z.boolean(),
+    theme: z.enum(["dark", "light", "system", "high_contrast"]),
+    reducedMotion: z.boolean(),
+    highContrast: z.boolean(),
+    launcherEnabled: z.boolean(),
+    launcherPosition: z.enum(["bottom_left", "bottom_right"]),
+    logLevel: z.enum(["debug", "info", "warning", "error"]),
+  })
+  .refine(
+    (settings) =>
+      !settings.advancedResearchEnabled ||
+      settings.advancedResearchAcknowledgedAt !== null,
+    {
+      message: "Advanced research requires explicit acknowledgement.",
+      path: ["advancedResearchEnabled"],
+    },
+  );
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  settingsVersion: 2,
+  settingsVersion: 4,
   onboardingComplete: false,
   sleeperUsername: "",
   sleeperUserId: "",
@@ -117,19 +133,21 @@ export const DEFAULT_SETTINGS: AppSettings = {
   riskTolerance: 0.5,
   researchDepth: "standard",
   automaticAnalysis: false,
+  advancedResearchAcknowledgedAt: null,
+  advancedResearchEnabled: false,
   maxRequestsPerMinute: 4,
   maxConcurrency: 1,
   maxOutputTokens: 2048,
   requestTimeoutMs: 60_000,
-  routineModel: "gpt-5.6-terra",
+  routineModel: LUNA_MODEL_ID,
   researchModel: "gpt-5.6-sol",
   manualModelIds: [],
   aiPreset: "balanced",
   aiDefaults: {
     provider: "openai",
-    model: "gpt-5.6-terra",
+    model: LUNA_MODEL_ID,
     consensusModels: {
-      openai: "gpt-5.6-terra",
+      openai: LUNA_MODEL_ID,
       anthropic: "claude-sonnet-4-6",
     },
     routingMode: "balanced",
@@ -185,20 +203,55 @@ export function migrateSettings(value: unknown): AppSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return structuredClone(DEFAULT_SETTINGS);
   }
-  const legacy = value as Partial<AppSettings> & {
+  const legacy = value as Omit<Partial<AppSettings>, "aiDefaults"> & {
     aiDefaults?: Partial<AiFeatureConfig>;
   };
   const defaults = structuredClone(DEFAULT_SETTINGS);
+  const routineModel = isModelIdentifierShapeValid(
+    "openai",
+    legacy.routineModel,
+  )
+    ? legacy.routineModel
+    : LUNA_MODEL_ID;
+  const defaultProvider = legacy.aiDefaults?.provider ?? "openai";
+  const requestedDefaultModel =
+    legacy.aiDefaults?.model ??
+    (defaultProvider === "openai" ? routineModel : defaults.aiDefaults.model);
+  const defaultModel = isModelIdentifierShapeValid(
+    defaultProvider,
+    requestedDefaultModel,
+  )
+    ? requestedDefaultModel
+    : LUNA_MODEL_ID;
+  const advancedResearchAcknowledgedAt =
+    typeof legacy.advancedResearchAcknowledgedAt === "number" &&
+    Number.isInteger(legacy.advancedResearchAcknowledgedAt) &&
+    legacy.advancedResearchAcknowledgedAt > 0
+      ? legacy.advancedResearchAcknowledgedAt
+      : null;
   const candidate = {
     ...defaults,
     ...legacy,
     settingsVersion: DEFAULT_SETTINGS.settingsVersion,
+    routineModel,
+    advancedResearchAcknowledgedAt,
+    advancedResearchEnabled:
+      advancedResearchAcknowledgedAt !== null &&
+      legacy.advancedResearchEnabled === true,
     aiDefaults: {
       ...defaults.aiDefaults,
       ...(legacy.aiDefaults ?? {}),
+      provider: defaultProvider,
+      model: defaultModel,
       consensusModels: {
         ...defaults.aiDefaults.consensusModels,
         ...(legacy.aiDefaults?.consensusModels ?? {}),
+        openai: isModelIdentifierShapeValid(
+          "openai",
+          legacy.aiDefaults?.consensusModels?.openai,
+        )
+          ? legacy.aiDefaults.consensusModels.openai
+          : defaults.aiDefaults.consensusModels.openai,
       },
     },
     aiFeatureOverrides: {

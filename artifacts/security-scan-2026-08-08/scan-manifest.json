@@ -1,0 +1,106 @@
+{
+  "documentType": "codex-security.scan-manifest",
+  "scan": {
+    "artifacts": [
+      {
+        "mediaType": "application/json",
+        "path": "findings.json",
+        "sha256": "da0452a4559fc3fb15c3c62084ca33709e183e94beb76f4365ee3260f0728373"
+      },
+      {
+        "mediaType": "application/json",
+        "path": "coverage.json",
+        "sha256": "d65773f7a0ead3ee80e82fb70f11b2946c77b88b4e47bb6fe782faaf61560261"
+      }
+    ],
+    "completedAt": "2026-08-09T00:26:13.138739Z",
+    "coverageRef": "coverage.json",
+    "findingsRef": "findings.json",
+    "id": "83a0dd7d-978b-46e5-92be-eed3a3bdfb0b",
+    "producer": {
+      "name": "codex-security-plugin",
+      "version": "0.1.18"
+    },
+    "scope": {
+      "artifactsReviewed": [
+        "src/entrypoints/background.ts",
+        "src/entrypoints/content.ts",
+        "src/entrypoints/options/main.tsx",
+        "src/providers/sleeper/sleeper-provider.ts",
+        "src/providers/sleeper/read-only-boundary.ts",
+        "src/providers/openai/openai-provider.ts",
+        "src/providers/ai/anthropic/anthropic-provider.ts",
+        "src/services/context/live-draft-controller.ts",
+        "src/services/league/league-service.ts",
+        "src/services/messaging/protocol.ts",
+        "src/services/storage/key-vault.ts",
+        "src/services/security/url.ts",
+        "src/providers/evidence/evidence-adapters.ts",
+        "src/features/research/manual-odds-analysis.ts",
+        "wxt.config.ts",
+        "tests and e2e security regression coverage"
+      ],
+      "context": "The review focused on API-key handling, Sleeper read-only guarantees, extension permissions, storage, external networking, account and league isolation, tab-scoped live-draft state, and manual research gates.",
+      "excludePaths": [],
+      "includePaths": [
+        "."
+      ],
+      "limitations": [
+        "Chrome exposes storage APIs to all trusted pages in the same extension origin; the implementation reduces exposure with session-only storage by default, explicit confirmation for remembered keys, trusted-context storage access levels, a strict extension CSP, and no remote code.",
+        "After a user confirms an external citation hostname, subsequent DNS resolution and HTTP redirects are governed by Chrome; the extension strips fragments, rejects credentials and secret-like query parameters, blocks local/reserved literal addresses and non-HTTPS/non-443 URLs, and opens with noopener/noreferrer."
+      ],
+      "runtimeStatus": "Format, lint, typecheck, 329 unit/integration tests, 12 MV3 end-to-end tests, 2 visual tests, dependency audit, production build assertions, and a read-only live Sleeper audit of four leagues and 1,212 mock picks all passed.",
+      "summary": "Complete source review of the Not Sleeping Manifest V3 extension, including its current working-tree changes and all security-sensitive runtime boundaries.",
+      "validationMode": "Central source validation plus automated unit, integration, headless MV3, visual, production-bundle, dependency, and read-only live-data verification."
+    },
+    "sealedAt": "2026-08-09T00:26:13.138739Z",
+    "startedAt": "2026-08-08T23:32:46.787137Z",
+    "status": "completed",
+    "target": {
+      "displayName": "not-sleeping",
+      "kind": "git_worktree",
+      "revision": "405c6755780abf40472415b065a88ccaf2025be4",
+      "snapshotDigest": "codex-security-snapshot/v1:sha256:402e828877c3a083ebd1113fe0e7fd4f60e302d6739e8d6b61116bb0822a9ed8",
+      "targetId": "target_sha256_deb68ea8dc919a8cfdc6ef1463c9c7fd22bcecc10deaea64c7da15e7ceee7976"
+    },
+    "threatModel": {
+      "assets": [
+        "OpenAI and Anthropic API keys",
+        "Sleeper account, league, roster, and draft context",
+        "Locally persisted preferences, league workspaces, and mock drafts",
+        "Recommendation integrity and player/pick legality",
+        "Extension permissions and trusted runtime capabilities"
+      ],
+      "assumptions": [
+        "Chrome itself and the installed extension package are trusted and uncompromised.",
+        "The public Sleeper API remains read-only for the endpoints used by this extension.",
+        "The user controls whether to remember a provider key and whether to open a confirmed external citation."
+      ],
+      "attackerCapabilities": [
+        "Control text and shapes returned by external services within protocol limits",
+        "Supply malformed, oversized, stale, or cross-identity API responses",
+        "Cause rapid tab, account, or league switching and race conditions",
+        "Supply hostile import fields, evidence URLs, or prompt-injection-shaped content",
+        "Send runtime messages from an untrusted page or extension context"
+      ],
+      "securityObjectives": [
+        "Never issue a Sleeper write request or mutate a real roster, pick, waiver, trade, transaction, or league setting",
+        "Keep keys out of messages, logs, diagnostics, URLs, rendered status, and non-trusted contexts",
+        "Bind every live state and persisted workspace to its exact tab, account, league, season, and draft identities",
+        "Reject oversized or identity-mismatched responses before use",
+        "Require explicit optional host permissions and user confirmation for sensitive external capabilities",
+        "Fail closed when legal player, source, or responsible-use context cannot be verified"
+      ],
+      "summary": "Untrusted Sleeper page data, public API responses, user imports, research citations, AI outputs, and cross-tab/account state can reach a privileged MV3 extension that stores provider keys and renders decision support. Controls must prevent credential disclosure, write operations to Sleeper, confused-deputy messaging, cross-context state mixing, unsafe navigation, and unbounded payload processing.",
+      "trustBoundaries": [
+        "Sleeper web page and content script to extension service worker",
+        "Side panel and options pages to extension service worker",
+        "Public Sleeper and weather APIs to extension parsing and storage",
+        "AI providers and public research sources to rendered evidence",
+        "One Chrome tab, Sleeper account, league, season, and draft to another",
+        "User-controlled imports and URLs to local processing or browser navigation"
+      ]
+    }
+  },
+  "schemaVersion": "1.0"
+}

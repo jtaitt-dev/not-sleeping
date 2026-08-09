@@ -242,6 +242,7 @@ export type SleeperLeagueUser = z.infer<typeof sleeperLeagueUserSchema>;
 export type SleeperRoster = z.infer<typeof sleeperRosterSchema>;
 export type SleeperDraft = z.infer<typeof sleeperDraftSchema>;
 export type SleeperDraftPick = z.infer<typeof sleeperDraftPickSchema>;
+export type SleeperTradedPick = z.infer<typeof sleeperTradedPickSchema>;
 export type SleeperPlayerRecord = z.infer<typeof sleeperPlayerSchema>;
 export type SleeperProjection = z.infer<typeof sleeperProjectionSchema>;
 export type SleeperMatchup = z.infer<typeof sleeperMatchupSchema>;

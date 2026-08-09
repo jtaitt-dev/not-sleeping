@@ -14,9 +14,10 @@ import {
   type OddsSourceKind,
   type ParlayCandidate,
   type PropMarket,
-} from "./parlay-analysis";
+} from "./manual-odds-analysis";
 
-const PREFERENCES_KEY = "labsParlayPreferences";
+const PREFERENCES_KEY = "advancedResearchPreferences";
+const LEGACY_PREFERENCES_KEY = "labsParlayPreferences";
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
 const marketOptions: Array<{ value: PropMarket; label: string }> = [
@@ -31,17 +32,17 @@ const marketOptions: Array<{ value: PropMarket; label: string }> = [
   { value: "idp_tackles", label: "IDP tackles" },
 ];
 
-type LabsPreferences = {
+type AdvancedResearchPreferences = {
   permanentlyDisabled: boolean;
   cooldownUntil: number | null;
 };
 
-const defaultPreferences: LabsPreferences = {
+const defaultPreferences: AdvancedResearchPreferences = {
   permanentlyDisabled: false,
   cooldownUntil: null,
 };
 
-export default function ParlayLabWorkspace() {
+export default function ManualOddsResearchWorkspace() {
   const catalog = useLeagueStore((state) => state.catalog);
   const activeContext = useLeagueStore((state) => state.activeContext);
   const snapshot = useLeagueStore((state) => state.snapshot);
@@ -110,17 +111,23 @@ export default function ParlayLabWorkspace() {
     () =>
       buildResponsibleParlayCandidates(legs, {
         correlationPenalty,
-        ...(allowedPlayerIds.length > 0 ? { allowedPlayerIds } : {}),
+        allowedPlayerIds,
       }),
     [allowedPlayerIds, correlationPenalty, legs],
   );
-  const acknowledged = adultConfirmed && jurisdictionConfirmed;
+  const acknowledged =
+    adultConfirmed &&
+    jurisdictionConfirmed &&
+    activeContext !== null &&
+    allowedPlayerIds.length > 0;
   const week = weekOverride ?? activeContext?.week ?? 1;
   const cooldownActive =
     preferences.cooldownUntil !== null &&
     preferences.cooldownUntil > currentTime;
 
-  async function updatePreferences(patch: Partial<LabsPreferences>) {
+  async function updatePreferences(
+    patch: Partial<AdvancedResearchPreferences>,
+  ) {
     const updated = { ...preferences, ...patch };
     setPreferences(updated);
     await savePreferences(updated);
@@ -129,14 +136,14 @@ export default function ParlayLabWorkspace() {
   if (!preferencesReady) {
     return (
       <section className="workspace-page labs-workspace">
-        <p role="status">Loading Labs safeguards…</p>
+        <p role="status">Loading advanced research safeguards…</p>
       </section>
     );
   }
 
   if (preferences.permanentlyDisabled) {
     return (
-      <LabsGate title="Parlay Lab is disabled">
+      <ResearchGate title="Manual Odds Research is disabled">
         <p>
           This browser will keep the research surface disabled until you
           explicitly re-enable it. No scenario history was retained.
@@ -149,37 +156,49 @@ export default function ParlayLabWorkspace() {
             })
           }
         >
-          Re-enable Labs on this browser
+          Re-enable manual odds research on this browser
         </Button>
-      </LabsGate>
+      </ResearchGate>
     );
   }
 
   if (cooldownActive) {
     return (
-      <LabsGate title="Research cooldown active">
+      <ResearchGate title="Research cooldown active">
         <p>
-          Parlay Lab is unavailable until{" "}
+          Manual Odds Research is unavailable until{" "}
           {new Date(preferences.cooldownUntil ?? 0).toLocaleString()}. The
           cooldown cannot be ended early from this screen.
         </p>
         <StatusBadge tone="info">24-hour pause</StatusBadge>
-      </LabsGate>
+      </ResearchGate>
     );
   }
 
   if (!acknowledged) {
     return (
-      <LabsGate title="Responsible-use acknowledgement">
+      <ResearchGate title="Responsible-use acknowledgement">
         <p>
           This is uncertain entertainment analysis. It never fetches from
           operators, places an action, chooses a monetary amount, or promises an
-          outcome. You supply every market and price.
+          outcome. You supply every market and price. It is not wagering or
+          financial advice.
         </p>
         <div className="labs-responsible-warning" role="note">
           If this activity stops being recreational, take a break and use the
           cooldown or permanent-disable controls below.
         </div>
+        {activeContext === null ? (
+          <p role="status">
+            Connect and select a Sleeper league before continuing. The tool
+            fails closed until it can verify a legal player pool.
+          </p>
+        ) : allowedPlayerIds.length === 0 ? (
+          <p role="status">
+            No verified legal players are available for the selected league
+            context, so research inputs remain locked.
+          </p>
+        ) : null}
         <label>
           <input
             type="checkbox"
@@ -201,9 +220,9 @@ export default function ParlayLabWorkspace() {
           variant="danger"
           onClick={() => void updatePreferences({ permanentlyDisabled: true })}
         >
-          Disable Parlay Lab permanently
+          Disable manual odds research permanently
         </Button>
-      </LabsGate>
+      </ResearchGate>
     );
   }
 
@@ -211,16 +230,17 @@ export default function ParlayLabWorkspace() {
     <section className="workspace-page labs-workspace">
       <header className="workspace-heading">
         <div>
-          <h1>Parlay Lab</h1>
+          <h1>Manual Odds Research</h1>
           <p>Transparent research from current supplied inputs only.</p>
         </div>
-        <StatusBadge tone="info">Labs sideload build</StatusBadge>
+        <StatusBadge tone="info">Advanced research</StatusBadge>
       </header>
 
       <article className="labs-warning">
         <strong>Responsible-use controls</strong>
         <p>
-          No sensitive scenario history is stored. Preferences contain only the
+          Research and education only — not wagering or financial advice. No
+          sensitive scenario history is stored. Preferences contain only the
           disable and cooldown flags.
         </p>
         <div className="labs-actions">
@@ -254,7 +274,7 @@ export default function ParlayLabWorkspace() {
           <label>
             Sleeper league
             <select
-              value={activeContext?.leagueId ?? ""}
+              value={activeContext.leagueId}
               disabled={catalog.length === 0}
               onChange={(event) => void selectLeague(event.target.value)}
             >
@@ -365,7 +385,7 @@ export default function ParlayLabWorkspace() {
   );
 }
 
-function LabsGate({
+function ResearchGate({
   title,
   children,
 }: {
@@ -376,10 +396,10 @@ function LabsGate({
     <section className="workspace-page labs-workspace">
       <header className="workspace-heading">
         <div>
-          <h1>Parlay Lab</h1>
+          <h1>Manual Odds Research</h1>
           <p>Optional research math for user-supplied scenarios.</p>
         </div>
-        <StatusBadge tone="warning">Labs opt-in</StatusBadge>
+        <StatusBadge tone="warning">Responsible-use opt-in</StatusBadge>
       </header>
       <article className="labs-gate">
         <ShieldCheck aria-hidden="true" />
@@ -734,14 +754,17 @@ function playerAvailability(player: Player): LegAvailability {
   return "unknown";
 }
 
-async function loadPreferences(): Promise<LabsPreferences> {
+async function loadPreferences(): Promise<AdvancedResearchPreferences> {
   if (!hasStorage()) return defaultPreferences;
-  const stored = await chrome.storage.local.get(PREFERENCES_KEY);
-  const value = stored[PREFERENCES_KEY];
+  const stored = await chrome.storage.local.get([
+    PREFERENCES_KEY,
+    LEGACY_PREFERENCES_KEY,
+  ]);
+  const value = stored[PREFERENCES_KEY] ?? stored[LEGACY_PREFERENCES_KEY];
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return defaultPreferences;
   }
-  const record = value as Partial<LabsPreferences>;
+  const record = value as Partial<AdvancedResearchPreferences>;
   return {
     permanentlyDisabled: record.permanentlyDisabled === true,
     cooldownUntil:
@@ -752,7 +775,9 @@ async function loadPreferences(): Promise<LabsPreferences> {
   };
 }
 
-async function savePreferences(preferences: LabsPreferences): Promise<void> {
+async function savePreferences(
+  preferences: AdvancedResearchPreferences,
+): Promise<void> {
   if (!hasStorage()) return;
   await chrome.storage.local.set({ [PREFERENCES_KEY]: preferences });
 }

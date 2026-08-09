@@ -1,0 +1,97 @@
+{
+  "completeness": "complete",
+  "deferred": [],
+  "documentType": "codex-security.coverage",
+  "excludePaths": [],
+  "explicitExclusions": [
+    {
+      "pattern": "node_modules/**",
+      "reason": "Third-party dependency source was excluded from line-by-line review; resolved production dependencies were checked with pnpm audit."
+    },
+    {
+      "pattern": ".output/**",
+      "reason": "Generated WXT intermediates were excluded from source review; the resulting production manifest and archive contents were separately asserted."
+    },
+    {
+      "pattern": "dist/**",
+      "reason": "Generated unpacked extension output was excluded from line-by-line review; it was exercised by MV3 end-to-end and visual tests."
+    },
+    {
+      "pattern": "artifacts/**",
+      "reason": "Generated reports, screenshots, and release archives were treated as validation outputs rather than executable source."
+    }
+  ],
+  "includePaths": [
+    "."
+  ],
+  "inventoryStrategy": "repository",
+  "mode": "repository",
+  "scanId": "83a0dd7d-978b-46e5-92be-eed3a3bdfb0b",
+  "schemaVersion": "1.0",
+  "surfaces": [
+    {
+      "disposition": "no_issue_found",
+      "id": "sleeper-read-only",
+      "label": "Sleeper request boundary, response limits, and exact identity binding",
+      "notes": "All Sleeper requests are allowlisted GETs; byte/shape limits and account, league, roster, draft, and season identity checks are enforced and live-audited.",
+      "receiptRefs": [],
+      "riskArea": "External API integrity"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "runtime-messaging",
+      "label": "Runtime sender validation and per-tab live-draft isolation",
+      "notes": "Content-script capabilities are allowlisted, side-panel ports are extension-origin checked, and draft state is keyed and broadcast by subscribed tab.",
+      "receiptRefs": [],
+      "riskArea": "Confused deputy and cross-tab disclosure"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "account-storage",
+      "label": "Account, league, season, workspace, active selection, and mock-draft storage isolation",
+      "notes": "Version 4 composite identities, injective storage keys, exact load validation, and stale-selection commit guards are covered by regression tests.",
+      "receiptRefs": [],
+      "riskArea": "Cross-account and cross-league state mixing"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "provider-keys",
+      "label": "Provider-key lifecycle, permissions, redaction, and AI request handling",
+      "notes": "Keys default to trusted session storage, status is masked through the worker, AI hosts are optional permissions, diagnostics redact credentials, and provider calls use bounded structured contracts.",
+      "receiptRefs": [],
+      "riskArea": "Credential disclosure and overprivilege"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "research-navigation",
+      "label": "Research source policy, citations, manual-odds legal pool, and external navigation",
+      "notes": "Official/trusted allowlists, optional social opt-in, blocked-domain filtering, secret-bearing URL rejection, confirmation interstitials, and nonempty legal-player gates are enforced.",
+      "receiptRefs": [],
+      "riskArea": "Unsafe external content and fail-open analysis"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "imports-diagnostics",
+      "label": "User imports, diagnostics, logging, and local alert outputs",
+      "notes": "Size/depth/field limits, spreadsheet formula neutralization, credential detection, aliases, and redacted diagnostics are tested.",
+      "receiptRefs": [],
+      "riskArea": "Injection, formula execution, and sensitive-data leakage"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "manifest-csp",
+      "label": "Manifest permissions, content security policy, packaged contents, and dependencies",
+      "notes": "No activeTab/tabs permission, AI origins are optional, extension pages use strict self-only CSP, no source maps are packaged, and the production audit reports no known vulnerabilities.",
+      "receiptRefs": [],
+      "riskArea": "Extension platform exposure and supply chain"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "recommendation-integrity",
+      "label": "Draft legality, roster feasibility, traded-pick ownership, and AI fallback behavior",
+      "notes": "Centralized position eligibility, bipartite roster feasibility, exact pick ownership, bounded AI overlays, and Luna-first fallback are covered by 5,000 simulations and 1,212 live-data mock picks.",
+      "receiptRefs": [],
+      "riskArea": "Integrity of decision support"
+    }
+  ]
+}

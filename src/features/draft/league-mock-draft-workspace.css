@@ -1,0 +1,335 @@
+.league-mock-workspace {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+
+.mock-safety-banner,
+.mock-warning,
+.mock-on-clock,
+.mock-ai-off,
+.mock-validation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 12px;
+}
+
+.mock-safety-banner {
+  background: var(--accent-primary-muted);
+  color: var(--accent-primary);
+}
+
+.mock-safety-banner > span,
+.mock-on-clock > span,
+.mock-ai-off {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.mock-safety-banner svg,
+.mock-warning svg,
+.mock-validation svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.mock-safety-banner small,
+.mock-setup p,
+.mock-on-clock small,
+.mock-player-entry header p,
+.mock-pick-history header p,
+.mock-ai-off span,
+.mock-notice,
+.mock-pool-warning {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.mock-league-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.mock-fact {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 9px 10px;
+  background: var(--surface-card);
+}
+
+.mock-fact:nth-child(2n) {
+  background: var(--surface-zebra);
+}
+
+.mock-fact small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mock-fact strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-body);
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.mock-warning {
+  color: var(--status-warning);
+  font-size: var(--font-label);
+}
+
+.mock-notice,
+.mock-pool-warning {
+  margin: 0;
+}
+
+.mock-setup {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.mock-setup > div,
+.mock-player-entry header > div,
+.mock-pick-history header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.mock-setup label,
+.mock-player-entry label {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  font-weight: 700;
+}
+
+.mock-setup select,
+.mock-player-entry input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--surface-alt);
+  padding: 0 10px;
+}
+
+.mock-toggle {
+  display: flex !important;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px !important;
+  border-radius: var(--radius-medium);
+  background: var(--surface-raised);
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.mock-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-primary);
+}
+
+.mock-toggle > span {
+  display: grid;
+  gap: 2px;
+}
+
+.mock-toggle small {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.mock-on-clock {
+  min-height: 62px;
+  justify-content: space-between;
+  background: var(--surface-raised);
+  box-shadow: inset 3px 0 0 var(--accent-primary);
+}
+
+.mock-on-clock > span > small {
+  color: var(--accent-primary);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mock-on-clock strong {
+  font-size: var(--font-title);
+}
+
+.mock-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mock-validation {
+  color: var(--text-secondary);
+  font-size: var(--font-label);
+}
+
+.mock-validation.valid {
+  color: var(--status-success);
+}
+
+.mock-validation.invalid,
+.mock-pool-warning {
+  color: var(--status-danger);
+}
+
+.mock-ai-off {
+  align-items: start;
+  background: var(--surface-card);
+}
+
+.mock-entry-grid {
+  display: grid;
+  align-items: start;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+}
+
+.mock-entry-grid.is-complete {
+  grid-template-columns: 1fr;
+}
+
+.mock-player-entry,
+.mock-pick-history {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  overflow: hidden;
+  padding: 10px;
+}
+
+.mock-player-entry > header,
+.mock-pick-history > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mock-player-entry > header > span,
+.mock-pick-history > header > span {
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.mock-player-list,
+.mock-pick-history > div {
+  display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+.mock-player-list article,
+.mock-pick-history article {
+  display: grid;
+  min-height: 52px;
+  align-items: center;
+  gap: 7px;
+  border-top: 1px solid var(--border-default);
+  grid-template-columns: 24px auto minmax(0, 1fr) auto auto;
+  padding: 7px 2px;
+}
+
+.mock-pick-history article {
+  grid-template-columns: 38px auto minmax(0, 1fr) auto;
+}
+
+.mock-player-list article > span,
+.mock-pick-history article > span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.mock-player-list b,
+.mock-pick-history b,
+.mock-player-list small,
+.mock-pick-history small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mock-player-list small,
+.mock-pick-history small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+@media (max-width: 760px) {
+  .mock-entry-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .mock-league-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mock-player-list article {
+    align-items: start;
+    grid-template-columns: 20px auto minmax(0, 1fr);
+  }
+
+  .mock-player-list article > strong:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .mock-player-list article > .position-badge {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .mock-player-list article > span {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .mock-player-list article > small {
+    grid-column: 3;
+    grid-row: 2;
+    white-space: normal;
+  }
+
+  .mock-player-list article > .button {
+    width: max-content;
+    grid-column: 3;
+    grid-row: 3;
+    justify-self: start;
+  }
+
+  .mock-pick-history article {
+    grid-template-columns: 34px auto minmax(0, 1fr);
+  }
+
+  .mock-pick-history article > .status-badge {
+    grid-column: 3;
+  }
+}
+
+@media (max-width: 340px) {
+  .mock-league-facts {
+    grid-template-columns: 1fr;
+  }
+}

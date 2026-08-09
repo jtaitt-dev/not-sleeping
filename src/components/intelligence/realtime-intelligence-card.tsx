@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { StatusBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
+import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import { evaluateDeterministicDecision } from "@/services/intelligence/deterministic-engine";
 import type {
   DecisionCandidate,
@@ -13,6 +14,7 @@ import {
   safeRuntimeError,
 } from "@/services/messaging/runtime-client";
 import { getSettings } from "@/services/storage/settings";
+import { resolveFeatureConfig } from "@/services/intelligence/feature-config";
 import type { AiFeature, Strategy } from "@/types/domain";
 
 import "./realtime-intelligence-card.css";
@@ -65,6 +67,8 @@ export function RealtimeIntelligenceCard({
     message: string;
   } | null>(null);
   const [automatic, setAutomatic] = useState(false);
+  const [activeModel, setActiveModel] = useState("gpt-5.6-luna");
+  const [routingOff, setRoutingOff] = useState(false);
   const lastAutomaticHash = useRef("");
 
   const run = useCallback(async () => {
@@ -87,12 +91,16 @@ export function RealtimeIntelligenceCard({
   useEffect(() => {
     let active = true;
     void getSettings().then((settings) => {
-      if (active) setAutomatic(settings.automaticAnalysis);
+      if (!active) return;
+      const config = resolveFeatureConfig(settings, feature);
+      setAutomatic(settings.automaticAnalysis);
+      setActiveModel(config.model);
+      setRoutingOff(config.routingMode === "off");
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [feature]);
 
   useEffect(() => {
     if (
@@ -144,9 +152,14 @@ export function RealtimeIntelligenceCard({
             <small>Deterministic now · AI never blocks the decision</small>
           </span>
         </div>
-        <StatusBadge tone={statusTone(activeDecision?.aiStatus)}>
-          {statusLabel(activeDecision?.aiStatus)}
-        </StatusBadge>
+        <span className="realtime-statuses">
+          <StatusBadge tone="info">
+            {routingOff ? "AI off" : modelDisplayName(activeModel)}
+          </StatusBadge>
+          <StatusBadge tone={statusTone(activeDecision?.aiStatus)}>
+            {statusLabel(activeDecision?.aiStatus)}
+          </StatusBadge>
+        </span>
       </header>
       <div className="realtime-primary">
         <span>
@@ -160,10 +173,16 @@ export function RealtimeIntelligenceCard({
           icon={<RefreshCw />}
           onClick={() => void run()}
           disabled={
-            candidates.length === 0 || activeDecision?.aiStatus === "queued"
+            routingOff ||
+            candidates.length === 0 ||
+            activeDecision?.aiStatus === "queued"
           }
         >
-          {activeDecision ? "Refresh overlay" : "Add AI overlay"}
+          {routingOff
+            ? "AI off in Settings"
+            : activeDecision
+              ? "Refresh overlay"
+              : `Add ${modelDisplayName(activeModel)} overlay`}
         </Button>
       </div>
       {top ? (
@@ -210,9 +229,9 @@ export function RealtimeIntelligenceCard({
               ))}
               {overlay.evidenceUrls.map((url) => (
                 <li key={url}>
-                  <a href={url} target="_blank" rel="noreferrer">
+                  <SafeExternalLink url={url}>
                     {new URL(url).hostname}
-                  </a>
+                  </SafeExternalLink>
                 </li>
               ))}
               {overlay.warnings.map((warning) => (
@@ -230,6 +249,10 @@ export function RealtimeIntelligenceCard({
       ) : null}
     </article>
   );
+}
+
+function modelDisplayName(model: string): string {
+  return model === "gpt-5.6-luna" ? "Luna" : model;
 }
 
 function statusTone(

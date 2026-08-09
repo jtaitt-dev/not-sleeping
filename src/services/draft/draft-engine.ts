@@ -1,4 +1,10 @@
 import type { DraftPlayerPool, DraftStyle, LeagueType } from "@/types/league";
+import {
+  isIdpPosition,
+  isPlayerEligibleForAnyRosterSlot,
+  isPlayerEligibleForRosterSlot,
+  normalizeSleeperPosition,
+} from "@/services/roster/position-eligibility";
 
 export type OpponentArchetype =
   | "adp_follower"
@@ -53,6 +59,8 @@ export type DraftEngineConfig = {
   auctionBudget?: number;
   minimumAuctionBid?: number;
   recordHistory?: boolean;
+  unavailablePlayerIds?: string[];
+  positionLimits?: Record<string, number>;
 };
 
 export type DraftEnginePick = {
@@ -104,7 +112,7 @@ export class MockDraftSession {
     this.playerById = new Map(
       players.map((player) => [player.playerId, player]),
     );
-    const filtered = filterDraftPool(players, config);
+    const filtered = draftablePlayerPool(players, config);
     if (filtered.length < config.teams * config.rounds) {
       throw new Error(
         `The configured player pool has ${filtered.length} eligible players for ${config.teams * config.rounds} selections.`,
@@ -126,6 +134,16 @@ export class MockDraftSession {
       currentPick: 1,
       recommendationLatencyMs: 0,
     };
+  }
+
+  static restore(
+    config: DraftEngineConfig,
+    players: DraftEnginePlayer[],
+    state: DraftEngineState,
+  ): MockDraftSession {
+    const session = new MockDraftSession(config, players);
+    session.restoreState(state);
+    return session;
   }
 
   snapshot(): DraftEngineState {
@@ -171,8 +189,10 @@ export class MockDraftSession {
     const ownerSlot = ownerForPick(this.config, this.state.currentPick);
     const roster = this.state.rosters[ownerSlot] ?? [];
     const available = new Set(this.state.availablePlayerIds);
-    const candidates = this.players.filter((player) =>
-      available.has(player.playerId),
+    const candidates = this.players.filter(
+      (player) =>
+        available.has(player.playerId) &&
+        respectsPositionLimits(player, roster, this.playerById, this.config),
     );
     const archetype =
       ownerSlot === this.config.userSlot
@@ -180,17 +200,55 @@ export class MockDraftSession {
         : (this.config.opponentArchetypes[
             (ownerSlot - 1) % this.config.opponentArchetypes.length
           ] ?? "adp_follower");
+    const maximum = Math.max(1, Math.min(100, limit));
+    const feasibilityByPositions = new Map<string, boolean>();
+    const feasibleCandidates = candidates.filter((player) => {
+      const key = player.positions
+        .map(normalizeSleeperPosition)
+        .toSorted()
+        .join("|");
+      const cached = feasibilityByPositions.get(key);
+      if (cached !== undefined) return cached;
+      const feasible = preservesRosterFeasibility(
+        [...roster, player.playerId],
+        ownerSlot,
+        this.config,
+        this.playerById,
+      );
+      feasibilityByPositions.set(key, feasible);
+      return feasible;
+    });
     const ranked = rankDraftCandidates({
       config: this.config,
-      candidates,
+      candidates: feasibleCandidates,
       rosterPlayerIds: roster,
       allPlayers: this.players,
       pickNumber: this.state.currentPick,
       archetype,
       seed: this.config.seed,
-    }).slice(0, Math.max(1, Math.min(100, limit)));
+      limit: maximum,
+    });
     this.state.recommendationLatencyMs = performanceNow() - started;
     return ranked;
+  }
+
+  isLegalPick(playerId: string): boolean {
+    if (this.state.status !== "drafting") return false;
+    if (!this.state.availablePlayerIds.includes(playerId)) return false;
+    const player = this.playerById.get(playerId);
+    if (!player || !filterDraftPool([player], this.config).length) return false;
+    const ownerSlot = ownerForPick(this.config, this.state.currentPick);
+    const roster = this.state.rosters[ownerSlot] ?? [];
+    return (
+      roster.length < totalOwnedPicks(this.config, ownerSlot) &&
+      respectsPositionLimits(player, roster, this.playerById, this.config) &&
+      preservesRosterFeasibility(
+        [...roster, player.playerId],
+        ownerSlot,
+        this.config,
+        this.playerById,
+      )
+    );
   }
 
   isUserOnClock(): boolean {
@@ -250,8 +308,25 @@ export class MockDraftSession {
       );
     }
     const roster = this.state.rosters[ownerSlot] ?? [];
+    if (!respectsPositionLimits(player, roster, this.playerById, this.config)) {
+      throw new Error(
+        "The selected player exceeds this league's position limits.",
+      );
+    }
     if (roster.length >= totalOwnedPicks(this.config, ownerSlot)) {
       throw new Error("The roster has no remaining owned draft selections.");
+    }
+    if (
+      !preservesRosterFeasibility(
+        [...roster, selectedId],
+        ownerSlot,
+        this.config,
+        this.playerById,
+      )
+    ) {
+      throw new Error(
+        "The selected player would leave this roster unable to fill its legal position slots.",
+      );
     }
     let resolvedPrice: number | undefined;
     const budgets = { ...this.state.budgets };
@@ -332,6 +407,42 @@ export class MockDraftSession {
     this.state =
       this.config.recordHistory === false ? next : structuredClone(next);
   }
+
+  private restoreState(state: DraftEngineState): void {
+    const validation = assertDraftInvariants(this.config, state, this.players);
+    if (!validation.passed) {
+      throw new Error(
+        `Saved mock draft is invalid: ${validation.errors.join(" ")}`,
+      );
+    }
+    const expectedCurrentPick = state.picks.length + 1;
+    const maximum = this.config.teams * this.config.rounds;
+    if (
+      state.currentPick !== expectedCurrentPick ||
+      state.currentPick < 1 ||
+      state.currentPick > maximum + 1
+    ) {
+      throw new Error("Saved mock draft has an invalid current pick.");
+    }
+    if (
+      (state.status === "complete" && state.currentPick !== maximum + 1) ||
+      (state.status !== "complete" && state.currentPick > maximum)
+    ) {
+      throw new Error("Saved mock draft has an invalid completion status.");
+    }
+    const drafted = new Set(state.picks.map((pick) => pick.playerId));
+    const expectedAvailable = draftablePlayerPool(this.players, this.config)
+      .map((player) => player.playerId)
+      .filter((playerId) => !drafted.has(playerId));
+    if (!sameStringSet(expectedAvailable, state.availablePlayerIds)) {
+      throw new Error(
+        "Saved mock draft has a stale or mismatched player pool.",
+      );
+    }
+    this.state = structuredClone(state);
+    this.history = [];
+    this.future = [];
+  }
 }
 
 export function pickCoordinates(
@@ -374,6 +485,7 @@ export function rankDraftCandidates(input: {
   pickNumber: number;
   archetype: OpponentArchetype;
   seed: number;
+  limit?: number;
 }): DraftRecommendation[] {
   const rosterIds = new Set(input.rosterPlayerIds);
   const roster = input.allPlayers.filter((player) =>
@@ -389,78 +501,118 @@ export function rankDraftCandidates(input: {
   const random = seededRandom(
     input.seed ^ input.pickNumber ^ hash(input.archetype),
   );
-  return input.candidates
-    .map((player) => {
-      const primary = player.positions[0]?.toUpperCase() ?? "FLEX";
-      const value =
-        input.config.leagueType === "dynasty"
-          ? player.dynastyValue
-          : player.redraftValue;
-      const need = needs[primary] ?? 0;
-      const adpValue = clamp(
-        100 - Math.max(0, player.adp - input.pickNumber) * 0.65,
-        0,
-        100,
+  const recommendations = input.candidates.map((player) => {
+    const primary = player.positions[0]?.toUpperCase() ?? "FLEX";
+    const value =
+      input.config.leagueType === "dynasty"
+        ? player.dynastyValue
+        : player.redraftValue;
+    const need = needs[primary] ?? 0;
+    const adpValue = clamp(
+      100 - Math.max(0, player.adp - input.pickNumber) * 0.65,
+      0,
+      100,
+    );
+    const factors: string[] = [];
+    let score = value * 0.62 + adpValue * 0.18 + need * 140;
+    if (need > 0.65) factors.push(`${primary} roster need`);
+    if (player.adp <= input.pickNumber + input.config.teams)
+      factors.push("ADP value window");
+    if (input.config.superflex && primary === "QB") {
+      score += 12;
+      factors.push("Superflex quarterback premium");
+    }
+    if (input.config.tePremium && primary === "TE") {
+      score += 7;
+      factors.push("Tight-end premium");
+    }
+    if (isIdpPosition(primary)) {
+      const hasIdpSlot = input.config.rosterSlots.some(
+        (slot) =>
+          slot.toUpperCase() === "IDP_FLEX" ||
+          isIdpPosition(slot.toUpperCase()),
       );
-      const factors: string[] = [];
-      let score = value * 0.62 + adpValue * 0.18 + need * 140;
-      if (need > 0.65) factors.push(`${primary} roster need`);
-      if (player.adp <= input.pickNumber + input.config.teams)
-        factors.push("ADP value window");
-      if (input.config.superflex && primary === "QB") {
-        score += 12;
-        factors.push("Superflex quarterback premium");
+      score += input.config.idp && hasIdpSlot ? (round <= 8 ? -4 : 5) : -1_000;
+    }
+    score += archetypeAdjustment(
+      input.archetype,
+      player,
+      roster,
+      round,
+      input.config,
+    );
+    if (input.archetype === "random_within_tier") score += random() * 8 - 4;
+    const draftedBeforeNext =
+      nextPick === null
+        ? 1
+        : clamp(
+            ((nextPick - player.adp) / Math.max(4, input.config.teams)) * 0.5 +
+              0.5,
+            0.02,
+            0.98,
+          );
+    const availabilityAtNextPick = roundTo(
+      clamp(1 - draftedBeforeNext, 0.01, 0.99),
+      3,
+    );
+    return {
+      playerId: player.playerId,
+      score: roundTo(score, 3),
+      rank: 0,
+      tier: player.tier,
+      availabilityAtNextPick,
+      factors: factors.length > 0 ? factors : ["Best available value"],
+    };
+  });
+  const requested = input.limit;
+  const ranked =
+    requested !== undefined && requested < recommendations.length
+      ? selectTopRecommendations(recommendations, requested)
+      : recommendations.toSorted(compareRecommendations);
+  return ranked.map((recommendation, index) => ({
+    ...recommendation,
+    rank: index + 1,
+  }));
+}
+
+function selectTopRecommendations(
+  recommendations: DraftRecommendation[],
+  limit: number,
+): DraftRecommendation[] {
+  const maximum = Math.max(1, Math.floor(limit));
+  const top: DraftRecommendation[] = [];
+  for (const recommendation of recommendations) {
+    let low = 0;
+    let high = top.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      const current = top[middle];
+      if (
+        current === undefined ||
+        compareRecommendations(recommendation, current) < 0
+      ) {
+        high = middle;
+      } else {
+        low = middle + 1;
       }
-      if (input.config.tePremium && primary === "TE") {
-        score += 7;
-        factors.push("Tight-end premium");
-      }
-      if (isIdp(primary)) {
-        const hasIdpSlot = input.config.rosterSlots.some(
-          (slot) =>
-            slot.toUpperCase() === "IDP_FLEX" || isIdp(slot.toUpperCase()),
-        );
-        score +=
-          input.config.idp && hasIdpSlot ? (round <= 8 ? -4 : 5) : -1_000;
-      }
-      score += archetypeAdjustment(
-        input.archetype,
-        player,
-        roster,
-        round,
-        input.config,
-      );
-      if (input.archetype === "random_within_tier") score += random() * 8 - 4;
-      const draftedBeforeNext =
-        nextPick === null
-          ? 1
-          : clamp(
-              ((nextPick - player.adp) / Math.max(4, input.config.teams)) *
-                0.5 +
-                0.5,
-              0.02,
-              0.98,
-            );
-      const availabilityAtNextPick = roundTo(
-        clamp(1 - draftedBeforeNext, 0.01, 0.99),
-        3,
-      );
-      return {
-        playerId: player.playerId,
-        score: roundTo(score, 3),
-        rank: 0,
-        tier: player.tier,
-        availabilityAtNextPick,
-        factors: factors.length > 0 ? factors : ["Best available value"],
-      };
-    })
-    .toSorted(
-      (left, right) =>
-        right.score - left.score ||
-        left.tier - right.tier ||
-        left.playerId.localeCompare(right.playerId),
-    )
-    .map((recommendation, index) => ({ ...recommendation, rank: index + 1 }));
+    }
+    if (low < maximum) {
+      top.splice(low, 0, recommendation);
+      if (top.length > maximum) top.pop();
+    }
+  }
+  return top;
+}
+
+function compareRecommendations(
+  left: DraftRecommendation,
+  right: DraftRecommendation,
+): number {
+  return (
+    right.score - left.score ||
+    left.tier - right.tier ||
+    left.playerId.localeCompare(right.playerId)
+  );
 }
 
 export function assertDraftInvariants(
@@ -470,8 +622,11 @@ export function assertDraftInvariants(
 ): DraftInvariantResult {
   const errors: string[] = [];
   const drafted = new Set<string>();
+  const playerById = new Map(
+    players.map((player) => [player.playerId, player]),
+  );
   const pool = new Set(
-    filterDraftPool(players, config).map((player) => player.playerId),
+    draftablePlayerPool(players, config).map((player) => player.playerId),
   );
   for (const [index, pick] of state.picks.entries()) {
     if (pick.pickNumber !== index + 1)
@@ -479,6 +634,7 @@ export function assertDraftInvariants(
     const expected = pickCoordinates(config, pick.pickNumber);
     if (
       pick.round !== expected.round ||
+      pick.pickInRound !== expected.pickInRound ||
       pick.draftSlot !== expected.draftSlot
     ) {
       errors.push(`Incorrect order at pick ${pick.pickNumber}.`);
@@ -499,28 +655,40 @@ export function assertDraftInvariants(
     const owned = totalOwnedPicks(config, Number(slot));
     if (roster.length > owned)
       errors.push(`Roster ${slot} exceeds ${owned} owned selections.`);
+    const rosterPlayers = roster.flatMap((playerId) => {
+      const player = playerById.get(playerId);
+      return player ? [player] : [];
+    });
+    for (const [position, limit] of Object.entries(
+      config.positionLimits ?? {},
+    )) {
+      const count = rosterPlayers.filter((player) =>
+        player.positions
+          .map(normalizeSleeperPosition)
+          .includes(normalizeSleeperPosition(position)),
+      ).length;
+      if (count > limit) {
+        errors.push(
+          `Roster ${slot} exceeds the ${position} limit of ${limit}.`,
+        );
+      }
+    }
+    if (
+      owned >= config.rosterSlots.length &&
+      !preservesRosterFeasibility(roster, Number(slot), config, playerById)
+    ) {
+      const positions = roster.map(
+        (playerId) =>
+          playerById.get(playerId)?.positions.join("/") ?? "unknown",
+      );
+      errors.push(
+        `Roster ${slot} cannot fill the configured legal slots (${positions.join(", ")}).`,
+      );
+    }
   }
   for (const [slot, budget] of Object.entries(state.budgets)) {
     if (!Number.isFinite(budget) || budget < 0)
       errors.push(`Roster ${slot} has invalid budget.`);
-  }
-  if (state.status === "complete") {
-    for (const [slot, roster] of Object.entries(state.rosters)) {
-      if (
-        roster.length === config.rosterSlots.length &&
-        !hasLegalDraftRoster(roster, config.rosterSlots, players)
-      ) {
-        const positions = roster.map(
-          (playerId) =>
-            players
-              .find((player) => player.playerId === playerId)
-              ?.positions.join("/") ?? "unknown",
-        );
-        errors.push(
-          `Roster ${slot} cannot fill the configured legal slots (${positions.join(", ")}).`,
-        );
-      }
-    }
   }
   if (config.style === "auction") {
     const minimum = config.minimumAuctionBid ?? 1;
@@ -545,63 +713,63 @@ export function assertDraftInvariants(
 function hasLegalDraftRoster(
   rosterIds: string[],
   slots: string[],
-  players: DraftEnginePlayer[],
+  playerById: ReadonlyMap<string, DraftEnginePlayer>,
 ): boolean {
-  const byId = new Map(players.map((player) => [player.playerId, player]));
-  const assignedPlayers = new Set<string>();
-  const orderedSlots = slots.toSorted(
-    (left, right) => draftSlotBreadth(left) - draftSlotBreadth(right),
+  const orderedPlayers = rosterIds.toSorted(
+    (left, right) =>
+      eligibleSlotCount(left, slots, playerById) -
+      eligibleSlotCount(right, slots, playerById),
   );
-  const assign = (slotIndex: number): boolean => {
-    if (slotIndex >= orderedSlots.length) return true;
-    const slot = orderedSlots[slotIndex] ?? "BN";
-    for (const playerId of rosterIds) {
-      if (assignedPlayers.has(playerId)) continue;
-      const player = byId.get(playerId);
-      if (!player || !draftSlotEligible(slot, player.positions)) continue;
-      assignedPlayers.add(playerId);
-      if (assign(slotIndex + 1)) return true;
-      assignedPlayers.delete(playerId);
+  const playerForSlot = Array.from({ length: slots.length }, () => -1);
+  const assign = (playerIndex: number, visitedSlots: Set<number>): boolean => {
+    const player = playerById.get(orderedPlayers[playerIndex] ?? "");
+    if (!player) return false;
+    for (const [slotIndex, slot] of slots.entries()) {
+      if (visitedSlots.has(slotIndex)) continue;
+      if (!isPlayerEligibleForRosterSlot(slot, player.positions)) continue;
+      visitedSlots.add(slotIndex);
+      const currentPlayer = playerForSlot[slotIndex] ?? -1;
+      if (currentPlayer === -1 || assign(currentPlayer, visitedSlots)) {
+        playerForSlot[slotIndex] = playerIndex;
+        return true;
+      }
     }
     return false;
   };
-  return rosterIds.length === 0 || assign(0);
+  return orderedPlayers.every((_, index) => assign(index, new Set<number>()));
 }
 
-function draftSlotBreadth(slot: string): number {
-  const normalized = slot.toUpperCase();
-  if (["BN", "IR", "TAXI"].includes(normalized)) return 100;
-  if (normalized === "SUPER_FLEX") return 20;
-  if (["FLEX", "WRRB_FLEX", "REC_FLEX", "IDP_FLEX"].includes(normalized))
-    return 10;
-  return 1;
+function eligibleSlotCount(
+  playerId: string,
+  slots: string[],
+  playerById: ReadonlyMap<string, DraftEnginePlayer>,
+): number {
+  const player = playerById.get(playerId);
+  if (!player) return 0;
+  return slots.reduce(
+    (total, slot) =>
+      total + Number(isPlayerEligibleForRosterSlot(slot, player.positions)),
+    0,
+  );
 }
 
-function draftSlotEligible(slot: string, positions: string[]): boolean {
-  const normalized = slot.toUpperCase();
-  const eligible = new Set(positions.map((position) => position.toUpperCase()));
-  if (["BN", "IR", "TAXI"].includes(normalized)) return true;
-  if (eligible.has(normalized)) return true;
-  if (["FLEX", "WRRB_FLEX"].includes(normalized))
-    return ["RB", "WR", "TE"].some((position) => eligible.has(position));
-  if (normalized === "REC_FLEX")
-    return ["WR", "TE"].some((position) => eligible.has(position));
-  if (normalized === "SUPER_FLEX")
-    return ["QB", "RB", "WR", "TE"].some((position) => eligible.has(position));
-  if (normalized === "IDP_FLEX") return [...eligible].some(isIdp);
-  if (normalized === "DL")
-    return ["DL", "DE", "DT", "EDGE"].some((position) =>
-      eligible.has(position),
-    );
-  if (normalized === "LB")
-    return ["LB", "ILB", "OLB", "EDGE"].some((position) =>
-      eligible.has(position),
-    );
-  if (normalized === "DB")
-    return ["DB", "CB", "S", "FS", "SS"].some((position) =>
-      eligible.has(position),
-    );
-  return false;
+function preservesRosterFeasibility(
+  rosterIds: string[],
+  ownerSlot: number,
+  config: DraftEngineConfig,
+  playerById: ReadonlyMap<string, DraftEnginePlayer>,
+): boolean {
+  const ownedPicks = totalOwnedPicks(config, ownerSlot);
+  if (ownedPicks < config.rosterSlots.length) return true;
+  const overflowBenchSlots = Math.max(
+    0,
+    ownedPicks - config.rosterSlots.length,
+  );
+  const effectiveSlots = [
+    ...config.rosterSlots,
+    ...Array.from({ length: overflowBenchSlots }, () => "BN"),
+  ];
+  return hasLegalDraftRoster(rosterIds, effectiveSlots, playerById);
 }
 
 export function filterPlayerPool(
@@ -614,19 +782,22 @@ export function filterPlayerPool(
   return players;
 }
 
+export function draftablePlayerPool(
+  players: DraftEnginePlayer[],
+  config: DraftEngineConfig,
+): DraftEnginePlayer[] {
+  const unavailable = new Set(config.unavailablePlayerIds ?? []);
+  return filterDraftPool(players, config).filter(
+    (player) => !unavailable.has(player.playerId),
+  );
+}
+
 function filterDraftPool(
   players: DraftEnginePlayer[],
   config: DraftEngineConfig,
 ): DraftEnginePlayer[] {
-  const constrainedSlots = config.rosterSlots.filter(
-    (slot) => !["BN", "IR", "TAXI"].includes(slot.toUpperCase()),
-  );
-  return filterPlayerPool(players, config.playerPool).filter(
-    (player) =>
-      constrainedSlots.length === 0 ||
-      constrainedSlots.some((slot) =>
-        draftSlotEligible(slot, player.positions),
-      ),
+  return filterPlayerPool(players, config.playerPool).filter((player) =>
+    isPlayerEligibleForAnyRosterSlot(config.rosterSlots, player.positions),
   );
 }
 
@@ -643,11 +814,50 @@ function nextPickForOwner(
 }
 
 function totalOwnedPicks(config: DraftEngineConfig, ownerSlot: number): number {
-  let total = 0;
-  for (let pick = 1; pick <= config.teams * config.rounds; pick += 1) {
-    if (ownerForPick(config, pick) === ownerSlot) total += 1;
+  let total = config.rounds;
+  for (const [pickValue, currentOwner] of Object.entries(
+    config.tradedPickOwners ?? {},
+  )) {
+    const pickNumber = Number(pickValue);
+    if (
+      !Number.isInteger(pickNumber) ||
+      pickNumber < 1 ||
+      pickNumber > config.teams * config.rounds
+    ) {
+      continue;
+    }
+    const originalOwner = pickCoordinates(config, pickNumber).draftSlot;
+    if (originalOwner === ownerSlot && currentOwner !== ownerSlot) total -= 1;
+    if (originalOwner !== ownerSlot && currentOwner === ownerSlot) total += 1;
   }
   return total;
+}
+
+function respectsPositionLimits(
+  player: DraftEnginePlayer,
+  rosterIds: string[],
+  playerById: Map<string, DraftEnginePlayer>,
+  config: DraftEngineConfig,
+): boolean {
+  const limits = config.positionLimits ?? {};
+  if (Object.keys(limits).length === 0) return true;
+  return player.positions.some((position) => {
+    const normalized = normalizeSleeperPosition(position);
+    const limit = limits[normalized];
+    if (limit === undefined) return true;
+    const count = rosterIds.reduce((total, playerId) => {
+      const rosterPlayer = playerById.get(playerId);
+      return (
+        total +
+        Number(
+          rosterPlayer?.positions
+            .map(normalizeSleeperPosition)
+            .includes(normalized) ?? false,
+        )
+      );
+    }, 0);
+    return count < limit;
+  });
 }
 
 function rosterNeeds(
@@ -656,7 +866,7 @@ function rosterNeeds(
 ): Record<string, number> {
   const required = rosterSlots.reduce<Record<string, number>>(
     (counts, slot) => {
-      const normalized = slot.toUpperCase();
+      const normalized = normalizeSleeperPosition(slot);
       if (["BN", "IR", "TAXI"].includes(normalized)) return counts;
       if (
         ["FLEX", "WRRB_FLEX", "REC_FLEX", "SUPER_FLEX", "IDP_FLEX"].includes(
@@ -724,30 +934,13 @@ function archetypeAdjustment(
     case "productive_struggle":
       return player.dynastyValue * 0.12 - player.contenderValue * 0.08;
     case "idp_early":
-      return isIdp(position) ? (round <= 8 ? 16 : 7) : 0;
+      return isIdpPosition(position) ? (round <= 8 ? 16 : 7) : 0;
     case "homer":
       return player.team && player.team === config.favoriteTeam ? 22 : 0;
     case "best_player_available":
     case "random_within_tier":
       return 0;
   }
-}
-
-function isIdp(position: string): boolean {
-  return [
-    "DL",
-    "DE",
-    "DT",
-    "EDGE",
-    "LB",
-    "ILB",
-    "OLB",
-    "DB",
-    "CB",
-    "S",
-    "FS",
-    "SS",
-  ].includes(position);
 }
 
 function validateConfig(config: DraftEngineConfig): void {
@@ -799,4 +992,12 @@ function clamp(value: number, minimum: number, maximum: number): number {
 function roundTo(value: number, digits: number): number {
   const multiplier = 10 ** digits;
   return Math.round(value * multiplier) / multiplier;
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return (
+    rightSet.size === right.length && left.every((value) => rightSet.has(value))
+  );
 }

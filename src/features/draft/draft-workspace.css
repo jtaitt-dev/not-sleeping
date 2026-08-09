@@ -95,9 +95,7 @@
   overflow: hidden;
   border: 1px solid rgb(34 230 195 / 32%);
   border-radius: var(--radius-large);
-  background:
-    radial-gradient(circle at 5% 20%, rgb(34 230 195 / 12%), transparent 30%),
-    linear-gradient(115deg, rgb(18 32 45 / 98%), rgb(13 20 34 / 98%));
+  background: var(--surface-raised);
   box-shadow: 0 12px 36px rgb(0 0 0 / 18%);
 }
 

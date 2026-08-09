@@ -29,39 +29,61 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
   const setRuntimeError = useAppStore((state) => state.setRuntimeError);
 
   useEffect(() => {
-    let active = true;
+    const lifecycle = { active: true };
     void getSettings().then((settings) => {
-      if (!active) return;
+      if (!lifecycle.active) return;
       setTheme(settings.theme);
       setReducedMotion(settings.reducedMotion);
     });
     return () => {
-      active = false;
+      lifecycle.active = false;
     };
   }, []);
 
   useEffect(() => {
     if (!hasRuntime()) return;
-    void Promise.all([hydrate(), hydrateLeagues()]);
-    const port = chrome.runtime.connect({ name: "not-sleeping-live" });
-    const sendVisibility = () =>
-      port.postMessage({ visible: document.visibilityState === "visible" });
+    const lifecycle = { active: true };
+    const isActive = () => lifecycle.active;
+    let port: chrome.runtime.Port | null = null;
+    let boundTabId: number | undefined;
+    const sendVisibility = () => {
+      port?.postMessage({ visible: document.visibilityState === "visible" });
+    };
     const onMessage = (message: unknown) => {
       if (!message || typeof message !== "object") return;
       const record = message as Record<string, unknown>;
-      if (record["type"] === "DRAFT_REFRESH" && isLiveDraft(record["data"])) {
+      if (
+        record["type"] === "DRAFT_REFRESH" &&
+        record["tabId"] === boundTabId &&
+        isLiveDraft(record["data"]) &&
+        record["draftId"] === record["data"].context.draftId
+      ) {
         setLiveState(record["data"]);
-      } else if (record["type"] === "DRAFT_REFRESH_ERROR") {
+      } else if (
+        record["type"] === "DRAFT_REFRESH_ERROR" &&
+        record["tabId"] === boundTabId
+      ) {
         setRuntimeError(safeRuntimeError(record["error"]));
       }
     };
-    port.onMessage.addListener(onMessage);
-    document.addEventListener("visibilitychange", sendVisibility);
-    sendVisibility();
+    void activeSleeperTabId().then(async (tabId) => {
+      if (!isActive()) return;
+      boundTabId = tabId;
+      await Promise.all([hydrate(tabId), hydrateLeagues()]);
+      if (!isActive()) return;
+      port = chrome.runtime.connect({ name: "not-sleeping-live" });
+      port.onMessage.addListener(onMessage);
+      document.addEventListener("visibilitychange", sendVisibility);
+      if (tabId !== undefined) {
+        port.postMessage({ type: "SUBSCRIBE", tabId });
+      }
+      sendVisibility();
+    });
     return () => {
+      lifecycle.active = false;
       document.removeEventListener("visibilitychange", sendVisibility);
-      port.onMessage.removeListener(onMessage);
-      port.disconnect();
+      port?.onMessage.removeListener(onMessage);
+      port?.disconnect();
     };
   }, [hydrate, hydrateLeagues, setLiveState, setRuntimeError]);
 
@@ -78,6 +100,12 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
       </Tooltip.Provider>
     </QueryClientProvider>
   );
+}
+
+async function activeSleeperTabId(): Promise<number | undefined> {
+  if (typeof chrome.tabs.query !== "function") return undefined;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab?.id;
 }
 
 function hasRuntime(): boolean {

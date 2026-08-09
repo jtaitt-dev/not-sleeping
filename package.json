@@ -12,10 +12,8 @@
   },
   "scripts": {
     "dev": "wxt",
-    "build": "node scripts/build-flavors.mjs",
-    "build:core": "node scripts/build-flavors.mjs core",
-    "build:labs": "node scripts/build-flavors.mjs labs",
-    "assert:core-bundle": "node scripts/assert-core-bundle.mjs",
+    "build": "node scripts/build-extension.mjs",
+    "assert:unified-bundle": "node scripts/assert-unified-bundle.mjs",
     "zip": "pnpm build && node scripts/package-release.mjs",
     "postinstall": "wxt prepare",
     "format": "prettier --write .",
@@ -40,7 +38,7 @@
     "audit:prod": "pnpm audit --prod --audit-level high",
     "validate": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e && pnpm audit:prod",
     "validate:phase2": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:performance:ci && pnpm test:simulations && pnpm build && pnpm test:e2e && pnpm test:visual && pnpm audit:prod",
-    "validate:phase3": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:performance:ci && pnpm test:simulations && pnpm test:ai-evals && pnpm build && pnpm assert:core-bundle && pnpm test:e2e && pnpm test:visual && pnpm audit:prod"
+    "validate:phase3": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:performance:ci && pnpm test:simulations && pnpm test:ai-evals && pnpm build && pnpm assert:unified-bundle && pnpm test:e2e && pnpm test:visual && pnpm audit:prod"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.23",

@@ -12,24 +12,36 @@ describe("LiveDraftController", () => {
     );
     const postMessage = vi.fn();
     let disconnect: (() => void) | undefined;
+    let receive: ((message: unknown) => void) | undefined;
     const port = {
       name: "not-sleeping-live",
+      sender: {
+        id: "not-sleeping-test",
+        url: "chrome-extension://not-sleeping-test/sidepanel.html",
+      },
       postMessage,
-      onMessage: { addListener: vi.fn() },
+      disconnect: vi.fn(),
+      onMessage: {
+        addListener: vi.fn((listener: (message: unknown) => void) => {
+          receive = listener;
+        }),
+      },
       onDisconnect: {
         addListener: vi.fn((listener: () => void) => {
           disconnect = listener;
         }),
       },
     } as unknown as chrome.runtime.Port;
-    const controller = new LiveDraftController(loadDraft);
+    const controller = new LiveDraftController(loadDraft, async () => ({}));
 
     controller.connect(port);
-    controller.updateContext({ draftId: "old-draft" });
-    controller.updateContext({ draftId: "new-draft" });
+    receive?.({ type: "SUBSCRIBE", tabId: 7 });
+    await Promise.resolve();
+    controller.updateContext(7, { draftId: "old-draft" });
+    controller.updateContext(7, { draftId: "new-draft" });
 
-    expect(loadDraft).toHaveBeenCalledWith("old-draft");
-    expect(loadDraft).toHaveBeenCalledWith("new-draft");
+    expect(loadDraft).toHaveBeenCalledWith("old-draft", 7);
+    expect(loadDraft).toHaveBeenCalledWith("new-draft", 7);
 
     newDraft.resolve(liveState("new-draft", "drafting"));
     await newDraft.promise;
@@ -56,7 +68,71 @@ describe("LiveDraftController", () => {
 
     disconnect?.();
   });
+
+  it("never broadcasts one Sleeper tab's draft state to another tab", async () => {
+    const loadDraft = vi.fn(async (draftId: string) =>
+      liveState(draftId, "complete"),
+    );
+    const first = testPort();
+    const second = testPort();
+    const controller = new LiveDraftController(loadDraft, async () => ({}));
+
+    controller.connect(first.port);
+    controller.connect(second.port);
+    first.receive({ type: "SUBSCRIBE", tabId: 7 });
+    second.receive({ type: "SUBSCRIBE", tabId: 8 });
+    await Promise.resolve();
+
+    controller.updateContext(7, { draftId: "draft-a", status: "complete" });
+    controller.updateContext(8, { draftId: "draft-b", status: "complete" });
+
+    await vi.waitFor(() => {
+      expect(first.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tabId: 7,
+          draftId: "draft-a",
+        }),
+      );
+      expect(second.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tabId: 8,
+          draftId: "draft-b",
+        }),
+      );
+    });
+    expect(first.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ draftId: "draft-b" }),
+    );
+    expect(second.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ draftId: "draft-a" }),
+    );
+  });
 });
+
+function testPort() {
+  const postMessage = vi.fn();
+  let receiveMessage: (message: unknown) => void = () => undefined;
+  const port = {
+    name: "not-sleeping-live",
+    sender: {
+      id: "not-sleeping-test",
+      url: "chrome-extension://not-sleeping-test/sidepanel.html",
+    },
+    postMessage,
+    disconnect: vi.fn(),
+    onMessage: {
+      addListener: vi.fn((listener: (message: unknown) => void) => {
+        receiveMessage = listener;
+      }),
+    },
+    onDisconnect: { addListener: vi.fn() },
+  } as unknown as chrome.runtime.Port;
+  return {
+    port,
+    postMessage,
+    receive: (message: unknown) => receiveMessage(message),
+  };
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

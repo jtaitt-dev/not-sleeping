@@ -49,7 +49,9 @@ export class LeagueService {
       ),
     );
     const existing = new Map(
-      (await db.leagues.toArray()).map((entry) => [entry.leagueId, entry]),
+      (await db.leagues.where("userId").equals(input.userId).toArray()).map(
+        (entry) => [entry.leagueId, entry],
+      ),
     );
     const freshnessPolicy = effectiveFreshnessPolicies(
       await getFreshnessOverrides(),
@@ -70,8 +72,12 @@ export class LeagueService {
     return sortCatalog(stored.map(toCatalogItem));
   }
 
-  async getCatalog(): Promise<LeagueCatalogItem[]> {
-    return sortCatalog((await db.leagues.toArray()).map(toCatalogItem));
+  async getCatalog(userId: string): Promise<LeagueCatalogItem[]> {
+    return sortCatalog(
+      (await db.leagues.where("userId").equals(userId).toArray()).map(
+        toCatalogItem,
+      ),
+    );
   }
 
   async selectLeague(input: {
@@ -80,6 +86,7 @@ export class LeagueService {
     week?: number;
     strategy?: TeamStrategy;
     overrides?: ManualLeagueOverrides;
+    shouldCommit?: () => boolean;
   }): Promise<LeagueContext> {
     const [league, rosters, drafts, nflState, freshnessOverrides] =
       await Promise.all([
@@ -89,7 +96,9 @@ export class LeagueService {
         this.sleeper.getNflState(),
         getFreshnessOverrides(),
       ]);
-    const existing = await db.leagues.get(input.leagueId);
+    const existing = await db.leagues.get(
+      leagueRecordId(input.userId, input.leagueId),
+    );
     const draft = selectCurrentDraft(drafts, league.season);
     const overrides = {
       ...(existing?.overrides ?? {}),
@@ -106,7 +115,11 @@ export class LeagueService {
       overrides,
       freshnessPolicy: effectiveFreshnessPolicies(freshnessOverrides),
     });
+    if (input.shouldCommit && !input.shouldCommit()) {
+      throw new Error("The league selection was superseded.");
+    }
     await db.leagues.put({
+      id: leagueRecordId(input.userId, league.league_id),
       leagueId: league.league_id,
       season: league.season,
       name: league.name,
@@ -121,18 +134,23 @@ export class LeagueService {
     return context;
   }
 
-  async favoriteLeague(leagueId: string, favorite: boolean): Promise<void> {
-    const league = await db.leagues.get(leagueId);
+  async favoriteLeague(
+    userId: string,
+    leagueId: string,
+    favorite: boolean,
+  ): Promise<void> {
+    const league = await db.leagues.get(leagueRecordId(userId, leagueId));
     if (!league)
       throw new Error("The league is not available in the local catalog.");
     await db.leagues.put({ ...league, favorite, updatedAt: this.now() });
   }
 
   async saveOverrides(
+    userId: string,
     leagueId: string,
     overrides: ManualLeagueOverrides,
   ): Promise<void> {
-    const league = await db.leagues.get(leagueId);
+    const league = await db.leagues.get(leagueRecordId(userId, leagueId));
     if (!league)
       throw new Error("The league is not available in the local catalog.");
     await db.leagues.put({ ...league, overrides, updatedAt: this.now() });
@@ -141,20 +159,28 @@ export class LeagueService {
   async saveWorkspace(state: LeagueWorkspaceState): Promise<void> {
     await db.leagueWorkspaces.put({
       ...state,
-      id: workspaceId(state.leagueId, state.workspace),
+      id: workspaceId(state),
     });
   }
 
   async getWorkspace(
-    leagueId: string,
-    workspace: string,
+    input: Pick<
+      LeagueWorkspaceState,
+      "userId" | "leagueId" | "season" | "workspace"
+    >,
   ): Promise<LeagueWorkspaceState | null> {
-    const stored = await db.leagueWorkspaces.get(
-      workspaceId(leagueId, workspace),
-    );
-    if (stored?.leagueId !== leagueId) return null;
+    const stored = await db.leagueWorkspaces.get(workspaceId(input));
+    if (
+      stored?.userId !== input.userId ||
+      stored.leagueId !== input.leagueId ||
+      stored.season !== input.season ||
+      stored.workspace !== input.workspace
+    )
+      return null;
     return {
+      userId: stored.userId,
       leagueId: stored.leagueId,
+      season: stored.season,
       workspace: stored.workspace,
       week: stored.week,
       scrollTop: stored.scrollTop,
@@ -181,6 +207,7 @@ export class LeagueService {
       freshnessPolicy,
     });
     return {
+      id: leagueRecordId(userId, league.league_id),
       leagueId: league.league_id,
       season: league.season,
       name: league.name,
@@ -237,6 +264,22 @@ function sortCatalog(items: LeagueCatalogItem[]): LeagueCatalogItem[] {
   );
 }
 
-function workspaceId(leagueId: string, workspace: string): string {
-  return `${leagueId}:${workspace.replace(/[^a-z0-9/_-]/gi, "_")}`;
+function encodeIdentity(value: string): string {
+  const encoded = encodeURIComponent(value);
+  return `${encoded.length}.${encoded}`;
+}
+
+export function leagueRecordId(userId: string, leagueId: string): string {
+  return `${encodeIdentity(userId)}:${encodeIdentity(leagueId)}`;
+}
+
+function workspaceId(
+  input: Pick<
+    LeagueWorkspaceState,
+    "userId" | "leagueId" | "season" | "workspace"
+  >,
+): string {
+  return [input.userId, input.leagueId, input.season, input.workspace]
+    .map(encodeIdentity)
+    .join(":");
 }

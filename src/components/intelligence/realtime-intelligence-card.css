@@ -3,9 +3,7 @@
   gap: 9px;
   border: 1px solid rgb(34 230 195 / 22%);
   border-radius: var(--radius-medium);
-  background:
-    radial-gradient(circle at 0 0, rgb(34 230 195 / 8%), transparent 36%),
-    var(--background-surface);
+  background: var(--background-surface);
   padding: 11px;
 }
 
@@ -37,6 +35,13 @@
 .realtime-intelligence > header span,
 .realtime-primary > span {
   display: grid;
+}
+
+.realtime-intelligence > header .realtime-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
 }
 
 .realtime-intelligence strong {

@@ -34,7 +34,6 @@ import {
   safeRuntimeError,
 } from "@/services/messaging/runtime-client";
 import {
-  getAllProviderKeyStatuses,
   removeProviderKeyFromTrustedOptions,
   saveProviderKeyFromTrustedOptions,
 } from "@/services/storage/key-vault";
@@ -153,14 +152,18 @@ function OptionsApp() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([getSettings(), getAllProviderKeyStatuses()]).then(
-      ([stored, keys]) => {
-        if (!active) return;
-        setSettings(stored);
-        setKeyStatuses(keys);
-        if (keys.openai.mode) setKeyMode(keys.openai.mode);
-      },
-    );
+    void Promise.all([
+      getSettings(),
+      requestRuntime<{
+        providerKeyStatuses: Record<AiProviderId, KeyStatus>;
+      }>({ type: "GET_STATUS", payload: {} }),
+    ]).then(([stored, status]) => {
+      if (!active) return;
+      const keys = status.providerKeyStatuses;
+      setSettings(stored);
+      setKeyStatuses(keys);
+      if (keys.openai.mode) setKeyMode(keys.openai.mode);
+    });
     return () => {
       active = false;
     };
@@ -252,6 +255,20 @@ function OptionsApp() {
     setBusy(true);
     setError("");
     try {
+      if (HAS_EXTENSION_API) {
+        const origin =
+          selectedProvider === "anthropic"
+            ? "https://api.anthropic.com/*"
+            : "https://api.openai.com/*";
+        const granted = await chrome.permissions.request({
+          origins: [origin],
+        });
+        if (!granted) {
+          throw new Error(
+            `${selectedProvider === "anthropic" ? "Anthropic" : "OpenAI"} host access was not granted.`,
+          );
+        }
+      }
       const masked = await saveProviderKeyFromTrustedOptions(
         selectedProvider,
         apiKey,
@@ -885,6 +902,54 @@ function OptionsApp() {
 
           {activeTab === "models" ? (
             <>
+              <SectionHeader
+                title="Advanced research"
+                detail="Optional educational tools are hidden until you explicitly acknowledge and enable them."
+                badge={
+                  <StatusBadge tone="warning">Disabled by default</StatusBadge>
+                }
+              />
+              <div className="security-callout advanced-research-warning">
+                <TriangleAlert />
+                <div>
+                  <strong>Research and education only</strong>
+                  <p>
+                    Advanced research includes a manual-odds analysis tool. It
+                    does not place wagers, link to operators, recommend stakes,
+                    or provide financial advice. You remain responsible for age
+                    eligibility and the law where you are located.
+                  </p>
+                </div>
+              </div>
+              <label className="remember-confirm">
+                <input
+                  type="checkbox"
+                  checked={settings.advancedResearchAcknowledgedAt !== null}
+                  onChange={(event) => {
+                    const acknowledgedAt = event.target.checked
+                      ? Date.now()
+                      : null;
+                    setSettings((current) => ({
+                      ...current,
+                      advancedResearchAcknowledgedAt: acknowledgedAt,
+                      advancedResearchEnabled: acknowledgedAt
+                        ? current.advancedResearchEnabled
+                        : false,
+                    }));
+                    setNotice("");
+                  }}
+                />
+                I understand that advanced research is informational only and
+                includes manually entered odds. It is not wagering or financial
+                advice.
+              </label>
+              <SettingsToggle
+                label="Show advanced research tools"
+                detail="Adds the gated Advanced Research destination to the side panel."
+                checked={settings.advancedResearchEnabled}
+                disabled={settings.advancedResearchAcknowledgedAt === null}
+                onChange={(value) => update("advancedResearchEnabled", value)}
+              />
               <SectionHeader
                 title="How much analysis to run"
                 detail="Every feature answers deterministically first; these control the optional layer on top."
@@ -1762,15 +1827,17 @@ function SettingsToggle({
   label,
   detail,
   checked,
+  disabled = false,
   onChange,
 }: {
   label: string;
   detail: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="settings-toggle">
+    <label className="settings-toggle" data-disabled={disabled}>
       <span>
         <strong>{label}</strong>
         <small>{detail}</small>
@@ -1778,6 +1845,7 @@ function SettingsToggle({
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
       />
       <i aria-hidden="true" />

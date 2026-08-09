@@ -131,7 +131,7 @@ export function calculatePlayerScore(
     reason:
       inputs.sharedDraftScore === undefined
         ? "Shared-engine input is unavailable for this calculation."
-        : "The deterministic engine used by live drafts and Mock Draft Lab evaluated this candidate.",
+        : "The deterministic engine used by live drafts and Mock Draft evaluated this candidate.",
   });
 
   const formatAdjustment = formatAdjustmentScore(player, context);

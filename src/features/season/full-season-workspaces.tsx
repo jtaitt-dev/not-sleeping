@@ -11,11 +11,7 @@ import {
   Gauge,
   GitCompareArrows,
   Lock,
-  Pause,
-  Play,
   RefreshCw,
-  RotateCcw,
-  RotateCw,
   ShieldCheck,
   Sparkles,
   Star,
@@ -24,14 +20,14 @@ import {
   Users,
   WalletCards,
   X,
-  Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { StatusBadge } from "@/components/ui/badges";
 import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-intelligence-card";
 import { Button, IconButton } from "@/components/ui/button";
+import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import { PositionBadge } from "@/components/ui/badges";
 import { EmptyState, InlineError } from "@/components/ui/states";
 import type { AiFeature, Player } from "@/types/domain";
@@ -43,14 +39,6 @@ import {
   calculateDynastyDirection,
   type DynastyScenarioAsset,
 } from "@/services/dynasty/dynasty-service";
-import {
-  MockDraftSession,
-  assertDraftInvariants,
-  ownerForPick,
-  type DraftEngineConfig,
-  type DraftEnginePlayer,
-  type DraftEngineState,
-} from "@/services/draft/draft-engine";
 import { runDynamicModel } from "@/services/models/dynamic-model";
 import {
   projectMatchup,
@@ -1854,274 +1842,6 @@ export function AuctionWorkspace() {
   );
 }
 
-export function MockDraftLabWorkspace() {
-  const pool = usePlayerPool({ limit: 420 });
-  const [teams, setTeams] = useState(10);
-  const [rounds, setRounds] = useState(15);
-  const [userSlot, setUserSlot] = useState(3);
-  const [style, setStyle] = useState<DraftEngineConfig["style"]>("snake");
-  const [sessionState, setSessionState] = useState<DraftEngineState | null>(
-    null,
-  );
-  const [activeSession, setActiveSession] = useState<MockDraftSession | null>(
-    null,
-  );
-  const draftPlayers = useMemo(
-    () => pool.players.map(toDraftEnginePlayer),
-    [pool.players],
-  );
-  const start = () => {
-    const session = new MockDraftSession(
-      mockConfig(teams, rounds, style, userSlot),
-      draftPlayers,
-    );
-    setActiveSession(session);
-    session.start();
-    setSessionState(session.simulateOpponentsToUserTurn());
-  };
-  const command = (
-    action: "pick" | "pause" | "resume" | "undo" | "redo" | "complete",
-  ) => {
-    const session = activeSession;
-    if (!session) return;
-    if (action === "pick")
-      setSessionState(session.simulateOpponentsToUserTurn());
-    if (action === "pause") setSessionState(session.pause());
-    if (action === "resume") setSessionState(session.resume());
-    if (action === "undo") setSessionState(session.undo());
-    if (action === "redo") setSessionState(session.redo());
-    if (action === "complete") setSessionState(session.autoComplete());
-  };
-  const makeManualPick = (playerId: string) => {
-    const session = activeSession;
-    if (!session) return;
-    session.makeUserPick(playerId);
-    setSessionState(session.simulateOpponentsToUserTurn());
-  };
-  const recommendations = activeSession?.recommendations(8) ?? [];
-  const userOnClock = activeSession?.isUserOnClock() ?? false;
-  const validation =
-    activeSession && sessionState
-      ? assertDraftInvariants(activeSession.config, sessionState, draftPlayers)
-      : null;
-  return (
-    <SeasonWorkspace
-      title="Mock Draft Lab"
-      subtitle="The same deterministic recommendation core powers manual, opponent-agent, keeper, traded-pick, rookie, IDP, Best Ball, 3RR, and auction mocks."
-    >
-      <section className="surface mock-config">
-        <label>
-          Teams
-          <select
-            value={teams}
-            onChange={(event) => {
-              const nextTeams = Number(event.target.value);
-              setTeams(nextTeams);
-              setUserSlot((current) => Math.min(current, nextTeams));
-            }}
-          >
-            {[8, 10, 12, 14, 16, 32].map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Rounds
-          <input
-            type="number"
-            min="1"
-            max="40"
-            value={rounds}
-            onChange={(event) => setRounds(Number(event.target.value))}
-          />
-        </label>
-        <label>
-          Your slot
-          <select
-            value={Math.min(userSlot, teams)}
-            onChange={(event) => setUserSlot(Number(event.target.value))}
-          >
-            {Array.from({ length: teams }, (_, index) => index + 1).map(
-              (value) => (
-                <option key={value}>{value}</option>
-              ),
-            )}
-          </select>
-        </label>
-        <label>
-          Style
-          <select
-            value={style}
-            onChange={(event) =>
-              setStyle(event.target.value as DraftEngineConfig["style"])
-            }
-          >
-            <option value="snake">Snake</option>
-            <option value="third_round_reversal">3RR</option>
-            <option value="linear">Linear</option>
-            <option value="auction">Auction</option>
-          </select>
-        </label>
-        <Button
-          variant="primary"
-          size="small"
-          icon={<Play />}
-          onClick={start}
-          disabled={draftPlayers.length < teams * rounds}
-        >
-          Start
-        </Button>
-      </section>
-      {sessionState ? (
-        <>
-          <section className="mock-toolbar">
-            <Button
-              size="small"
-              icon={sessionState.status === "paused" ? <Play /> : <Pause />}
-              onClick={() =>
-                command(sessionState.status === "paused" ? "resume" : "pause")
-              }
-            >
-              {sessionState.status === "paused" ? "Resume" : "Pause"}
-            </Button>
-            <Button
-              size="small"
-              icon={<RotateCcw />}
-              onClick={() => command("undo")}
-            >
-              Undo
-            </Button>
-            <Button
-              size="small"
-              icon={<RotateCw />}
-              onClick={() => command("redo")}
-            >
-              Redo
-            </Button>
-            <Button
-              size="small"
-              icon={<Zap />}
-              onClick={() => command("pick")}
-              disabled={sessionState.status !== "drafting" || userOnClock}
-            >
-              Run opponents to my turn
-            </Button>
-            <Button
-              size="small"
-              onClick={() => command("complete")}
-              disabled={sessionState.status === "complete"}
-            >
-              Complete local mock
-            </Button>
-          </section>
-          <section className="surface mock-status">
-            <div>
-              <small>Status</small>
-              <strong>{sessionState.status}</strong>
-            </div>
-            <div>
-              <small>Next pick</small>
-              <strong>{sessionState.currentPick}</strong>
-            </div>
-            <div>
-              <small>Owner</small>
-              <strong>
-                Slot{" "}
-                {sessionState.status === "complete"
-                  ? "—"
-                  : ownerForPick(
-                      activeSession?.config ??
-                        mockConfig(teams, rounds, style, userSlot),
-                      sessionState.currentPick,
-                    )}
-              </strong>
-            </div>
-            <div>
-              <small>Control</small>
-              <strong>{userOnClock ? "Your manual pick" : "CPU turn"}</strong>
-            </div>
-            <div>
-              <small>Latency</small>
-              <strong>
-                {sessionState.recommendationLatencyMs.toFixed(1)}ms
-              </strong>
-            </div>
-          </section>
-          <div
-            className={`surface mock-validation ${validation?.passed ? "valid" : "invalid"}`}
-            role="status"
-          >
-            <ShieldCheck aria-hidden="true" />
-            {validation?.passed
-              ? `${sessionState.picks.length} legal picks · no duplicates · player pool and order verified`
-              : validation?.errors.join(" ")}
-          </div>
-          <section className="mock-layout">
-            <div className="surface mock-board">
-              <h2>Recent picks</h2>
-              {sessionState.picks
-                .slice(-20)
-                .toReversed()
-                .map((pick) => (
-                  <div key={pick.pickNumber}>
-                    <strong>
-                      {pick.round}.{String(pick.pickInRound).padStart(2, "0")}
-                    </strong>
-                    <span>
-                      {draftPlayers.find(
-                        (player) => player.playerId === pick.playerId,
-                      )?.name ?? pick.playerId}
-                    </span>
-                    <small>
-                      Slot {pick.ownerSlot}
-                      {pick.isKeeper ? " · Keeper" : ""}
-                    </small>
-                  </div>
-                ))}
-            </div>
-            <div className="surface mock-recommendations">
-              <h2>Available board</h2>
-              {recommendations.map((recommendation) => (
-                <div key={recommendation.playerId}>
-                  <strong>{recommendation.rank}</strong>
-                  <span>
-                    <b>
-                      {
-                        draftPlayers.find(
-                          (player) =>
-                            player.playerId === recommendation.playerId,
-                        )?.name
-                      }
-                    </b>
-                    <small>{recommendation.factors.join(" · ")}</small>
-                  </span>
-                  <small>
-                    {Math.round(recommendation.availabilityAtNextPick * 100)}%
-                    next pick
-                  </small>
-                  <Button
-                    size="small"
-                    variant={recommendation.rank === 1 ? "primary" : "ghost"}
-                    onClick={() => makeManualPick(recommendation.playerId)}
-                    disabled={!userOnClock}
-                  >
-                    Draft
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
-      ) : (
-        <EmptyState
-          title="Configure a local mock"
-          detail="No Sleeper room is created and no picks are submitted."
-        />
-      )}
-    </SeasonWorkspace>
-  );
-}
-
 export function ResearchWorkspace() {
   const { context } = useLeagueData();
   return (
@@ -2276,7 +1996,7 @@ function workspaceIntelligenceFeature(
   if (title === "Taxi Squad") return "taxi";
   if (title === "IDP") return "idp";
   if (title === "Auction Assistant") return "auction";
-  if (title === "Mock Draft Lab") return "draft";
+  if (title === "Mock Draft") return "draft";
   if (title === "Research") return "research";
   return null;
 }
@@ -2549,9 +2269,9 @@ function EvidenceGroup({
           <p>
             {item.publisher} · {new Date(item.retrievedAt).toLocaleString()}
           </p>
-          <a href={item.url} target="_blank" rel="noreferrer">
+          <SafeExternalLink url={item.url}>
             Source <ExternalLink />
-          </a>
+          </SafeExternalLink>
         </article>
       ))}
       {items.length === 0 && !children ? (
@@ -3222,80 +2942,6 @@ function toTradeAsset(player: Player): TradeAsset {
     injuryRisk: player.status === "injured" ? 0.55 : 0.15,
     rosterSpaceCost: 1,
     liquidity: value / 100,
-  };
-}
-
-function toDraftEnginePlayer(player: Player, index: number): DraftEnginePlayer {
-  const value = proxyPlayerValue(player);
-  return {
-    playerId: player.id,
-    name: player.fullName,
-    positions: player.fantasyPositions.length
-      ? player.fantasyPositions
-      : [player.position],
-    team: player.team,
-    adp: player.searchRank ?? index + 1,
-    tier: Math.floor(index / 12) + 1,
-    redraftValue: value,
-    dynastyValue: clamp(
-      value + (player.age && player.age < 25 ? 7 : 0),
-      0,
-      100,
-    ),
-    contenderValue: value,
-    rookie: player.yearsExperience === 0,
-    age: player.age,
-    auctionValue: Math.max(1, Math.round((value - 45) * 1.2)),
-  };
-}
-
-function mockConfig(
-  teams: number,
-  rounds: number,
-  style: DraftEngineConfig["style"],
-  userSlot: number,
-): DraftEngineConfig {
-  const starterSlots = [
-    "QB",
-    "RB",
-    "RB",
-    "WR",
-    "WR",
-    "WR",
-    "TE",
-    "FLEX",
-    "SUPER_FLEX",
-  ];
-  return {
-    seed: 20260802,
-    leagueType: "redraft",
-    teams,
-    rounds,
-    style,
-    playerPool: "all_available",
-    rosterSlots: [
-      ...starterSlots,
-      ...Array.from(
-        { length: Math.max(0, rounds - starterSlots.length) },
-        () => "BN",
-      ),
-    ].slice(0, rounds),
-    userSlot,
-    opponentArchetypes: [
-      "adp_follower",
-      "best_player_available",
-      "positional_need",
-      "zero_rb",
-      "hero_rb",
-      "early_qb",
-      "late_qb",
-      "te_premium",
-      "superflex_qb_hoarder",
-      "random_within_tier",
-    ],
-    superflex: true,
-    auctionBudget: 200,
-    minimumAuctionBid: 1,
   };
 }
 

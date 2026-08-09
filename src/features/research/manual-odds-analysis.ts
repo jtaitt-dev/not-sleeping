@@ -320,10 +320,13 @@ function legEligibilityReason(
       text: "Current injury or inactive status invalidates this leg.",
     };
   }
-  if (allowedPlayerIds && leg.playerId && !allowedPlayerIds.has(leg.playerId)) {
+  if (
+    allowedPlayerIds &&
+    (!leg.playerId || !allowedPlayerIds.has(leg.playerId))
+  ) {
     return {
       kind: "rejected",
-      text: "The player is no longer in the selected legal lineup pool.",
+      text: "The selected player is missing or no longer belongs to the current legal lineup pool.",
     };
   }
   return null;

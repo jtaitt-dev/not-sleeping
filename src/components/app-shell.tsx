@@ -30,7 +30,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { IconButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";
 import { LeagueSwitcher } from "@/components/league-switcher";
-import { BUILD_FLAVOR, IS_LABS_BUILD } from "@/build-flavor";
+import { useAdvancedResearchAccess } from "@/features/research/advanced-research-access";
 import { getActiveFixture, useAppStore } from "@/stores/app-store";
 import { useLeagueStore } from "@/stores/league-store";
 import { requestRuntime } from "@/services/messaging/runtime-client";
@@ -62,7 +62,7 @@ type MoreItem = {
  * Grouped rather than flat. The previous single list put 21 destinations in
  * 966px of ungrouped, unsearchable scroll inside a 400px panel.
  */
-const moreSections: Array<{ title: string; items: MoreItem[] }> = [
+const baseMoreSections: Array<{ title: string; items: MoreItem[] }> = [
   {
     title: "This week",
     items: [
@@ -168,8 +168,8 @@ const moreSections: Array<{ title: string; items: MoreItem[] }> = [
     items: [
       {
         to: "/mock-draft",
-        label: "Mock Draft Lab",
-        detail: "Practice against agents",
+        label: "Mock Draft",
+        detail: "League-accurate manual entry",
         icon: DraftingCompass,
       },
       {
@@ -224,21 +224,31 @@ const moreSections: Array<{ title: string; items: MoreItem[] }> = [
         detail: "Version and licence",
         icon: Eye,
       },
-      ...(IS_LABS_BUILD
-        ? [
-            {
-              to: "/labs",
-              label: "Labs",
-              detail: "Research-only tools",
-              icon: FlaskConical,
-            },
-          ]
-        : []),
     ],
   },
 ];
 
-const moreItems = moreSections.flatMap((section) => section.items);
+function getMoreSections(
+  advancedResearchEnabled: boolean,
+): Array<{ title: string; items: MoreItem[] }> {
+  return baseMoreSections.map((section) =>
+    section.title === "App" && advancedResearchEnabled
+      ? {
+          ...section,
+          items: [
+            ...section.items,
+            {
+              to: "/advanced-research",
+              label: "Advanced Research",
+              detail: "Gated manual-odds education",
+              icon: FlaskConical,
+            },
+          ],
+        }
+      : section,
+  );
+}
+
 const primaryPaths = new Set<string>(
   primaryNavigation.map((entry) => entry.to),
 );
@@ -248,8 +258,13 @@ function isMoreLevelPath(pathname: string): boolean {
   return !primaryPaths.has(pathname) && pathname !== "/";
 }
 
-function moreItemFor(pathname: string): MoreItem | undefined {
-  return moreItems.find((item) => item.to === pathname);
+function moreItemFor(
+  pathname: string,
+  sections: Array<{ title: string; items: MoreItem[] }>,
+): MoreItem | undefined {
+  return sections
+    .flatMap((section) => section.items)
+    .find((item) => item.to === pathname);
 }
 
 export function AppShell() {
@@ -263,6 +278,8 @@ export function AppShell() {
   const demoEnabled = useAppStore((state) => state.demoEnabled);
   const liveState = useAppStore((state) => state.liveState);
   const keyStatus = useAppStore((state) => state.keyStatus);
+  const advancedResearch = useAdvancedResearchAccess();
+  const moreSections = getMoreSections(advancedResearch.enabled);
   const [now, setNow] = useState(0);
   const fixture = getActiveFixture(fixtureId);
   const liveUnavailable = !demoEnabled && !liveState;
@@ -291,7 +308,7 @@ export function AppShell() {
   );
   const restoredLeague = useRef<string | null>(null);
   const onMoreLevelScreen = isMoreLevelPath(location.pathname);
-  const currentMoreItem = moreItemFor(location.pathname);
+  const currentMoreItem = moreItemFor(location.pathname, moreSections);
 
   useEffect(() => {
     if (!leagueContext || restoredLeague.current === leagueContext.leagueId)
@@ -300,7 +317,12 @@ export function AppShell() {
     let active = true;
     void requestRuntime<LeagueWorkspaceState | null>({
       type: "GET_LEAGUE_WORKSPACE",
-      payload: { leagueId: leagueContext.leagueId, workspace: "__last__" },
+      payload: {
+        userId: leagueContext.userId,
+        leagueId: leagueContext.leagueId,
+        season: leagueContext.season,
+        workspace: "__last__",
+      },
     })
       .then((stored) => {
         if (!active || !stored) return;
@@ -325,7 +347,9 @@ export function AppShell() {
     if (!leagueContext) return;
     const save = () => {
       const base = {
+        userId: leagueContext.userId,
         leagueId: leagueContext.leagueId,
+        season: leagueContext.season,
         week: leagueContext.week,
         scrollTop: window.scrollY,
         strategy: leagueContext.strategy,
@@ -510,8 +534,7 @@ export function AppShell() {
           Analysis local-first
         </span>
         <span className="tabular">
-          {keyStatus.available ? "AI provider ready" : "AI optional"} ·{" "}
-          {BUILD_FLAVOR === "labs" ? "Labs" : "Core"}
+          {keyStatus.available ? "AI provider ready" : "AI optional"} · Unified
         </span>
       </footer>
     </div>
@@ -533,6 +556,8 @@ function draftStatusLabel(status: string): string {
 
 export function MoreWorkspace() {
   const [query, setQuery] = useState("");
+  const advancedResearch = useAdvancedResearchAccess();
+  const moreSections = getMoreSections(advancedResearch.enabled);
   const normalized = query.trim().toLowerCase();
   const sections = moreSections
     .map((section) => ({

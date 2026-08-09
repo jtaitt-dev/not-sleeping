@@ -7,9 +7,7 @@ body {
   display: grid;
   width: 338px;
   gap: 10px;
-  background:
-    radial-gradient(circle at 100% 0, rgb(34 230 195 / 8%), transparent 38%),
-    var(--background-canvas);
+  background: var(--background-canvas);
   padding: 11px;
 }
 
