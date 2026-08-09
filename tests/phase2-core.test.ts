@@ -168,11 +168,35 @@ describe("Phase 2 evidence adapters", () => {
         trustedSocialHandles: [],
         mutedReporters: [],
         mutedTopics: [],
-        optionalXEnabled: false,
+        optionalXEnabled: true,
       },
     );
     expect(item.confidence).toBeLessThanOrEqual(0.23);
     expect(item.nature).toBe("report");
+  });
+
+  it("fails closed for social research unless it is explicitly enabled", () => {
+    expect(() =>
+      adaptPublicResearchEvidence(
+        {
+          url: "https://x.com/reporter/status/1",
+          publisher: "X",
+          author: "@reporter",
+          claimType: "injury",
+          claim: "A player may be limited.",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        },
+        {
+          trustedDomains: [],
+          blockedDomains: [],
+          trustedReporters: [],
+          trustedSocialHandles: [],
+          mutedReporters: [],
+          mutedTopics: [],
+          optionalXEnabled: false,
+        },
+      ),
+    ).toThrow("blocked by the active source policy");
   });
 
   it("applies blocked domains, muted reporters, and muted topics", () => {

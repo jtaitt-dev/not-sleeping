@@ -27,7 +27,7 @@ UI workspaces
     └── versioned runtime protocol
                   │
              background worker
-              ├── Sleeper provider ── public read-only HTTPS
+              ├── Sleeper provider ── enforced GET-only public HTTPS
               ├── OpenAI provider ─── optional BYOK HTTPS
               └── Dexie / Chrome storage
 ```
@@ -35,6 +35,11 @@ UI workspaces
 UI code does not call external providers directly. Provider response shapes are
 validated before they reach product state. Errors become typed, safe
 `AppError` objects with retry and recovery guidance.
+
+Every Sleeper request passes through a single boundary that accepts only
+`https://api.sleeper.app`, the public `/v1/` and `/projections/` path families,
+`GET`, omitted credentials, no request body, and no redirects. This is enforced
+independently of individual provider methods.
 
 ## Live draft lifecycle
 
@@ -53,8 +58,20 @@ levels, age curves, NFL draft capital, injury risk, and estimated next-pick
 availability. OpenAI research can adjust this baseline only within a bounded
 range and never replaces the local source of truth.
 
+League mocks use the same legal-position and candidate-ranking services as live
+draft recommendations. Sleeper configuration is converted into an immutable
+local plan; local picks and recovery state are isolated by account, league, and
+draft and never enter the Sleeper provider.
+
 ## Build output
 
 `pnpm build` creates WXT output and copies the production extension to `dist`.
 Production source maps are rejected. `pnpm zip` creates a versioned archive
 and SHA-256 checksum under `artifacts`.
+
+There is one manifest, extension identity, runtime, and release artifact.
+Advanced Research is packaged as a lazy chunk but hidden and locked unless the
+stored settings contain both a timestamped acknowledgement and an enabled flag.
+The direct route applies the same gate. Manual Odds Research adds its own 21+
+and jurisdiction gate plus cooldown and disable controls. Neither gate reads or
+handles AI provider credentials.

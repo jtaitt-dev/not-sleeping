@@ -17,18 +17,26 @@ release deliverables. Verify the checksum independently before upload.
 
 ## Versioning
 
-Update `package.json`, `wxt.config.ts`, and `CHANGELOG.md` together. Create a
-signed or annotated `v<version>` tag only after CI passes. The release workflow
+Update `package.json` and `CHANGELOG.md` together; WXT derives the manifest
+version from the package. Create a signed or annotated `v<version>` tag only
+after CI passes. The release workflow
 rebuilds, packages, checksums, and attaches artifacts to the GitHub release.
 
 ## Chrome Web Store
 
-The project has not yet been submitted. Before submission:
+The current unified artifact includes gated manual-odds research. It is a
+limited-beta/sideload deliverable and is **not currently approved for Chrome Web
+Store submission**. Runtime gates reduce exposure but do not remove packaged
+code from store review.
 
-1. Review every manifest permission and host permission.
-2. Re-run privacy and threat-model review.
-3. Confirm store disclosures match `docs/PRIVACY.md`.
-4. Upload the generated Chrome ZIP.
+Before any future submission:
+
+1. Obtain current Chrome Web Store policy and legal review of the manual-odds
+   feature and distribution jurisdictions.
+2. Review every manifest permission, host permission, and packaged feature.
+3. Re-run privacy, security, and threat-model review.
+4. Confirm store disclosures match `PRIVACY.md` and actual behavior.
 5. Complete screenshots, description, support, and privacy fields without
    claiming affiliation with Sleeper or OpenAI.
-6. Record the listing URL and review result in the changelog.
+6. Upload only after the review explicitly approves the unified package.
+7. Record the listing URL and review result in the changelog.

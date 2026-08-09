@@ -86,7 +86,9 @@ export type LeagueContext = {
 };
 
 export type LeagueWorkspaceState = {
+  userId: string;
   leagueId: string;
+  season: string;
   workspace: string;
   week: number;
   scrollTop: number;

@@ -32,6 +32,7 @@ import { Link } from "react-router";
 
 import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
 import { Button, IconButton } from "@/components/ui/button";
+import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import {
   EmptyState,
   InlineError,
@@ -81,6 +82,12 @@ import { useLeagueStore } from "@/stores/league-store";
 import type { PlayerResearchOutput } from "@/schemas/openai";
 import type { AppSettings, KeyStatus, Player, Strategy } from "@/types/domain";
 import type { FreshnessDomain } from "@/types/league";
+import {
+  listUsageEvents,
+  summarizeUsage,
+  type UsageSummary,
+} from "@/services/usage/usage-service";
+import type { UsageEvent } from "@/types/domain";
 
 import "./all-workspaces.css";
 
@@ -316,9 +323,9 @@ export function PlayersWorkspace() {
                   <ul>
                     {research.citations.slice(0, 5).map((citation) => (
                       <li key={citation.id}>
-                        <a href={citation.url} target="_blank" rel="noreferrer">
+                        <SafeExternalLink url={citation.url}>
                           {citation.title} · {citation.publisher}
-                        </a>
+                        </SafeExternalLink>
                       </li>
                     ))}
                   </ul>
@@ -1027,7 +1034,26 @@ export function DataCenterWorkspace() {
 }
 
 export function UsageWorkspace() {
-  const bars = [12, 34, 18, 55, 31, 62, 24, 42, 74, 48, 36, 58];
+  const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [events, setEvents] = useState<UsageEvent[]>([]);
+  const [since] = useState(() => Date.now() - 30 * 24 * 60 * 60_000);
+  useEffect(() => {
+    let active = true;
+    void Promise.all([summarizeUsage(since), listUsageEvents(since)]).then(
+      ([nextSummary, nextEvents]) => {
+        if (!active) return;
+        setSummary(nextSummary);
+        setEvents(nextEvents);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [since]);
+  const daily = usageByDay(events, 12);
+  const maximum = Math.max(1, ...daily.map((entry) => entry.requests));
+  const cacheTotal = (summary?.cacheHits ?? 0) + (summary?.cacheMisses ?? 0);
+  const rows = usageRows(events);
   return (
     <Workspace
       title="Usage"
@@ -1036,21 +1062,25 @@ export function UsageWorkspace() {
       <div className="insight-strip">
         <Insight
           label="Requests"
-          value="18"
-          detail="This month"
+          value={String(summary?.requests ?? 0)}
+          detail="Last 30 days"
           tone="accent"
         />
         <Insight
           label="Cache hits"
-          value="61%"
-          detail="11 avoided calls"
+          value={`${cacheTotal > 0 ? Math.round(((summary?.cacheHits ?? 0) / cacheTotal) * 100) : 0}%`}
+          detail={`${summary?.cacheHits ?? 0} avoided calls`}
           tone="success"
         />
-        <Insight label="Input tokens" value="42.8k" detail="Reported by API" />
+        <Insight
+          label="Input tokens"
+          value={compactNumber(summary?.inputTokens ?? 0)}
+          detail="Reported by API"
+        />
         <Insight
           label="Failures"
-          value="1"
-          detail="Rate limited"
+          value={String(summary?.failures ?? 0)}
+          detail="Recorded failures"
           tone="warning"
         />
       </div>
@@ -1063,34 +1093,35 @@ export function UsageWorkspace() {
           <StatusBadge tone="info">Local telemetry</StatusBadge>
         </header>
         <div>
-          {bars.map((height, index) => (
+          {daily.map((entry) => (
             <span
-              key={index}
-              style={{ height: `${height}%` }}
-              title={`${height}% relative volume`}
+              key={entry.date}
+              style={{
+                height: `${Math.max(4, (entry.requests / maximum) * 100)}%`,
+              }}
+              title={`${entry.date}: ${entry.requests} requests`}
             />
           ))}
         </div>
         <footer>
-          <span>Jul 12</span>
-          <span>Jul 23</span>
+          <span>{daily[0]?.date ?? "—"}</span>
+          <span>{daily.at(-1)?.date ?? "—"}</span>
         </footer>
       </section>
       <div className="surface usage-table">
-        {[
-          ["Player research", "gpt-5.6-sol", "8", "30.2k"],
-          ["Draft adjustment", "gpt-5.6-terra", "6", "9.4k"],
-          ["Compare summary", "gpt-5.6-terra", "4", "3.2k"],
-        ].map(([feature, model, requests, tokens]) => (
-          <div key={feature}>
+        {rows.map((row) => (
+          <div key={`${row.feature}:${row.model}`}>
             <span>
-              <strong>{feature}</strong>
-              <small>{model}</small>
+              <strong>{row.feature}</strong>
+              <small>{row.model}</small>
             </span>
-            <span>{requests} requests</span>
-            <b>{tokens} tokens</b>
+            <span>{row.requests} requests</span>
+            <b>{compactNumber(row.tokens)} tokens</b>
           </div>
         ))}
+        {rows.length === 0 ? (
+          <p>No AI requests have been recorded in this browser yet.</p>
+        ) : null}
       </div>
       <div className="callout">
         <Info />
@@ -1100,6 +1131,62 @@ export function UsageWorkspace() {
         </p>
       </div>
     </Workspace>
+  );
+}
+
+function usageByDay(events: UsageEvent[], days: number) {
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const now = new Date();
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - (days - index - 1),
+    );
+    const next = new Date(date);
+    next.setDate(next.getDate() + 1);
+    return {
+      date: formatter.format(date),
+      requests: events.filter(
+        (event) =>
+          event.timestamp >= date.getTime() &&
+          event.timestamp < next.getTime() &&
+          (event.status === "success" || event.status === "failure"),
+      ).length,
+    };
+  });
+}
+
+function usageRows(events: UsageEvent[]) {
+  const grouped = new Map<
+    string,
+    { feature: string; model: string; requests: number; tokens: number }
+  >();
+  for (const event of events) {
+    if (event.status !== "success" && event.status !== "failure") continue;
+    const model = event.model ?? "No model response";
+    const key = `${event.feature}\u0000${model}`;
+    const row = grouped.get(key) ?? {
+      feature: event.feature.replaceAll("_", " "),
+      model,
+      requests: 0,
+      tokens: 0,
+    };
+    row.requests += 1;
+    row.tokens += event.totalTokens;
+    grouped.set(key, row);
+  }
+  return [...grouped.values()]
+    .toSorted((left, right) => right.requests - left.requests)
+    .slice(0, 12);
+}
+
+function compactNumber(value: number): string {
+  return new Intl.NumberFormat(undefined, { notation: "compact" }).format(
+    value,
   );
 }
 
@@ -1657,6 +1744,8 @@ export function DiagnosticsWorkspace() {
   const [copied, setCopied] = useState(false);
   const [checks, setChecks] = useState<DiagnosticCheck[]>([
     { name: "Service worker", result: "Not checked", tone: "warning" },
+    { name: "Product build", result: "Not checked", tone: "warning" },
+    { name: "Advanced research", result: "Not checked", tone: "warning" },
     { name: "Sleeper context", result: "Not checked", tone: "warning" },
     { name: "Player cache", result: "Not checked", tone: "warning" },
     { name: "OpenAI", result: "Not checked", tone: "warning" },
@@ -1700,6 +1789,23 @@ export function DiagnosticsWorkspace() {
         {
           name: "Service worker",
           result: `Responsive · v${extension.extensionVersion}`,
+          tone: "success",
+        },
+        {
+          name: "Product build",
+          result:
+            extension.build.product === "unified"
+              ? "Unified extension"
+              : "Unexpected build",
+          tone: extension.build.product === "unified" ? "success" : "warning",
+        },
+        {
+          name: "Advanced research",
+          result: extension.build.advancedResearchEnabled
+            ? "Enabled after acknowledgement"
+            : extension.build.advancedResearchAcknowledged
+              ? "Acknowledged · disabled"
+              : "Locked by default",
           tone: "success",
         },
         {
@@ -2029,6 +2135,11 @@ type DiagnosticCheck = {
 
 type DiagnosticStatus = {
   extensionVersion: string;
+  build: {
+    product: string;
+    advancedResearchAcknowledged: boolean;
+    advancedResearchEnabled: boolean;
+  };
   context: unknown;
   keyStatus: KeyStatus;
   players: number;

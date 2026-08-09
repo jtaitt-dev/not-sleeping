@@ -15,7 +15,10 @@ import { mergeTeamDefenseFallback } from "@/services/context/team-defense-fallba
 import { AppError, normalizeError } from "@/services/errors/app-error";
 import { DecisionPipeline } from "@/services/decision-pipeline/decision-pipeline";
 import { PlayerResearchService } from "@/services/intelligence/player-research-service";
-import { LeagueService } from "@/services/league/league-service";
+import {
+  LeagueService,
+  leagueRecordId,
+} from "@/services/league/league-service";
 import {
   validateMessage,
   validateSender,
@@ -38,10 +41,13 @@ import type {
   Position,
 } from "@/types/domain";
 import type { SleeperRoster } from "@/schemas/sleeper";
+import { getSourcePreferences } from "@/services/evidence/source-preferences";
+import { researchAllowedDomains } from "@/providers/evidence/evidence-adapters";
+import { recordUsage } from "@/services/usage/usage-service";
 
 const CONTEXT_KEY = "currentSleeperContext";
 const DEMO_KEY = "demoMode";
-const ACTIVE_LEAGUE_KEY = "activeLeagueId";
+const ACTIVE_LEAGUE_KEY_PREFIX = "activeLeagueId";
 const sleeper = new SleeperProvider();
 const sleeperPlayerContext = new SleeperPlayerContextProvider(sleeper);
 const weather = new OpenMeteoProvider();
@@ -57,8 +63,9 @@ const anthropic = new AnthropicProvider({
 const aiProviders = new AiProviderRegistry([openai, anthropic]);
 const decisionPipeline = new DecisionPipeline(aiProviders, getSettings);
 const playerResearch = new PlayerResearchService(aiProviders, getSettings);
-const liveDraft = new LiveDraftController(loadLiveDraft);
+const liveDraft = new LiveDraftController(loadLiveDraft, loadTabContext);
 const activeRequests = new Map<string, AbortController>();
+const latestLeagueSelection = new Map<string, string>();
 
 export default defineBackground(() => {
   void initialize();
@@ -89,16 +96,6 @@ export default defineBackground(() => {
 async function initialize() {
   await restrictSecretStorage();
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
-  const stored = await chrome.storage.session.get(CONTEXT_KEY);
-  const context = asRecord(stored[CONTEXT_KEY]);
-  liveDraft.updateContext({
-    ...(typeof context["draftId"] === "string"
-      ? { draftId: context["draftId"] }
-      : {}),
-    ...(typeof context["status"] === "string"
-      ? { status: context["status"] }
-      : {}),
-  });
 }
 
 async function handleIncoming(
@@ -128,18 +125,35 @@ async function routeMessage(
 ): Promise<unknown> {
   switch (message.type) {
     case "GET_STATUS": {
-      const [context, keyStatus, providerKeyStatuses, players, metadata, demo] =
-        await Promise.all([
-          chrome.storage.session.get(CONTEXT_KEY),
-          getKeyStatus(),
-          getAllProviderKeyStatuses(),
-          db.players.count(),
-          db.cacheMetadata.toArray(),
-          chrome.storage.local.get(DEMO_KEY),
-        ]);
+      const contextKey = contextStorageKey(message.payload.tabId);
+      const [
+        context,
+        keyStatus,
+        providerKeyStatuses,
+        players,
+        metadata,
+        demo,
+        settings,
+      ] = await Promise.all([
+        chrome.storage.session.get(contextKey),
+        getKeyStatus(),
+        getAllProviderKeyStatuses(),
+        db.players.count(),
+        db.cacheMetadata.toArray(),
+        chrome.storage.local.get(DEMO_KEY),
+        getSettings(),
+      ]);
       return {
         extensionVersion: chrome.runtime.getManifest().version,
-        context: context[CONTEXT_KEY] ?? null,
+        build: {
+          product: "unified",
+          advancedResearchAcknowledged:
+            settings.advancedResearchAcknowledgedAt !== null,
+          advancedResearchEnabled:
+            settings.advancedResearchAcknowledgedAt !== null &&
+            settings.advancedResearchEnabled,
+        },
+        context: context[contextKey] ?? null,
         keyStatus,
         providerKeyStatuses,
         players,
@@ -155,26 +169,35 @@ async function routeMessage(
       };
     }
     case "GET_CONTEXT": {
-      return (
-        (await chrome.storage.session.get(CONTEXT_KEY))[CONTEXT_KEY] ?? null
-      );
+      const contextKey = contextStorageKey(message.payload.tabId);
+      return (await chrome.storage.session.get(contextKey))[contextKey] ?? null;
     }
     case "CONTEXT_UPDATE": {
+      const tabId = sender.tab?.id;
+      if (tabId === undefined) {
+        throw new Error("A page tab is required for a context update.");
+      }
       const context = {
         ...message.payload,
         lastUpdatedAt: Date.now(),
       };
-      await chrome.storage.session.set({ [CONTEXT_KEY]: context });
-      liveDraft.updateContext({
+      await chrome.storage.session.set({
+        [contextStorageKey(tabId)]: context,
+      });
+      liveDraft.updateContext(tabId, {
         ...(context.draftId ? { draftId: context.draftId } : {}),
+        ...(context.leagueId ? { leagueId: context.leagueId } : {}),
       });
       return context;
     }
     case "REFRESH_CONTEXT": {
-      await liveDraft.refreshNow();
-      return (
-        (await chrome.storage.session.get(CONTEXT_KEY))[CONTEXT_KEY] ?? null
-      );
+      const tabId = message.payload.tabId ?? sender.tab?.id;
+      if (tabId === undefined) {
+        throw new Error("A tab is required to refresh draft context.");
+      }
+      await liveDraft.refreshNow(tabId);
+      const contextKey = contextStorageKey(tabId);
+      return (await chrome.storage.session.get(contextKey))[contextKey] ?? null;
     }
     case "OPEN_SIDE_PANEL": {
       const tabId = sender.tab?.id;
@@ -205,25 +228,44 @@ async function routeMessage(
       });
     }
     case "GET_LEAGUES": {
+      const activeKey = activeLeagueKey(message.payload.userId);
       const [catalog, active] = await Promise.all([
-        leagues.getCatalog(),
-        chrome.storage.local.get(ACTIVE_LEAGUE_KEY),
+        leagues.getCatalog(message.payload.userId),
+        chrome.storage.local.get(activeKey),
       ]);
-      return { catalog, activeLeagueId: active[ACTIVE_LEAGUE_KEY] ?? null };
+      return { catalog, activeLeagueId: active[activeKey] ?? null };
     }
     case "SELECT_LEAGUE": {
       for (const controller of activeRequests.values()) controller.abort();
       activeRequests.clear();
+      latestLeagueSelection.set(message.payload.userId, message.requestId);
       const context = await leagues.selectLeague({
         leagueId: message.payload.leagueId,
         userId: message.payload.userId,
         week: message.payload.week,
+        shouldCommit: () =>
+          latestLeagueSelection.get(message.payload.userId) ===
+          message.requestId,
       });
-      await chrome.storage.local.set({ [ACTIVE_LEAGUE_KEY]: context.leagueId });
+      if (
+        latestLeagueSelection.get(message.payload.userId) !== message.requestId
+      ) {
+        throw new AppError({
+          code: "CANCELLED",
+          message: "The league selection was superseded.",
+          safeDetail: "A newer league switch completed first.",
+          suggestedAction: "Continue with the newer selected league.",
+          retryable: false,
+        });
+      }
+      await chrome.storage.local.set({
+        [activeLeagueKey(message.payload.userId)]: context.leagueId,
+      });
       return context;
     }
     case "FAVORITE_LEAGUE":
       await leagues.favoriteLeague(
+        message.payload.userId,
         message.payload.leagueId,
         message.payload.favorite,
       );
@@ -243,13 +285,17 @@ async function routeMessage(
       });
       return { saved: true };
     case "GET_LEAGUE_WORKSPACE":
-      return leagues.getWorkspace(
-        message.payload.leagueId,
-        message.payload.workspace,
-      );
+      return leagues.getWorkspace(message.payload);
     case "GET_LEAGUE_SNAPSHOT": {
+      const userId = message.payload.userId;
       const leagueId = message.payload.leagueId;
       const week = message.payload.week;
+      const selected = await db.leagues.get(leagueRecordId(userId, leagueId));
+      if (!selected) {
+        throw new Error(
+          "The requested league is not connected to the selected Sleeper account.",
+        );
+      }
       const [
         league,
         users,
@@ -290,13 +336,15 @@ async function routeMessage(
         (player): player is Player => player !== undefined,
       );
       void emitSnapshotAlerts({
+        userId,
         leagueId,
         week,
         rosters,
         players: snapshotPlayers,
       }).catch(() => undefined);
       return {
-        leagueId,
+        userId,
+        leagueId: league.league_id,
         week,
         fetchedAt: Date.now(),
         league,
@@ -396,7 +444,9 @@ async function routeMessage(
     case "GET_LIVE_DRAFT":
       return loadLiveDraft(message.payload.draftId);
     case "RESEARCH_PLAYER": {
+      const startedAt = Date.now();
       const settings = await getSettings();
+      const sourcePreferences = await getSourcePreferences();
       const researchProvider =
         settings.aiFeatureOverrides.research?.provider ??
         settings.aiDefaults.provider;
@@ -409,12 +459,34 @@ async function routeMessage(
           playerName: message.payload.playerName,
           leagueContext: message.payload.format,
           depth: message.payload.depth,
+          allowedDomains: researchAllowedDomains(sourcePreferences),
+          sourcePreferences,
           signal: controller.signal,
         });
+        await recordUsage({
+          feature: "research",
+          model: result.resolvedModel,
+          status: "success",
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+          durationMs: Date.now() - startedAt,
+        }).catch(() => undefined);
         return {
           ...result,
           cited: result.data.citations.length > 0,
         };
+      } catch (error) {
+        await recordUsage({
+          feature: "research",
+          status: "failure",
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          durationMs: Date.now() - startedAt,
+          diagnosticCode: normalizeError(error).diagnosticCode,
+        }).catch(() => undefined);
+        throw error;
       } finally {
         activeRequests.delete(message.requestId);
       }
@@ -451,12 +523,15 @@ async function routeMessage(
 }
 
 async function emitSnapshotAlerts(input: {
+  userId: string;
   leagueId: string;
   week: number;
   rosters: SleeperRoster[];
   players: Player[];
 }): Promise<void> {
-  const stored = await db.leagues.get(input.leagueId);
+  const stored = await db.leagues.get(
+    leagueRecordId(input.userId, input.leagueId),
+  );
   const roster = input.rosters.find(
     (candidate) => candidate.roster_id === stored?.rosterId,
   );
@@ -491,7 +566,10 @@ async function emitSnapshotAlerts(input: {
   }
 }
 
-async function loadLiveDraft(draftId: string): Promise<LiveDraftState> {
+async function loadLiveDraft(
+  draftId: string,
+  tabId?: number,
+): Promise<LiveDraftState> {
   const playerRefresh = sleeper.refreshPlayers().catch(() => ({
     players: 0,
     stale: true,
@@ -502,7 +580,7 @@ async function loadLiveDraft(draftId: string): Promise<LiveDraftState> {
     sleeper.getDraftPicks(draftId),
     getSettings(),
     playerRefresh,
-    chrome.storage.session.get(CONTEXT_KEY),
+    chrome.storage.session.get(contextStorageKey(tabId)),
   ]);
   const leagueId = resolveDraftLeagueId(draft);
   const playerLimit = liveDraftPlayerLimit(draft.settings);
@@ -532,7 +610,7 @@ async function loadLiveDraft(draftId: string): Promise<LiveDraftState> {
       ),
     ).values(),
   ]);
-  const routeContext = asRecord(storedContext[CONTEXT_KEY]);
+  const routeContext = asRecord(storedContext[contextStorageKey(tabId)]);
   return buildLiveDraftState({
     draft,
     picks,
@@ -635,7 +713,19 @@ async function clearCache(
       .where("key")
       .startsWith(`sleeper:${scope === "all" ? "" : scope}`)
       .delete();
+    if (scope === "league" || scope === "all") {
+      await Promise.all([db.leagues.clear(), db.leagueWorkspaces.clear()]);
+      const stored = await chrome.storage.local.get(null);
+      const activeKeys = Object.keys(stored).filter((key) =>
+        key.startsWith(`${ACTIVE_LEAGUE_KEY_PREFIX}:`),
+      );
+      if (activeKeys.length > 0) await chrome.storage.local.remove(activeKeys);
+    }
   }
+}
+
+function activeLeagueKey(userId: string): string {
+  return `${ACTIVE_LEAGUE_KEY_PREFIX}:${encodeURIComponent(userId)}`;
 }
 
 async function maintainCaches() {
@@ -653,4 +743,28 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function contextStorageKey(tabId?: number): string {
+  return tabId === undefined ? CONTEXT_KEY : `${CONTEXT_KEY}:${tabId}`;
+}
+
+async function loadTabContext(tabId: number): Promise<{
+  draftId?: string;
+  leagueId?: string;
+  status?: string;
+}> {
+  const key = contextStorageKey(tabId);
+  const context = asRecord((await chrome.storage.session.get(key))[key]);
+  return {
+    ...(typeof context["draftId"] === "string"
+      ? { draftId: context["draftId"] }
+      : {}),
+    ...(typeof context["leagueId"] === "string"
+      ? { leagueId: context["leagueId"] }
+      : {}),
+    ...(typeof context["status"] === "string"
+      ? { status: context["status"] }
+      : {}),
+  };
 }

@@ -1,7 +1,30 @@
-# Mock Draft Lab
+# Mock Draft
 
-Mock Draft Lab runs locally and never creates or submits a Sleeper room. It supports snake, linear, 3RR, auction, manual/custom, keepers, traded pick owners, rookie/veteran pools, Superflex, TE premium, IDP, Best Ball, seeded opponent archetypes, pause/resume, undo/redo, and auto-complete.
+Mock Draft runs locally and never creates, joins, edits, or submits a Sleeper
+room. Its setup is derived from the selected account, league, and draft: team
+count, rounds, slot order when Sleeper provides one, roster slots, draft style,
+player pool, scoring modes, position limits, keepers, and traded-pick ownership.
+The UI always distinguishes original draft slot from current pick owner.
 
-Opponent archetypes include ADP, best available, positional need, Zero/Hero RB, early/late QB, TE premium, Superflex QB hoarder, dynasty youth/contender/productive struggle, IDP early, homer, and random-within-tier. All are reproducible by seed.
+Manual entry is the default and records every team selection one pick at a
+time—there is no implicit autopick. Each entry is rejected if the player is
+already drafted, outside the verified rookie/veteran/IDP pool, already rostered
+in a dynasty or rookie league, or blocked by a league position limit. After
+every pick, invariants validate sequential order, snake/linear/3RR coordinates,
+traded ownership, duplicate prevention, roster limits, and player-pool
+isolation.
 
-The live ranking path and Mock Draft Lab call the same `rankDraftCandidates` engine. Live rankings retain additional explainable Phase 1 factors as a bounded layer. `pnpm test:simulations` runs a smoke matrix; `pnpm test:simulations:exhaustive` runs 5,000 complete seeded drafts and writes JSON/Markdown reports.
+When Sleeper has not assigned draft order, the extension does not infer one. It
+labels the uncertainty and asks for a local-only slot. Sessions are stored under
+an account/league/draft key and restored only if their validated configuration
+fingerprint and player pool still match.
+
+The deterministic candidate engine remains the source of truth. An optional AI
+overlay is off by default and cannot submit a selection. Pause/resume, undo,
+redo, and a two-step local reset are supported. Existing seeded opponent
+archetypes and explicit auto-complete remain available to simulation tooling,
+not the default entry workflow.
+
+`pnpm test:simulations` runs a smoke matrix; `pnpm
+test:simulations:exhaustive` runs 5,000 complete seeded drafts and writes
+JSON/Markdown reports.

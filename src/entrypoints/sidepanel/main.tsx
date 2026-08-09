@@ -3,9 +3,12 @@ import ReactDOM from "react-dom/client";
 import { HashRouter, Navigate, Route, Routes } from "react-router";
 
 import { AppShell, MoreWorkspace } from "@/components/app-shell";
-import { IS_LABS_BUILD } from "@/build-flavor";
+import { StatusBadge } from "@/components/ui/badges";
+import { Button } from "@/components/ui/button";
 import { RootProviders } from "@/components/root-providers";
 import { DraftWorkspace } from "@/features/draft/draft-workspace";
+import { LeagueMockDraftWorkspace } from "@/features/draft/league-mock-draft-workspace";
+import { useAdvancedResearchAccess } from "@/features/research/advanced-research-access";
 import {
   AuctionWorkspace,
   ChoppedSurvivalWorkspace,
@@ -14,7 +17,6 @@ import {
   IdpWorkspace,
   LeaguesWorkspace,
   MatchupCenterWorkspace,
-  MockDraftLabWorkspace,
   ResearchWorkspace,
   RookieCenterWorkspace,
   StartSitWorkspace,
@@ -37,9 +39,47 @@ import {
 } from "@/features/workspaces/all-workspaces";
 import "@/styles/globals.css";
 
-const ParlayLabWorkspace = IS_LABS_BUILD
-  ? lazy(() => import("virtual:not-sleeping-labs-workspace"))
-  : null;
+const ManualOddsResearchWorkspace = lazy(
+  () => import("@/features/research/manual-odds-workspace"),
+);
+
+function AdvancedResearchWorkspace() {
+  const access = useAdvancedResearchAccess();
+  if (!access.ready) {
+    return <p role="status">Loading advanced research safeguards…</p>;
+  }
+  if (!access.enabled) {
+    return (
+      <section className="workspace-page labs-workspace">
+        <header className="workspace-heading">
+          <div>
+            <h1>Advanced Research</h1>
+            <p>Optional educational analysis, disabled by default.</p>
+          </div>
+          <StatusBadge tone="warning">Locked</StatusBadge>
+        </header>
+        <article className="labs-gate">
+          <div>
+            <h2>Explicit opt-in required</h2>
+            <p>
+              Acknowledgement and enablement are both required before manual
+              odds research is available. This feature provides information, not
+              wagering or financial advice.
+            </p>
+            <Button onClick={() => void chrome.runtime.openOptionsPage()}>
+              Review advanced research settings
+            </Button>
+          </div>
+        </article>
+      </section>
+    );
+  }
+  return (
+    <Suspense fallback={<p>Loading advanced research…</p>}>
+      <ManualOddsResearchWorkspace />
+    </Suspense>
+  );
+}
 
 function SidePanelApp() {
   return (
@@ -50,7 +90,7 @@ function SidePanelApp() {
           <Route path="/today" element={<TodayWorkspace />} />
           <Route path="/leagues" element={<LeaguesWorkspace />} />
           <Route path="/draft" element={<DraftWorkspace />} />
-          <Route path="/mock-draft" element={<MockDraftLabWorkspace />} />
+          <Route path="/mock-draft" element={<LeagueMockDraftWorkspace />} />
           <Route path="/start-sit" element={<StartSitWorkspace />} />
           <Route path="/matchup" element={<MatchupCenterWorkspace />} />
           <Route path="/chopped" element={<ChoppedSurvivalWorkspace />} />
@@ -74,16 +114,10 @@ function SidePanelApp() {
           <Route path="/settings" element={<SettingsWorkspace />} />
           <Route path="/diagnostics" element={<DiagnosticsWorkspace />} />
           <Route path="/about" element={<AboutWorkspace />} />
-          {ParlayLabWorkspace ? (
-            <Route
-              path="/labs"
-              element={
-                <Suspense fallback={<p>Loading optional Labs workspace…</p>}>
-                  <ParlayLabWorkspace />
-                </Suspense>
-              }
-            />
-          ) : null}
+          <Route
+            path="/advanced-research"
+            element={<AdvancedResearchWorkspace />}
+          />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Route>
       </Routes>

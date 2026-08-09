@@ -36,11 +36,86 @@ test("loads the MV3 extension and navigates every primary workspace", async () =
     ).toBeVisible();
   }
 
-  await expect(page.getByRole("link", { name: "Labs" })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Advanced Research" }),
+  ).toHaveCount(0);
   await page.goto(
     `chrome-extension://${loaded.extensionId}/sidepanel.html#/labs`,
   );
   await expect(page).toHaveURL(/#\/today$/);
+
+  await page.goto(
+    `chrome-extension://${loaded.extensionId}/sidepanel.html#/advanced-research`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Explicit opt-in required" }),
+  ).toBeVisible();
+});
+
+test("renders every standard side-panel route and the popup without console errors", async () => {
+  const { context, page, extensionId } = loaded;
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  const onConsole = (message: { type(): string; text(): string }) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  };
+  const onPageError = (error: Error) => pageErrors.push(error.message);
+  page.on("console", onConsole);
+  page.on("pageerror", onPageError);
+
+  const routes: Array<{ path: string; heading: string | RegExp }> = [
+    { path: "today", heading: "Today" },
+    { path: "leagues", heading: "Leagues" },
+    { path: "draft", heading: "Best contextual fits" },
+    { path: "mock-draft", heading: "Choose a Sleeper league" },
+    { path: "start-sit", heading: /Start & Sit|Best Ball Optimizer/ },
+    { path: "matchup", heading: "Matchup Center" },
+    { path: "chopped", heading: "Chopped Survival" },
+    { path: "waivers", heading: "Waiver Wire" },
+    { path: "players", heading: "Players" },
+    { path: "team", heading: "Team" },
+    { path: "dynasty", heading: "Dynasty Center" },
+    { path: "trade", heading: "Trade Center" },
+    { path: "rookie", heading: "Rookie Center" },
+    { path: "taxi", heading: "Taxi Squad" },
+    { path: "idp", heading: "IDP" },
+    { path: "auction", heading: "Auction" },
+    { path: "research", heading: "Research" },
+    { path: "calendar", heading: "Deadlines" },
+    { path: "watchlist", heading: "Watchlist" },
+    { path: "more", heading: "More" },
+    { path: "compare", heading: "Compare" },
+    { path: "rankings", heading: "Rankings" },
+    { path: "data-center", heading: "Data Center" },
+    { path: "usage", heading: "Usage" },
+    { path: "settings", heading: "Settings" },
+    { path: "diagnostics", heading: "Diagnostics" },
+    { path: "about", heading: "About" },
+  ];
+  for (const route of routes) {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidepanel.html#/${route.path}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: route.heading, exact: true }).first(),
+    ).toBeVisible();
+  }
+
+  const popup = await context.newPage();
+  popup.on("console", onConsole);
+  popup.on("pageerror", onPageError);
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await expect(popup.getByText("Not Sleeping", { exact: true })).toBeVisible();
+  await expect(
+    popup.getByRole("button", { name: "Open side panel" }),
+  ).toBeVisible();
+  await expect(popup.getByText(/read-only Sleeper access/i)).toBeVisible();
+  await popup.close();
+
+  page.off("console", onConsole);
+  page.off("pageerror", onPageError);
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
 });
 
 test("groups More and never strands a sub-screen", async () => {
@@ -160,38 +235,79 @@ test("recalculates strategy and supports draft decision interactions", async () 
   await expect(page.getByText("Recalculate availability")).toBeVisible();
 });
 
-test("completes a full mock with every user pick selected manually and validated", async () => {
-  const { page } = loaded;
-  await page.goto(
-    `chrome-extension://${loaded.extensionId}/sidepanel.html#/mock-draft`,
-  );
-  await expect(
-    page.getByRole("heading", { name: "Mock Draft Lab" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Start", exact: true }).click();
-
-  for (let userPick = 1; userPick <= 15; userPick += 1) {
+test("completes a full league-derived mock with every pick entered manually", async () => {
+  test.setTimeout(90_000);
+  const manualLoaded = await loadExtension();
+  const { context, page, extensionId } = manualLoaded;
+  try {
+    await installManualMockLeague(context);
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({
+        appSettings: {
+          onboardingComplete: true,
+          sleeperUsername: "manual-draft-reviewer",
+          sleeperUserId: "mock-user-1",
+        },
+      });
+    });
+    await page.goto(
+      `chrome-extension://${extensionId}/sidepanel.html?fixture=manual-mock#/mock-draft`,
+    );
+    await expect(page.getByRole("heading", { name: "Mock Draft" })).toBeVisible(
+      { timeout: 20_000 },
+    );
     await expect(
-      page.getByText("Your manual pick", { exact: true }),
+      page.getByText("Browser Manual Mock 2026").first(),
     ).toBeVisible();
-    const recommendations = page.locator(".mock-recommendations > div");
-    await expect(recommendations).toHaveCount(8);
-    const topRecommendation = recommendations.first();
-    const playerName = await topRecommendation.locator("span b").innerText();
-    await topRecommendation
-      .getByRole("button", { name: "Draft", exact: true })
+    await expect(page.getByText("MOCK — NO SLEEPER WRITES")).toBeVisible();
+    await expect(page.getByLabel("Enter every pick manually")).toBeChecked();
+    await expect(page.getByText("Your Sleeper slot")).toBeVisible();
+    await page
+      .getByRole("button", { name: "Start local mock", exact: true })
       .click();
-    await expect(
-      page.locator(".mock-board").getByText(playerName, { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByRole("status")).toContainText("legal picks");
-  }
 
-  await expect(page.getByText("complete", { exact: true })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText(
-    "150 legal picks · no duplicates · player pool and order verified",
-  );
-  await expect(page.getByText("AUTO-PICK", { exact: true })).toHaveCount(0);
+    const selectedNames = new Set<string>();
+    for (let pick = 1; pick <= 48; pick += 1) {
+      const topRecommendation = page
+        .locator(".mock-player-list article")
+        .first();
+      await expect(topRecommendation).toBeVisible();
+      const playerName = await topRecommendation.locator("span b").innerText();
+      expect(selectedNames.has(playerName)).toBe(false);
+      selectedNames.add(playerName);
+      await topRecommendation
+        .getByRole("button", { name: "Record pick", exact: true })
+        .click();
+      await expect(page.locator(".mock-validation")).toContainText(
+        `${pick} legal picks`,
+      );
+      await expect(
+        page
+          .locator(".mock-pick-history")
+          .getByText(playerName, { exact: true }),
+      ).toBeVisible();
+    }
+
+    expect(selectedNames.size).toBe(48);
+    await expect(page.getByText("Complete", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("48 picks recorded", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".mock-validation")).toContainText(
+      "48 legal picks · exact order, ownership, eligibility, pool, limits, and duplicates checked",
+    );
+    await expect(page.getByText("Traded", { exact: true })).toBeVisible();
+    await expect(page.getByText(/auto-?pick/i)).toHaveCount(0);
+    if (process.env.CAPTURE_QA === "1") {
+      await page.screenshot({
+        path: "artifacts/mock-draft-48-pick-validation.png",
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+  } finally {
+    await manualLoaded.context.close();
+  }
 });
 
 test("stays usable offline with local demo and cache-first features", async () => {
@@ -249,29 +365,33 @@ test("propagates a Sleeper route and never disguises a live error as demo data",
     }),
   ).toBeVisible();
 
+  const sleeperTabId = await page.evaluate(async () => {
+    const tabs = await chrome.tabs.query({ url: "https://sleeper.com/*" });
+    return tabs.find((tab) => tab.id !== undefined)?.id;
+  });
+  expect(sleeperTabId).toBeDefined();
+  const contextKey = `currentSleeperContext:${String(sleeperTabId)}`;
+
   await page.setViewportSize({ width: 420, height: 900 });
   await expect
     .poll(() =>
-      page.evaluate(async () => {
-        const stored = await chrome.storage.session.get(
-          "currentSleeperContext",
-        );
-        const route = stored["currentSleeperContext"] as
-          { draftId?: string } | undefined;
+      page.evaluate(async (key) => {
+        const stored = await chrome.storage.session.get(key);
+        const route = stored[key] as { draftId?: string } | undefined;
         return route?.draftId;
-      }),
+      }, contextKey),
     )
     .toBe(draftId);
-  const runtimeStatus = await page.evaluate(async () => {
+  const runtimeStatus = await page.evaluate(async (tabId) => {
     const result: unknown = await chrome.runtime.sendMessage({
       v: 1,
       requestId: crypto.randomUUID(),
       timestamp: Date.now(),
       type: "GET_STATUS",
-      payload: {},
+      payload: { tabId },
     });
     return result;
-  });
+  }, sleeperTabId);
   if (
     !runtimeStatus ||
     typeof runtimeStatus !== "object" ||
@@ -302,3 +422,139 @@ test("propagates a Sleeper route and never disguises a live error as demo data",
   await sleeperPage.close();
   await context.unrouteAll({ behavior: "wait" });
 });
+
+async function installManualMockLeague(context: LoadedExtension["context"]) {
+  const teams = 16;
+  const users = Array.from({ length: teams }, (_, index) => ({
+    user_id: `mock-user-${index + 1}`,
+    username: `mock-manager-${index + 1}`,
+    display_name:
+      index === 0 ? "Manual Draft Reviewer" : `Manager ${index + 1}`,
+    avatar: null,
+    metadata: { team_name: index === 0 ? "Night Shift" : `Team ${index + 1}` },
+  }));
+  const rosters = users.map((user, index) => ({
+    roster_id: index + 1,
+    owner_id: user.user_id,
+    league_id: "manual-mock-league",
+    players: [`veteran-${index + 1}`],
+    starters: [`veteran-${index + 1}`],
+    reserve: [],
+    taxi: [],
+    settings: {},
+    metadata: {},
+  }));
+  const positionPattern = ["QB", "RB", "WR", "WR", "TE"];
+  const players = Object.fromEntries(
+    Array.from({ length: 80 }, (_, index) => {
+      const id = `rookie-${index + 1}`;
+      const position = positionPattern[index % positionPattern.length] ?? "WR";
+      return [
+        id,
+        {
+          player_id: id,
+          first_name: "Rookie",
+          last_name: String(index + 1),
+          full_name: `Rookie ${index + 1}`,
+          position,
+          fantasy_positions: [position],
+          team: ["BUF", "KC", "PHI", "DET"][index % 4],
+          age: 21,
+          years_exp: 0,
+          status: "active",
+          injury_status: null,
+          college: `College ${index + 1}`,
+          search_rank: index + 1,
+          metadata: { rookie_year: "2026" },
+        },
+      ];
+    }),
+  );
+  const league = {
+    league_id: "manual-mock-league",
+    name: "Browser Manual Mock 2026",
+    season: "2026",
+    sport: "nfl",
+    status: "pre_draft",
+    total_rosters: teams,
+    draft_id: "manual-mock-draft",
+    avatar: null,
+    previous_league_id: null,
+    settings: { type: 2, taxi_slots: 3, reserve_slots: 2 },
+    scoring_settings: { pass_td: 4, rec: 1, bonus_rec_te: 0.5 },
+    roster_positions: [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "SUPER_FLEX",
+      "BN",
+      "BN",
+      "BN",
+      "TAXI",
+    ],
+    metadata: {},
+  };
+  const draft = {
+    draft_id: "manual-mock-draft",
+    league_id: league.league_id,
+    type: "linear",
+    status: "pre_draft",
+    season: "2026",
+    sport: "nfl",
+    settings: { teams, rounds: 3, player_type: 1 },
+    metadata: { name: "2026 Rookie Draft", player_pool: "rookies" },
+    draft_order: Object.fromEntries(
+      users.map((user, index) => [user.user_id, index + 1]),
+    ),
+    slot_to_roster_id: Object.fromEntries(
+      users.map((_, index) => [String(index + 1), index + 1]),
+    ),
+    creators: ["mock-user-1"],
+  };
+  const tradedPicks = [
+    {
+      season: "2026",
+      round: 2,
+      roster_id: 5,
+      previous_owner_id: 5,
+      owner_id: 1,
+    },
+  ];
+  const nflState = {
+    week: 1,
+    season_type: "pre",
+    season_start_date: "2026-09-08",
+    season: "2026",
+    previous_season: "2025",
+    leg: 1,
+  };
+
+  await context.route("https://api.sleeper.app/**", async (route) => {
+    const request = route.request();
+    if (request.method() !== "GET") {
+      await route.fulfill({ status: 405, body: "GET only" });
+      return;
+    }
+    const path = new URL(request.url()).pathname.replace(/^\/v1/, "");
+    let body: unknown = [];
+    if (path === "/state/nfl") body = nflState;
+    else if (path === "/user/mock-user-1/leagues/nfl/2026") body = [league];
+    else if (path.startsWith("/user/mock-user-1/leagues/nfl/")) body = [];
+    else if (path === `/league/${league.league_id}`) body = league;
+    else if (path === `/league/${league.league_id}/users`) body = users;
+    else if (path === `/league/${league.league_id}/rosters`) body = rosters;
+    else if (path === `/league/${league.league_id}/drafts`) body = [draft];
+    else if (path === `/league/${league.league_id}/traded_picks`)
+      body = tradedPicks;
+    else if (path === "/players/nfl") body = players;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  });
+}

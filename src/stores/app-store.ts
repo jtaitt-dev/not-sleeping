@@ -16,6 +16,10 @@ import type {
   Recommendation,
   Strategy,
 } from "@/types/domain";
+import {
+  isIdpPosition,
+  isPlayerEligibleForAnyRosterSlot,
+} from "@/services/roster/position-eligibility";
 
 type SimulationAction = {
   type: "draft" | "wait" | "remove";
@@ -39,7 +43,7 @@ type AppState = {
   watchlist: string[];
   hiddenPlayers: string[];
   simulation: SimulationAction[];
-  hydrate: () => Promise<void>;
+  hydrate: (tabId?: number) => Promise<void>;
   refreshLiveDraft: () => Promise<void>;
   setLiveState: (liveState: LiveDraftState) => void;
   setRuntimeError: (runtimeError: SafeRuntimeError | null) => void;
@@ -74,12 +78,12 @@ export const useAppStore = create<AppState>((set) => ({
   watchlist: ["4046", "11565", "11560"],
   hiddenPlayers: [],
   simulation: [],
-  hydrate: async () => {
+  hydrate: async (tabId) => {
     set({ hydrationStatus: "loading", runtimeError: null });
     try {
       const status = await requestRuntime<RuntimeStatus>({
         type: "GET_STATUS",
-        payload: {},
+        payload: { ...(tabId === undefined ? {} : { tabId }) },
       });
       const providerKeyStatus = preferredProviderKeyStatus(status);
       const route = asRecord(status.context);
@@ -357,11 +361,19 @@ function isEligibleForFormat(
   format: LiveDraftState["format"],
 ): boolean {
   if (player.position === "FLEX") return false;
-  if (["DL", "LB", "DB"].includes(player.position)) return format.idp;
+  if (isIdpPosition(player.position) && !format.idp) return false;
   if (["K", "DEF"].includes(player.position)) {
     return (format.starters[player.position] ?? 0) > 0;
   }
-  return true;
+  const starterSlots = Object.entries(format.starters).flatMap(
+    ([slot, count]) => Array.from({ length: Math.max(0, count) }, () => slot),
+  );
+  return isPlayerEligibleForAnyRosterSlot(
+    starterSlots,
+    player.fantasyPositions.length
+      ? player.fantasyPositions
+      : [player.position],
+  );
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

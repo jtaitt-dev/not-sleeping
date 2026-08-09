@@ -9,12 +9,8 @@ export type LoadedExtension = {
   extensionId: string;
 };
 
-export async function loadExtension(
-  requestedFlavor?: "core" | "labs",
-): Promise<LoadedExtension> {
-  const buildFlavor =
-    requestedFlavor ?? process.env["NOT_SLEEPING_E2E_FLAVOR"] ?? "core";
-  const extensionPath = resolve(import.meta.dirname, "..", "dist", buildFlavor);
+export async function loadExtension(): Promise<LoadedExtension> {
+  const extensionPath = resolve(import.meta.dirname, "..", "dist");
   const profile = await mkdtemp(resolve(tmpdir(), "not-sleeping-e2e-"));
   const context = await chromium.launchPersistentContext(profile, {
     channel: "chromium",

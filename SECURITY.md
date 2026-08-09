@@ -17,7 +17,7 @@ coordinate a fix before public disclosure.
 
 ## Security invariants
 
-- OpenAI credentials are entered only in the trusted options page.
+- OpenAI and Anthropic credentials are entered only in the trusted options page.
 - Credentials never appear in runtime messages, content scripts, logs,
   diagnostics, URLs, exports, source, or test fixtures.
 - The background service worker is the only context that reads and uses a key.
@@ -37,5 +37,11 @@ coordinate a fix before public disclosure.
   Private league details are excluded from lock-screen text by default.
 - Imported projections and public datasets are size/schema validated, retain
   provenance, and cannot silently override unknown scoring categories.
+- Advanced Research is disabled and hidden by default; its direct route applies
+  the same acknowledgement/enable gate. Manual Odds Research adds separate 21+
+  and jurisdiction gates, stores no supplied scenarios, and has no operator,
+  affiliate, stake, or action path.
+- The unified manual-odds package remains limited-beta/sideload only until a
+  current Chrome Web Store policy and legal review explicitly approves it.
 
 Repository security guidance applies to all files below this root.

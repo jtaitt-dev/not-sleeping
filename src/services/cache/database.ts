@@ -58,6 +58,7 @@ export type DiagnosticEvent = {
 };
 
 export type StoredLeague = {
+  id: string;
   leagueId: string;
   season: string;
   name: string;
@@ -88,7 +89,7 @@ export class NotSleepingDatabase extends Dexie {
   usage!: EntityTable<UsageEvent, "id">;
   imports!: EntityTable<ImportSource, "id">;
   diagnostics!: EntityTable<DiagnosticEvent, "id">;
-  leagues!: EntityTable<StoredLeague, "leagueId">;
+  leagues!: EntityTable<StoredLeague, "id">;
   leagueWorkspaces!: EntityTable<StoredLeagueWorkspace, "id">;
   evidence!: EntityTable<StoredEvidence, "cacheKey">;
 
@@ -116,6 +117,19 @@ export class NotSleepingDatabase extends Dexie {
       evidence:
         "cacheKey, leagueId, week, sourceClass, expiresAt, [leagueId+week], *playerIds, *teamIds",
     });
+    this.version(4)
+      .stores({
+        leagues:
+          "id, [userId+leagueId], userId, leagueId, season, name, favorite, lastUsedAt, updatedAt",
+        leagueWorkspaces:
+          "id, [userId+leagueId+season], userId, leagueId, season, workspace, updatedAt",
+      })
+      .upgrade(async (transaction) => {
+        // Version 3 used account-ambiguous keys. The public Sleeper catalog can
+        // be rebuilt safely, so fail closed instead of guessing ownership.
+        await transaction.table("leagues").clear();
+        await transaction.table("leagueWorkspaces").clear();
+      });
   }
 }
 

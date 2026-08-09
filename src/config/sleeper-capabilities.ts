@@ -316,8 +316,11 @@ export function detectDraftStyle(draft: SleeperDraft): DraftStyle {
 }
 
 export function detectDraftPurpose(draft: SleeperDraft): DraftPurpose {
+  const playerType = numberSetting(draft.settings, "player_type", -1);
   const raw = stringMetadata(draft.metadata, ["draft_type", "type", "purpose"]);
   const name = stringMetadata(draft.metadata, ["name"]).toLowerCase();
+  if (playerType === 1) return "rookie";
+  if (playerType === 2) return "veteran";
   if (raw.includes("rookie") || name.includes("rookie")) return "rookie";
   if (raw.includes("supplemental") || name.includes("supplemental"))
     return "supplemental";
@@ -329,6 +332,10 @@ export function detectDraftPurpose(draft: SleeperDraft): DraftPurpose {
 }
 
 export function detectPlayerPool(draft: SleeperDraft): DraftPlayerPool {
+  const playerType = numberSetting(draft.settings, "player_type", -1);
+  if (playerType === 0) return "all_available";
+  if (playerType === 1) return "rookies_only";
+  if (playerType === 2) return "veterans_only";
   const raw = stringMetadata(draft.metadata, [
     "player_pool",
     "draft_type",

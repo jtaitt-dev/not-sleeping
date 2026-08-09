@@ -143,12 +143,16 @@ strictly parsed, adjustments are bounded, state hashes reject late responses,
 and consensus disagreement retains the deterministic baseline. One provider's
 credential is never used in another provider's request.
 
-### Gambling feature exposure in Core
+### Manual-odds feature exposure in the unified package
 
-Core resolves the Labs module to a no-op stub at build time. CI scans the Core
-bundle for Labs-only strings and packages Core and Labs separately. The Labs
-workspace requires adult-age and jurisdiction acknowledgement, uses only manual
-inputs, and has no stake, operator link, affiliate, or action path.
+Manual Odds Research is packaged in the single extension, so gating is a
+product authorization and harm-reduction boundary rather than a code-exclusion
+boundary. The destination is hidden and its direct route is locked unless a
+timestamped settings acknowledgement and enable flag are both present. The
+workspace separately requires adult-age and jurisdiction acknowledgement, uses
+only manual inputs, stores no scenarios, and has no stake, operator, affiliate,
+or action path. The bundle is limited-beta/sideload only until current Chrome
+Web Store policy and legal review explicitly approve distribution.
 
 Out of scope: attacks requiring control of the user's OS/browser profile,
 Chrome itself, TLS, or upstream provider infrastructure; fantasy strategy

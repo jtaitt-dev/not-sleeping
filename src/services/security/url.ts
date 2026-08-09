@@ -1,5 +1,9 @@
 const HTTPS_PROTOCOL = "https:";
 const LOCAL_HOST_SUFFIXES = [".localhost", ".local"];
+const SENSITIVE_QUERY_NAMES =
+  /^(?:api[_-]?key|key|token|access[_-]?token|auth|authorization|credential|secret|signature|sig)$/i;
+const CREDENTIAL_VALUE =
+  /^(?:sk-|bearer\s|gh[pousr]_|xox[baprs]-|eyJ)[A-Za-z0-9._~+/-]{8,}/i;
 
 export function validateExternalHttpsUrl(value: string): string | null {
   try {
@@ -8,10 +12,16 @@ export function validateExternalHttpsUrl(value: string): string | null {
       url.protocol !== HTTPS_PROTOCOL ||
       isNonPublicHostname(url.hostname) ||
       url.username ||
-      url.password
+      url.password ||
+      (url.port !== "" && url.port !== "443") ||
+      [...url.searchParams].some(
+        ([name, entry]) =>
+          SENSITIVE_QUERY_NAMES.test(name) || CREDENTIAL_VALUE.test(entry),
+      )
     ) {
       return null;
     }
+    url.hash = "";
     return url.toString();
   } catch {
     return null;

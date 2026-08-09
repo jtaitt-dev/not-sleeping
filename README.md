@@ -15,13 +15,16 @@ Not Sleeping is not affiliated with, endorsed by, or sponsored by Sleeper,
 OpenAI, or Anthropic. It uses Sleeper's public read-only API and makes AI
 features optional through provider-isolated bring-your-own-key configuration.
 
-Two artifacts are produced:
+One unified **Not Sleeping** artifact is produced. Advanced Research is part of
+that extension but is hidden and locked by default. Enabling it requires an
+explicit settings acknowledgement; its Manual Odds Research workspace then
+requires separate 21+ and jurisdiction acknowledgements. It accepts only
+user-supplied inputs and has no operator links, stake field, affiliate path, or
+action capability.
 
-- **Not Sleeping Core** is the Web Store-safe fantasy companion. It contains no
-  betting UI, odds handling, sportsbook integration, or Labs route.
-- **Not Sleeping Labs** is an explicitly acknowledged GitHub sideload build. It
-  adds a research-only Parlay Lab for manual user-supplied odds. Labs is not
-  intended for Chrome Web Store submission.
+Because the unified package contains manual-odds research, current releases are
+limited-beta/sideload artifacts and are **not approved for Chrome Web Store
+submission** without a fresh policy and legal review.
 
 ![Live draft workspace](docs/screenshots/live-draft.png)
 
@@ -42,13 +45,19 @@ Two artifacts are produced:
   message, log, diagnostic export, or content-script boundary.
 - Sleeper access is read-only. The extension cannot draft, trade, edit a team,
   or authenticate as the user.
+- League mocks inherit verified Sleeper settings and traded-pick ownership,
+  default to manual entry for every pick, validate legality after each entry,
+  and recover locally by account, league, and draft.
+- OpenAI Luna is the new-user routine-analysis default; a valid existing model
+  preference is preserved while invalid or removed choices fail safely to Luna.
 
 ## Workspaces
 
-The side panel includes Today, Leagues, Draft, Mock Draft Lab, Start & Sit or
+The side panel includes Today, Leagues, Draft, Mock Draft, Start & Sit or
 Best Ball Optimizer, Matchup, Chopped Survival, Waivers, Trade, Dynasty,
 Rookies, Taxi, IDP, Auction, Research, Players, Team, Watchlist, Compare,
-Rankings, Data Center, Usage, Settings, Diagnostics, and About.
+Rankings, Data Center, Usage, Settings, Diagnostics, and About. Advanced
+Research appears only after its settings gate is acknowledged and enabled.
 The popup reports current context and opens the panel. The options page handles
 trusted account, key, model, privacy, theme, and operational settings.
 
@@ -66,7 +75,7 @@ deterministic, API-shaped Sleeper fixture.
 | ![FAAB recommendation](docs/screenshots/faab-recommendation.png) | ![Trade Center](docs/screenshots/trade-center.png)         |
 | ![Dynasty Center](docs/screenshots/dynasty-center.png)           | ![Rookie draft](docs/screenshots/rookie-draft.png)         |
 | ![Taxi Squad](docs/screenshots/taxi-squad.png)                   | ![IDP Center](docs/screenshots/idp-center.png)             |
-| ![Auction assistant](docs/screenshots/auction-assistant.png)     | ![Mock Draft Lab](docs/screenshots/mock-draft-lab.png)     |
+| ![Auction assistant](docs/screenshots/auction-assistant.png)     | ![Mock Draft](docs/screenshots/mock-draft-lab.png)         |
 | ![Evidence drawer](docs/screenshots/evidence-drawer.png)         | ![Chopped Survival](docs/screenshots/chopped-survival.png) |
 
 ## Install from source
@@ -86,9 +95,7 @@ pnpm build
 ```
 
 Then open `chrome://extensions`, enable **Developer mode**, choose
-**Load unpacked**, and select `dist/core` for Core or `dist/labs` for the
-explicitly acknowledged Labs build. `dist/` also mirrors Core so an existing
-development install can be reloaded in place.
+**Load unpacked**, and select `dist`. There is no second flavor or package.
 
 For development:
 
@@ -134,13 +141,14 @@ simulator never mutates the live draft board.
 | Command                            | Purpose                                                |
 | ---------------------------------- | ------------------------------------------------------ |
 | `pnpm dev`                         | Run the WXT development profile                        |
-| `pnpm build`                       | Build separate Core and Labs MV3 outputs               |
-| `pnpm zip`                         | Build two release ZIPs and SHA-256 checksums           |
+| `pnpm build`                       | Build the unified MV3 extension in `dist`              |
+| `pnpm zip`                         | Build one release ZIP and SHA-256 checksum             |
+| `pnpm assert:unified-bundle`       | Verify one build contains the gated research workspace |
 | `pnpm format:check`                | Verify Prettier formatting                             |
 | `pnpm lint`                        | Run strict typed ESLint                                |
 | `pnpm typecheck`                   | Run strict TypeScript                                  |
 | `pnpm test`                        | Run unit, service, and provider tests                  |
-| `pnpm test:coverage`               | Enforce 85/80/85/85 core thresholds                    |
+| `pnpm test:coverage`               | Enforce whole-logic 76/64/76/78 thresholds             |
 | `pnpm test:e2e`                    | Load the built extension and run browser tests         |
 | `pnpm test:visual`                 | Compare targeted visual baselines                      |
 | `pnpm test:ai-evals`               | Run sanitized, credential-free AI decision evals       |
@@ -149,7 +157,7 @@ simulator never mutates the live draft board.
 | `pnpm test:backtest`               | Run walk-forward start/sit, draft, and waiver fixtures |
 | `pnpm audit:prod`                  | Audit production dependencies                          |
 | `pnpm validate:phase2`             | Run the complete Phase 2 release gate                  |
-| `pnpm validate:phase3`             | Run the complete Core/Labs and AI release gate         |
+| `pnpm validate:phase3`             | Run the complete unified-product and AI release gate   |
 
 ## Architecture and security
 
@@ -159,13 +167,15 @@ simulator never mutates the live draft board.
 - [Privacy](PRIVACY.md)
 - [Security policy](SECURITY.md)
 - [Security review](docs/SECURITY_REVIEW.md)
+- [Final validation report](docs/VALIDATION_REPORT_2026-08-08.md)
 - [Installation and updates](docs/INSTALLATION.md)
 - [OpenAI setup](docs/OPENAI_SETUP.md)
 - [Anthropic and multi-provider setup](docs/MULTI_PROVIDER_SETUP.md)
 - [AI architecture](docs/AI_ARCHITECTURE.md)
 - [Realtime decision engine](docs/REALTIME_DECISION_ENGINE.md)
 - [Sleeper news and metadata limits](docs/SLEEPER_NEWS.md)
-- [Labs safety and packaging](docs/PARLAY_LAB_RISK.md)
+- [Manual odds research](docs/MANUAL_ODDS_RESEARCH.md)
+- [Advanced research risk and distribution](docs/ADVANCED_RESEARCH_RISK.md)
 - [Data import](docs/DATA_IMPORT.md)
 - [Valuation engine](docs/VALUATION_ENGINE.md)
 - [Sleeper compatibility matrix](docs/SLEEPER_COMPATIBILITY_MATRIX.md)

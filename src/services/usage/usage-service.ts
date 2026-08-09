@@ -68,3 +68,15 @@ export async function summarizeUsage(
 export async function clearUsage(): Promise<void> {
   await db.usage.clear();
 }
+
+export async function listUsageEvents(
+  since = 0,
+  limit = 1_000,
+): Promise<UsageEvent[]> {
+  return db.usage
+    .where("timestamp")
+    .aboveOrEqual(since)
+    .reverse()
+    .limit(Math.max(1, Math.min(5_000, limit)))
+    .toArray();
+}

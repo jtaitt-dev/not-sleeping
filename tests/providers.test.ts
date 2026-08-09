@@ -32,6 +32,66 @@ describe("Sleeper provider", () => {
     expect(fetcher.mock.contexts[0]).toBe(globalThis);
   });
 
+  it("rejects Sleeper objects whose returned identity differs from the request", async () => {
+    const leagueProvider = new SleeperProvider(
+      vi.fn(async () =>
+        jsonResponse({
+          league_id: "other-league",
+          name: "Wrong league",
+          season: "2026",
+        }),
+      ) as typeof fetch,
+    );
+    await expect(
+      leagueProvider.getLeague("expected-league"),
+    ).rejects.toMatchObject({ code: "SLEEPER_UNAVAILABLE" });
+
+    const draftProvider = new SleeperProvider(
+      vi.fn(async () =>
+        jsonResponse({
+          draft_id: "other-draft",
+          league_id: "league-1",
+          type: "snake",
+          status: "pre_draft",
+          season: "2026",
+        }),
+      ) as typeof fetch,
+    );
+    await expect(
+      draftProvider.getDraft("expected-draft"),
+    ).rejects.toMatchObject({ code: "SLEEPER_UNAVAILABLE" });
+
+    const rosterProvider = new SleeperProvider(
+      vi.fn(async () =>
+        jsonResponse([
+          {
+            roster_id: 1,
+            owner_id: "user-1",
+            league_id: "other-league",
+            players: [],
+            starters: [],
+          },
+        ]),
+      ) as typeof fetch,
+    );
+    await expect(
+      rosterProvider.getRosters("expected-league"),
+    ).rejects.toMatchObject({ code: "SLEEPER_UNAVAILABLE" });
+  });
+
+  it("rejects oversized Sleeper responses before parsing their bodies", async () => {
+    const provider = new SleeperProvider(
+      vi.fn(async () =>
+        jsonResponse({}, 200, {
+          "Content-Length": String(5 * 1024 * 1024 + 1),
+        }),
+      ) as typeof fetch,
+    );
+    await expect(provider.getLeague("league-1")).rejects.toMatchObject({
+      code: "SLEEPER_UNAVAILABLE",
+    });
+  });
+
   it.each([
     [429, "SLEEPER_RATE_LIMIT"],
     [404, "SLEEPER_UNAVAILABLE"],

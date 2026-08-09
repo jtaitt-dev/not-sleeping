@@ -15,7 +15,7 @@ test.beforeAll(async () => {
   await loaded.page.evaluate(async () => {
     await chrome.storage.local.set({
       appSettings: {
-        settingsVersion: 1,
+        settingsVersion: 4,
         onboardingComplete: true,
         sleeperUsername: "phase2-reviewer",
         sleeperUserId: "user-1",
@@ -29,7 +29,7 @@ test.beforeAll(async () => {
         maxConcurrency: 1,
         maxOutputTokens: 2048,
         requestTimeoutMs: 60_000,
-        routineModel: "gpt-5.6-terra",
+        routineModel: "gpt-5.6-luna",
         researchModel: "gpt-5.6-sol",
         manualModelIds: [],
         enablePublicData: false,
@@ -121,7 +121,7 @@ test("captures every required Phase 2 workspace from the shipped extension", asy
     page,
     extensionId,
     "mock-draft",
-    "Mock Draft Lab",
+    "Mock Draft",
     "mock-draft-lab.png",
   );
   await page.goto(`chrome-extension://${extensionId}/sidepanel.html#/today`);

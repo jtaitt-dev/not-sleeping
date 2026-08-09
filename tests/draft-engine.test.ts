@@ -159,6 +159,47 @@ describe("Mock Draft Lab engine", () => {
     expect(() => session.makeUserPick("p1")).toThrow(/user is on the clock/);
   });
 
+  it("never recommends or accepts a pick that makes the final roster impossible", () => {
+    const constrainedPlayers: DraftEnginePlayer[] = [
+      ...Array.from({ length: 4 }, (_, index) => ({
+        ...players[index]!,
+        playerId: `qb-${index + 1}`,
+        positions: ["QB"],
+      })),
+      ...Array.from({ length: 4 }, (_, index) => ({
+        ...players[index + 4]!,
+        playerId: `rb-${index + 1}`,
+        positions: ["RB"],
+      })),
+      ...Array.from({ length: 4 }, (_, index) => ({
+        ...players[index + 8]!,
+        playerId: `wr-${index + 1}`,
+        positions: ["WR"],
+      })),
+    ];
+    const constrainedConfig: DraftEngineConfig = {
+      ...structuredClone(config),
+      teams: 2,
+      rounds: 3,
+      style: "linear",
+      rosterSlots: ["QB", "RB", "WR"],
+      userSlot: 1,
+      keepers: {},
+      tradedPickOwners: {},
+    };
+    const session = new MockDraftSession(constrainedConfig, constrainedPlayers);
+    session.start();
+    session.makePick("qb-1");
+    session.makePick("qb-2");
+
+    expect(session.isLegalPick("qb-3")).toBe(false);
+    expect(
+      session.recommendations(12).map((entry) => entry.playerId),
+    ).not.toContain("qb-3");
+    expect(() => session.makePick("qb-3")).toThrow(/legal position slots/);
+    expect(session.makePick("rb-1").picks).toHaveLength(3);
+  });
+
   it("prevents rookie and veteran leakage", () => {
     const rookieSession = new MockDraftSession(
       {

@@ -36,6 +36,23 @@ export const OFFICIAL_RESEARCH_DOMAINS = [
   "operations.nfl.com",
   "open-meteo.com",
 ] as const;
+const SOCIAL_DOMAINS = ["x.com", "twitter.com", "bsky.app", "threads.net"];
+
+export function researchAllowedDomains(
+  preferences: SourcePreferences,
+): string[] {
+  const candidates = [
+    ...OFFICIAL_RESEARCH_DOMAINS,
+    ...preferences.trustedDomains,
+    ...(preferences.optionalXEnabled ? SOCIAL_DOMAINS : []),
+  ];
+  return [...new Set(candidates)].filter(
+    (domain) =>
+      !preferences.blockedDomains.some((blocked) =>
+        domainMatches(domain, blocked),
+      ),
+  );
+}
 
 type AdapterInput = Omit<EvidenceInput, "sourceClass" | "nature"> & {
   sourceClass?: EvidenceClass;
@@ -168,6 +185,14 @@ export function isSourceAllowed(
   const valid = validateExternalHttpsUrl(url);
   if (!valid) return false;
   const hostname = new URL(valid).hostname.toLowerCase();
+  const social = SOCIAL_DOMAINS.some((domain) =>
+    domainMatches(hostname, domain),
+  );
+  if (social && !preferences.optionalXEnabled) return false;
+  const allowedDomain = researchAllowedDomains(preferences).some((domain) =>
+    domainMatches(hostname, domain),
+  );
+  if (!allowedDomain) return false;
   const blocked = preferences.blockedDomains.some((domain) =>
     domainMatches(hostname, domain),
   );

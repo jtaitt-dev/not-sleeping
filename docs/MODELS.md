@@ -9,11 +9,15 @@ The options page can load compatible model IDs dynamically from `GET /v1/models`
 Manual model IDs allow new compatible models without an extension release.
 The initial defaults are:
 
-- Routine structured analysis: `gpt-5.6-terra`
+- Routine structured analysis: `gpt-5.6-luna`
 - Deeper current research: `gpt-5.6-sol`
 
 Capability checks determine structured-output, web-search, and reasoning
-support. Unsupported or unavailable models produce a typed recovery message.
+support. A valid existing user preference is preserved when the provider still
+reports it. An invalid or removed OpenAI model falls back to Luna before a
+request is sent; if neither the chosen model nor Luna is available, the local
+deterministic result remains usable and the provider request is not attempted.
+The active model and routing state are visible on every intelligence card.
 
 ## Responses API contract
 

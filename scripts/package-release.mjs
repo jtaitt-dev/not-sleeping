@@ -19,27 +19,22 @@ const packageJson = JSON.parse(
 );
 
 await mkdir(artifacts, { recursive: true });
-for (const flavor of ["core", "labs"]) {
-  const before = await zipTimestamps();
-  await runWxt(["zip"], {
-    ...process.env,
-    NOT_SLEEPING_BUILD_FLAVOR: flavor,
-  });
-  const generated = await newestGeneratedZip(before);
-  const archiveName = `not-sleeping-${flavor}-${packageJson.version}.zip`;
-  const archivePath = resolve(artifacts, archiveName);
-  await copyFile(generated, archivePath);
-  const checksum = createHash("sha256")
-    .update(await readFile(archivePath))
-    .digest("hex");
-  await writeFile(
-    resolve(artifacts, `not-sleeping-${flavor}-${packageJson.version}.sha256`),
-    `${checksum}  ${basename(archivePath)}\n`,
-    "utf8",
-  );
-  console.log(`Packaged ${archiveName}`);
-  console.log(`SHA-256 ${checksum}`);
-}
+const before = await zipTimestamps();
+await runWxt(["zip"]);
+const generated = await newestGeneratedZip(before);
+const archiveName = `not-sleeping-${packageJson.version}.zip`;
+const archivePath = resolve(artifacts, archiveName);
+await copyFile(generated, archivePath);
+const checksum = createHash("sha256")
+  .update(await readFile(archivePath))
+  .digest("hex");
+await writeFile(
+  resolve(artifacts, `not-sleeping-${packageJson.version}.sha256`),
+  `${checksum}  ${basename(archivePath)}\n`,
+  "utf8",
+);
+console.log(`Packaged ${archiveName}`);
+console.log(`SHA-256 ${checksum}`);
 
 async function zipTimestamps() {
   const entries = await readdir(output).catch(() => []);
@@ -73,12 +68,12 @@ async function newestGeneratedZip(before) {
   return resolve(output, changed.file);
 }
 
-function runWxt(args, env) {
+function runWxt(args) {
   const cli = resolve(root, "node_modules", "wxt", "bin", "wxt.mjs");
   return new Promise((resolvePromise, reject) => {
     const child = spawn(process.execPath, [cli, ...args], {
       cwd: root,
-      env,
+      env: process.env,
       stdio: "inherit",
     });
     child.on("error", reject);

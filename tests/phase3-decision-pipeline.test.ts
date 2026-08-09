@@ -2,6 +2,10 @@ import type { ZodType } from "zod";
 import { describe, expect, it, vi } from "vitest";
 
 import { AiProviderRegistry } from "@/providers/ai/provider-registry";
+import {
+  anthropicModelCapability,
+  openAIModelCapability,
+} from "@/providers/ai/capabilities";
 import type {
   AiProvider,
   AiStructuredRequest,
@@ -187,6 +191,36 @@ describe("Phase 3 realtime decision architecture", () => {
       "claude-user-selected-anthropic",
     ]);
   });
+
+  it("falls back to Luna before an unavailable stored model is requested", async () => {
+    const requestedModels: string[] = [];
+    const provider = fakeProvider(
+      {
+        recommendationId: "valid-qb",
+        summary: "Luna kept the legal baseline.",
+        adjustment: 0,
+        confidenceDelta: 0,
+        reasons: ["Verified candidate pool"],
+        risks: [],
+      },
+      "openai",
+      requestedModels,
+    );
+    const settings = structuredClone(DEFAULT_SETTINGS);
+    settings.aiDefaults.model = "gpt-removed-model";
+    const pipeline = new DecisionPipeline(
+      new AiProviderRegistry([provider]),
+      async () => settings,
+    );
+    const initial = pipeline.start(input);
+    await vi.waitFor(() => {
+      expect(pipeline.get(initial.jobId)?.aiStatus).toBe("ready");
+    });
+    expect(requestedModels).toEqual(["gpt-5.6-luna"]);
+    expect(pipeline.get(initial.jobId)?.overlay?.warnings.join(" ")).toContain(
+      "unavailable",
+    );
+  });
 });
 
 function fakeProvider(
@@ -200,7 +234,12 @@ function fakeProvider(
       return { ok: true, modelCount: 1 };
     },
     async listModels() {
-      return [];
+      return id === "openai"
+        ? [
+            openAIModelCapability("gpt-5.6-luna"),
+            openAIModelCapability("gpt-user-selected-openai"),
+          ]
+        : [anthropicModelCapability("claude-user-selected-anthropic")];
     },
     async createStructured<T>(
       request: AiStructuredRequest<T>,

@@ -15,9 +15,39 @@ import {
   readProviderKeyInServiceWorker,
   saveProviderKeyFromTrustedOptions,
 } from "@/services/storage/key-vault";
-import { DEFAULT_SETTINGS, migrateSettings } from "@/services/storage/settings";
+import {
+  appSettingsSchema,
+  DEFAULT_SETTINGS,
+  migrateSettings,
+} from "@/services/storage/settings";
 
 describe("Phase 3 provider-neutral AI", () => {
+  it("selects Luna for new users and invalid stored OpenAI models", () => {
+    expect(DEFAULT_SETTINGS.routineModel).toBe("gpt-5.6-luna");
+    expect(DEFAULT_SETTINGS.aiDefaults).toMatchObject({
+      provider: "openai",
+      model: "gpt-5.6-luna",
+    });
+    const invalid = migrateSettings({
+      ...DEFAULT_SETTINGS,
+      routineModel: "<invalid model>",
+      aiDefaults: { ...DEFAULT_SETTINGS.aiDefaults, model: "javascript:" },
+    });
+    expect(invalid.routineModel).toBe("gpt-5.6-luna");
+    expect(invalid.aiDefaults.model).toBe("gpt-5.6-luna");
+  });
+
+  it("preserves an existing valid model preference during migration", () => {
+    const existing = migrateSettings({
+      ...DEFAULT_SETTINGS,
+      aiDefaults: {
+        ...DEFAULT_SETTINGS.aiDefaults,
+        model: "gpt-5.6-terra",
+      },
+    });
+    expect(existing.aiDefaults.model).toBe("gpt-5.6-terra");
+  });
+
   it("migrates Phase 1/2 settings without dropping user values", () => {
     const migrated = migrateSettings({
       settingsVersion: 1,
@@ -46,7 +76,7 @@ describe("Phase 3 provider-neutral AI", () => {
       onboardingComplete: true,
     });
     expect(migrated).toMatchObject({
-      settingsVersion: 2,
+      settingsVersion: 4,
       sleeperUsername: "nightowl",
       defaultMode: "best_ball",
       defaultStrategy: "rebuild",
@@ -55,7 +85,7 @@ describe("Phase 3 provider-neutral AI", () => {
     });
     expect(migrated.aiDefaults.provider).toBe("openai");
     expect(migrated.aiDefaults.consensusModels).toEqual({
-      openai: "gpt-5.6-terra",
+      openai: "gpt-5.6-luna",
       anthropic: "claude-sonnet-4-6",
     });
     expect(migrated.aiFeatureOverrides.research?.webSearch).toBe(true);
@@ -63,6 +93,26 @@ describe("Phase 3 provider-neutral AI", () => {
       openai: "gpt-5.6-sol",
       anthropic: "claude-sonnet-4-6",
     });
+    expect(migrated.advancedResearchAcknowledgedAt).toBeNull();
+    expect(migrated.advancedResearchEnabled).toBe(false);
+    expect(
+      appSettingsSchema.safeParse({
+        ...DEFAULT_SETTINGS,
+        advancedResearchEnabled: true,
+        advancedResearchAcknowledgedAt: null,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("never enables advanced research without an acknowledgement", () => {
+    const migrated = migrateSettings({
+      ...DEFAULT_SETTINGS,
+      settingsVersion: 2,
+      advancedResearchEnabled: true,
+      advancedResearchAcknowledgedAt: null,
+    });
+    expect(migrated.advancedResearchAcknowledgedAt).toBeNull();
+    expect(migrated.advancedResearchEnabled).toBe(false);
   });
 
   it("isolates OpenAI and Anthropic keys in trusted storage", async () => {

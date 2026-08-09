@@ -17,9 +17,7 @@ body {
   display: grid;
   height: 100vh;
   border-right: 1px solid var(--border-default);
-  background:
-    radial-gradient(circle at 0 0, rgb(34 230 195 / 8%), transparent 28%),
-    var(--background-sidebar);
+  background: var(--background-sidebar);
   grid-template-rows: auto 1fr auto;
   padding: 15px 10px;
 }
@@ -358,6 +356,20 @@ body {
 
 .settings-toggle input:checked + i::after {
   transform: translateX(15px);
+}
+
+.settings-toggle[data-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.advanced-research-warning {
+  border-color: rgb(245 158 11 / 30%);
+  background: rgb(245 158 11 / 8%);
+}
+
+.advanced-research-warning > svg {
+  color: var(--status-warning);
 }
 
 .security-callout {

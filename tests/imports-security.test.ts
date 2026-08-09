@@ -141,6 +141,9 @@ describe("redaction and safe URLs", () => {
     ["https://router.local/path", false],
     ["https://printer/path", false],
     ["https://user:pass@example.com/path", false],
+    ["https://example.com:8443/path", false],
+    ["https://example.com/path?api_key=public", false],
+    ["https://example.com/path?value=sk-abcdefghijklmnop", false],
     ["not a url", false],
   ])("validates external URL %s", (url, valid) => {
     expect(validateExternalHttpsUrl(url) !== null).toBe(valid);
@@ -176,6 +179,12 @@ describe("redaction and safe URLs", () => {
     "https://[2001:db8::1]/",
   ])("rejects non-public URL %s", (url) => {
     expect(validateExternalHttpsUrl(url)).toBeNull();
+  });
+
+  it("removes fragments from otherwise safe external URLs", () => {
+    expect(
+      validateExternalHttpsUrl("https://example.com/report#private-note"),
+    ).toBe("https://example.com/report");
   });
 
   it("opens only validated URLs with isolation flags", () => {

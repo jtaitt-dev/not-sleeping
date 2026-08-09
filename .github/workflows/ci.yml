@@ -76,7 +76,7 @@ jobs:
           name: ai-eval-reports
           path: artifacts/ai-eval-report.*
 
-  build-flavors:
+  build-extension:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -90,16 +90,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm assert:core-bundle
+      - run: pnpm assert:unified-bundle
       - name: Verify no production source maps
         run: test -z "$(find dist -name '*.map' -print -quit)"
-      - name: Upload Core and Labs builds
+      - name: Upload unified extension build
         uses: actions/upload-artifact@v7
         with:
           name: extension-builds
           path: |
-            dist/core/
-            dist/labs/
+            dist/
 
   browser-tests:
     runs-on: ubuntu-latest
@@ -148,7 +147,7 @@ jobs:
       - quality
       - performance-and-simulations
       - ai-evals
-      - build-flavors
+      - build-extension
       - browser-tests
       - dependency-audit
     runs-on: ubuntu-latest
@@ -169,7 +168,5 @@ jobs:
         with:
           name: not-sleeping-release-candidates
           path: |
-            artifacts/not-sleeping-core-*.zip
-            artifacts/not-sleeping-core-*.sha256
-            artifacts/not-sleeping-labs-*.zip
-            artifacts/not-sleeping-labs-*.sha256
+            artifacts/not-sleeping-*.zip
+            artifacts/not-sleeping-*.sha256

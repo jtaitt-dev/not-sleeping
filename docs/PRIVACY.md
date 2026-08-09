@@ -6,7 +6,9 @@ service, or remote code loader.
 ## Data that stays local
 
 Settings, watchlists, notes, imports, cached public data, usage counts, token
-counts, demo state, and redacted diagnostics stay in the browser profile.
+counts, demo state, Advanced Research gate preferences, and redacted
+diagnostics stay in the browser profile. Manual-odds scenarios are not
+persisted.
 Uninstalling the extension removes extension-owned browser storage according
 to Chrome behavior.
 
@@ -15,17 +17,27 @@ to Chrome behavior.
 Requests contain only public identifiers needed for documented read-only
 endpoints. No Sleeper password, session, or private token is requested.
 
-## Data sent to OpenAI
+## Data sent to AI providers
 
 Only after the user configures a key and requests/enables analysis, the
 background sends the minimum player and league-format context needed for that
-feature. Requests use the Responses API with `store: false`. Current research
-may enable the `web_search` tool. The API key is transmitted only in the HTTPS
-Authorization header to `api.openai.com`.
+feature. OpenAI requests use the Responses API with `store: false`; Anthropic
+requests use its Messages API. Current research may enable supported provider
+research tools. Each API key is transmitted only in the HTTPS authentication
+header to its own provider endpoint.
 
-Review OpenAI's current API data controls and retention policy before enabling
-the feature. `store: false` is a request-level control; it is not a promise
-made by this project about provider infrastructure.
+Review the selected provider's current API data controls and retention policy
+before enabling the feature. `store: false` is an OpenAI request-level control;
+it is not a promise made by this project about provider infrastructure.
+
+## Manual odds research
+
+Advanced Research is hidden and locked by default and requires an explicit
+informational-use acknowledgement plus enable flag. The Manual Odds Research
+workspace separately requires 21+ and jurisdiction acknowledgements. It does
+not fetch odds, contact operators, persist supplied scenarios, or expose stake,
+affiliate, or action controls. Only acknowledgement, cooldown, and disable
+preferences remain local.
 
 ## Optional public data
 

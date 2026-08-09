@@ -26,6 +26,10 @@ import {
 } from "@/services/evidence/evidence-freshness";
 import { normalizePlayerName } from "@/services/ranking/identity";
 import type { Player, Position } from "@/types/domain";
+import {
+  assertSleeperRequestIsReadOnly,
+  sleeperReadOnlyRequest,
+} from "@/providers/sleeper/read-only-boundary";
 
 const API_ROOT = "https://api.sleeper.app/v1";
 const PROJECTIONS_API_ROOT = "https://api.sleeper.app";
@@ -33,6 +37,9 @@ const PLAYER_CACHE_KEY = "sleeper:nfl-players";
 const PLAYER_TTL_MS = 24 * 60 * 60 * 1000;
 const PROJECTION_TTL_MS = 15 * 60 * 1000;
 const PLAYER_SCHEMA_VERSION = 4;
+const DEFAULT_RESPONSE_BYTES = 5 * 1024 * 1024;
+const LARGE_RESPONSE_BYTES = 40 * 1024 * 1024;
+const MAX_PLAYER_RECORDS = 20_000;
 const ALLOWED_POSITIONS = new Set<Position>([
   "QB",
   "RB",
@@ -92,18 +99,26 @@ export class SleeperProvider {
     );
   }
 
-  getUserLeagues(userId: string, season: string) {
-    return this.request(
+  async getUserLeagues(userId: string, season: string) {
+    const leagues = await this.request(
       `/user/${encodeURIComponent(userId)}/leagues/nfl/${encodeURIComponent(season)}`,
       sleeperLeagueSchema.array(),
     );
+    assertEvery(
+      leagues,
+      (league) => league.season === season,
+      "Sleeper returned a league from a different season.",
+    );
+    return leagues;
   }
 
-  getLeague(leagueId: string) {
-    return this.request(
+  async getLeague(leagueId: string) {
+    const league = await this.request(
       `/league/${encodeURIComponent(leagueId)}`,
       sleeperLeagueSchema,
     );
+    assertIdentity(league.league_id, leagueId, "league");
+    return league;
   }
 
   getLeagueUsers(leagueId: string) {
@@ -113,18 +128,30 @@ export class SleeperProvider {
     );
   }
 
-  getRosters(leagueId: string) {
-    return this.request(
+  async getRosters(leagueId: string) {
+    const rosters = await this.request(
       `/league/${encodeURIComponent(leagueId)}/rosters`,
       sleeperRosterSchema.array(),
     );
+    assertEvery(
+      rosters,
+      (roster) => roster.league_id === leagueId,
+      "Sleeper returned a roster from a different league.",
+    );
+    return rosters;
   }
 
-  getLeagueDrafts(leagueId: string) {
-    return this.request(
+  async getLeagueDrafts(leagueId: string) {
+    const drafts = await this.request(
       `/league/${encodeURIComponent(leagueId)}/drafts`,
       sleeperDraftSchema.array(),
     );
+    assertEvery(
+      drafts,
+      (draft) => draft.league_id === leagueId,
+      "Sleeper returned a draft from a different league.",
+    );
+    return drafts;
   }
 
   getLeagueTradedPicks(leagueId: string) {
@@ -162,11 +189,13 @@ export class SleeperProvider {
     );
   }
 
-  getDraft(draftId: string) {
-    return this.request(
+  async getDraft(draftId: string) {
+    const draft = await this.request(
       `/draft/${encodeURIComponent(draftId)}`,
       sleeperDraftSchema,
     );
+    assertIdentity(draft.draft_id, draftId, "draft");
+    return draft;
   }
 
   getDraftPicks(draftId: string) {
@@ -242,6 +271,11 @@ export class SleeperProvider {
 
     try {
       const raw = await this.request("/players/nfl", sleeperPlayersSchema);
+      if (Object.keys(raw).length > MAX_PLAYER_RECORDS) {
+        throw malformedSleeperResponse(
+          `The player catalog exceeded ${MAX_PLAYER_RECORDS} records.`,
+        );
+      }
       const players = Object.entries(raw).flatMap(([id, record]) => {
         const normalized = normalizeSleeperPlayer(id, record);
         return normalized ? [normalized] : [];
@@ -344,10 +378,9 @@ export class SleeperProvider {
   private async requestUrl<T>(url: string, schema: ZodType<T>): Promise<T> {
     let response: Response;
     try {
-      response = await this.fetcher.call(globalThis, url, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-      });
+      const init = sleeperReadOnlyRequest(url);
+      assertSleeperRequestIsReadOnly(url, init);
+      response = await this.fetcher.call(globalThis, url, init);
     } catch (error) {
       throw new AppError({
         code: navigator.onLine ? "SLEEPER_UNAVAILABLE" : "OFFLINE",
@@ -387,9 +420,143 @@ export class SleeperProvider {
         retryable: response.status >= 500,
       });
     }
-    const json: unknown = await response.json();
+    const json = await readBoundedJson(response, responseLimit(url));
+    assertBoundedPayload(json, url.includes("/players/nfl"));
     return schema.parse(json);
   }
+}
+
+async function readBoundedJson(
+  response: Response,
+  maximumBytes: number,
+): Promise<unknown> {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maximumBytes) {
+    throw malformedSleeperResponse(
+      `The response exceeded the ${maximumBytes}-byte limit.`,
+    );
+  }
+  if (!response.body) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maximumBytes) {
+      throw malformedSleeperResponse(
+        `The response exceeded the ${maximumBytes}-byte limit.`,
+      );
+    }
+    return parseJson(text);
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    let next = await reader.read();
+    while (!next.done) {
+      const value = next.value;
+      size += value.byteLength;
+      if (size > maximumBytes) {
+        await reader.cancel();
+        throw malformedSleeperResponse(
+          `The response exceeded the ${maximumBytes}-byte limit.`,
+        );
+      }
+      chunks.push(value);
+      next = await reader.read();
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return parseJson(new TextDecoder().decode(bytes));
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch (error) {
+    throw new AppError({
+      code: "SLEEPER_UNAVAILABLE",
+      message: "Sleeper returned data that could not be safely used.",
+      safeDetail: "The response was not valid JSON.",
+      suggestedAction: "Keep using cached data and retry later.",
+      retryable: true,
+      cause: error,
+    });
+  }
+}
+
+function responseLimit(url: string): number {
+  return url.includes("/players/nfl") || url.includes("/projections/nfl/")
+    ? LARGE_RESPONSE_BYTES
+    : DEFAULT_RESPONSE_BYTES;
+}
+
+function assertBoundedPayload(value: unknown, large: boolean): void {
+  const maximumNodes = large ? 600_000 : 100_000;
+  const maximumCollection = large ? 25_000 : 10_000;
+  let nodes = 0;
+  const visit = (entry: unknown, depth: number): void => {
+    nodes += 1;
+    if (nodes > maximumNodes || depth > 14) {
+      throw malformedSleeperResponse("The response structure was too large.");
+    }
+    if (typeof entry === "string" && entry.length > 20_000) {
+      throw malformedSleeperResponse(
+        "The response contained an oversized field.",
+      );
+    }
+    if (Array.isArray(entry)) {
+      if (entry.length > maximumCollection) {
+        throw malformedSleeperResponse(
+          "The response collection was too large.",
+        );
+      }
+      for (const item of entry) visit(item, depth + 1);
+      return;
+    }
+    if (entry && typeof entry === "object") {
+      const values = Object.values(entry);
+      if (values.length > maximumCollection) {
+        throw malformedSleeperResponse("The response record was too large.");
+      }
+      for (const item of values) visit(item, depth + 1);
+    }
+  };
+  visit(value, 0);
+}
+
+function assertIdentity(
+  actual: string | null | undefined,
+  expected: string,
+  kind: string,
+): void {
+  if (actual !== expected) {
+    throw malformedSleeperResponse(
+      `Sleeper returned a different ${kind} identity than requested.`,
+    );
+  }
+}
+
+function assertEvery<T>(
+  values: T[],
+  predicate: (value: T) => boolean,
+  detail: string,
+): void {
+  if (!values.every(predicate)) throw malformedSleeperResponse(detail);
+}
+
+function malformedSleeperResponse(detail: string): AppError {
+  return new AppError({
+    code: "SLEEPER_UNAVAILABLE",
+    message: "Sleeper returned data that could not be safely used.",
+    safeDetail: detail,
+    suggestedAction: "Keep using cached data and retry later.",
+    retryable: true,
+  });
 }
 
 export function normalizeSleeperPlayer(

@@ -22,3 +22,8 @@ On first run, enter a Sleeper username or use Demo mode. An OpenAI key is
 optional. To update, replace the extracted release and reload the extension.
 To remove it, use Chrome's **Remove** action; rotate any remembered key
 separately if appropriate.
+
+Advanced Research is part of the same extension but is locked and hidden by
+default. To expose it, open **Settings → Analysis**, read and accept the
+informational-use notice, enable the feature, and save settings. Manual Odds
+Research still requires separate 21+ and jurisdiction acknowledgements.

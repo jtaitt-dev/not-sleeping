@@ -9,6 +9,7 @@ import type {
   SleeperProjection,
   SleeperRoster,
   SleeperTransaction,
+  SleeperTradedPick,
 } from "@/schemas/sleeper";
 import type { Player } from "@/types/domain";
 import type { LeagueCatalogItem } from "@/services/league/league-service";
@@ -21,6 +22,7 @@ import { getSettings } from "@/services/storage/settings";
 import type { LeagueContext, ManualLeagueOverrides } from "@/types/league";
 
 export type LeagueSnapshot = {
+  userId: string;
   leagueId: string;
   week: number;
   fetchedAt: number;
@@ -31,7 +33,7 @@ export type LeagueSnapshot = {
   transactions: SleeperTransaction[];
   winnersBracket: SleeperBracketMatch[];
   losersBracket: SleeperBracketMatch[];
-  tradedPicks: unknown[];
+  tradedPicks: SleeperTradedPick[];
   drafts: SleeperDraft[];
   players: Player[];
   projections: SleeperProjection[];
@@ -79,7 +81,7 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
       }
       const response = await requestRuntime<CatalogResponse>({
         type: "GET_LEAGUES",
-        payload: {},
+        payload: { userId: settings.sleeperUserId },
       });
       set({ catalog: response.catalog });
       if (response.catalog.length === 0) {
@@ -135,13 +137,26 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
       if (epoch !== selectionEpoch) return;
       const snapshot = await requestRuntime<LeagueSnapshot>({
         type: "GET_LEAGUE_SNAPSHOT",
-        payload: { leagueId: context.leagueId, week: context.week },
+        payload: {
+          userId: context.userId,
+          leagueId: context.leagueId,
+          week: context.week,
+        },
       });
-      if (epoch !== selectionEpoch || snapshot.leagueId !== context.leagueId)
+      if (
+        epoch !== selectionEpoch ||
+        snapshot.userId !== context.userId ||
+        snapshot.leagueId !== context.leagueId ||
+        snapshot.league.league_id !== context.leagueId ||
+        snapshot.rosters.some(
+          (roster) => roster.league_id !== context.leagueId,
+        ) ||
+        snapshot.drafts.some((draft) => draft.league_id !== context.leagueId)
+      )
         return;
       const catalog = await requestRuntime<CatalogResponse>({
         type: "GET_LEAGUES",
-        payload: {},
+        payload: { userId: settings.sleeperUserId },
       });
       set({
         activeContext: context,
@@ -157,6 +172,15 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
   },
   favoriteLeague: async (leagueId, favorite) => {
     const prior = get().catalog;
+    const userId = get().activeContext?.userId;
+    if (!userId) {
+      set({
+        error: safeRuntimeError(
+          new Error("Select an account league before changing favorites."),
+        ),
+      });
+      return;
+    }
     set({
       catalog: prior.map((league) =>
         league.leagueId === leagueId ? { ...league, favorite } : league,
@@ -165,7 +189,11 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
     try {
       await requestRuntime({
         type: "FAVORITE_LEAGUE",
-        payload: { leagueId, favorite },
+        payload: {
+          userId,
+          leagueId,
+          favorite,
+        },
       });
     } catch (error) {
       set({ catalog: prior, error: safeRuntimeError(error) });

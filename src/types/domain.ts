@@ -262,6 +262,8 @@ export type AppSettings = {
   riskTolerance: number;
   researchDepth: "quick" | "standard" | "deep";
   automaticAnalysis: boolean;
+  advancedResearchAcknowledgedAt: number | null;
+  advancedResearchEnabled: boolean;
   maxRequestsPerMinute: number;
   maxConcurrency: number;
   maxOutputTokens: number;
