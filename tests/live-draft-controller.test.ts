@@ -107,6 +107,68 @@ describe("LiveDraftController", () => {
       expect.objectContaining({ draftId: "draft-a" }),
     );
   });
+
+  it("notifies only the side panel bound to the detected account tab", async () => {
+    const first = testPort();
+    const second = testPort();
+    const controller = new LiveDraftController(
+      async () => liveState("x", "complete"),
+      async () => ({}),
+    );
+    controller.connect(first.port);
+    controller.connect(second.port);
+    first.receive({ type: "SUBSCRIBE", tabId: 7 });
+    second.receive({ type: "SUBSCRIBE", tabId: 8 });
+    await Promise.resolve();
+
+    controller.notifyAccountDetected(7, {
+      username: "signed_in_user",
+      userId: "1234",
+      leagueCount: 3,
+    });
+
+    expect(first.postMessage).toHaveBeenCalledWith({
+      type: "SLEEPER_ACCOUNT_DETECTED",
+      tabId: 7,
+      username: "signed_in_user",
+      userId: "1234",
+      leagueCount: 3,
+    });
+    expect(second.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SLEEPER_ACCOUNT_DETECTED" }),
+    );
+  });
+
+  it("does not let a stale side-panel port fail account detection", async () => {
+    const stale = testPort();
+    const healthy = testPort();
+    stale.postMessage.mockImplementation(() => {
+      throw new Error("disconnected port");
+    });
+    const controller = new LiveDraftController(
+      async () => liveState("x", "complete"),
+      async () => ({}),
+    );
+    controller.connect(stale.port);
+    controller.connect(healthy.port);
+    stale.receive({ type: "SUBSCRIBE", tabId: 7 });
+    healthy.receive({ type: "SUBSCRIBE", tabId: 7 });
+    await Promise.resolve();
+
+    expect(() =>
+      controller.notifyAccountDetected(7, {
+        username: "signed_in_user",
+        userId: "1234",
+        leagueCount: 3,
+      }),
+    ).not.toThrow();
+    expect(healthy.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "SLEEPER_ACCOUNT_DETECTED",
+        leagueCount: 3,
+      }),
+    );
+  });
 });
 
 function testPort() {

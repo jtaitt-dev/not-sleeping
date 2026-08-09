@@ -2,7 +2,7 @@
 
 Local validation date: 2026-08-08. Runtime: Node 24.14.0 on Windows x64.
 The live Sleeper work was read-only and used the connected account
-`lumbarlord`. The release artifact is
+a private signed-in Sleeper test account. The release artifact is
 [`artifacts/not-sleeping-0.6.0.zip`](../artifacts/not-sleeping-0.6.0.zip).
 
 ## 1. Architecture summary
@@ -241,10 +241,9 @@ source maps, and no `core/` or `labs/` paths. SHA-256:
 
 ## 34. Manual browser validation
 
-Chrome control reused the already-open, signed-in Sleeper tab at
-`https://sleeper.com/leagues/1316601957959340032/predraft` and confirmed the
-Sleeper page remained available. No additional visible Chrome browser, profile,
-or window was launched. Native Chrome side-panel UI is not exposed through the
+Chrome control reused an already-open, signed-in Sleeper league tab and
+confirmed the page remained available. No additional visible Chrome browser,
+profile, or window was launched. Native Chrome side-panel UI is not exposed through the
 browser-control surface, so loaded-extension headless tests supplied direct
 side-panel evidence.
 

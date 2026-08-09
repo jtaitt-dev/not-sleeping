@@ -18,8 +18,11 @@ pnpm build
 
 Load the generated `dist` directory from `chrome://extensions`.
 
-On first run, enter a Sleeper username or use Demo mode. An OpenAI key is
-optional. To update, replace the extracted release and reload the extension.
+On first run, keep a signed-in Sleeper page open. Not Sleeping detects the
+visible navigation-profile username, resolves the public account, and loads its
+leagues automatically. Manual username entry and Demo mode remain available as
+fallbacks. An OpenAI key is optional. To update, replace the extracted release
+and reload the extension.
 To remove it, use Chrome's **Remove** action; rotate any remembered key
 separately if appropriate.
 

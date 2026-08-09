@@ -21,7 +21,7 @@ import {
 import { buildLeagueMockDraftPlan } from "@/services/draft/league-mock-config";
 
 const liveAuditEnabled = process.env.RUN_LIVE_SLEEPER_AUDIT === "1";
-const accountName = process.env.SLEEPER_AUDIT_USERNAME ?? "lumbarlord";
+const accountName = process.env.SLEEPER_AUDIT_USERNAME?.trim() ?? "";
 
 describe.skipIf(!liveAuditEnabled)(
   "live Sleeper account read-only mock audit",
@@ -30,6 +30,11 @@ describe.skipIf(!liveAuditEnabled)(
       "completes every current league with legal manual picks and no Sleeper writes",
       { timeout: 300_000 },
       async () => {
+        if (!accountName) {
+          throw new Error(
+            "SLEEPER_AUDIT_USERNAME is required when RUN_LIVE_SLEEPER_AUDIT=1.",
+          );
+        }
         const user = sleeperUserSchema.parse(
           await sleeperGet(`/v1/user/${encodeURIComponent(accountName)}`),
         );

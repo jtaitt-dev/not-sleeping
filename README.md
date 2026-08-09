@@ -27,10 +27,24 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.7.0](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.7.0)**.
+The current release is **[v0.7.1](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.7.1)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 ![Live draft workspace](docs/screenshots/live-draft.png)
+
+## New in v0.7.1
+
+- A signed-in Sleeper page now securely supplies the visible navigation-profile
+  username to the extension, which resolves the stable account ID and loads
+  every available league season automatically.
+- Account discovery is read-only, origin-restricted, credential-free, bounded,
+  and keeps manual username entry as a fallback.
+- The account-scoped league database migration now uses a valid two-step
+  IndexedDB upgrade, preserving unrelated local data while rebuilding public
+  league catalogs safely.
+- The Windows reload helper targets the matching Not Sleeping extension card,
+  so development reloads no longer risk refreshing a different unpacked
+  extension.
 
 ## New in v0.7.0
 

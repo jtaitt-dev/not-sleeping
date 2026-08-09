@@ -673,7 +673,7 @@ function OptionsApp() {
             <>
               <SectionHeader
                 title="Sleeper account"
-                detail="The public username resolves to a Sleeper user ID. No password or Sleeper token is needed."
+                detail="Detected automatically from a signed-in Sleeper page. Manual entry remains available as a fallback; no password or token is needed."
               />
               <div className="form-grid">
                 <Field
@@ -723,8 +723,9 @@ function OptionsApp() {
                     <strong>No Sleeper account connected</strong>
                     <p>
                       League workspaces fall back to demo data until an account
-                      is connected. Enter the public username above and connect
-                      to load every league across all seasons.
+                      is connected. Open a signed-in Sleeper page to detect the
+                      account and load every league automatically, or enter the
+                      public username above.
                     </p>
                   </div>
                 </div>

@@ -60,6 +60,11 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
       ) {
         setLiveState(record["data"]);
       } else if (
+        record["type"] === "SLEEPER_ACCOUNT_DETECTED" &&
+        record["tabId"] === boundTabId
+      ) {
+        void hydrateLeagues();
+      } else if (
         record["type"] === "DRAFT_REFRESH_ERROR" &&
         record["tabId"] === boundTabId
       ) {

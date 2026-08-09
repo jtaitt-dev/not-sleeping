@@ -93,8 +93,8 @@ export class NotSleepingDatabase extends Dexie {
   leagueWorkspaces!: EntityTable<StoredLeagueWorkspace, "id">;
   evidence!: EntityTable<StoredEvidence, "cacheKey">;
 
-  constructor() {
-    super("not-sleeping");
+  constructor(name = "not-sleeping") {
+    super(name);
     this.version(1).stores({
       players:
         "id, sleeperId, normalizedName, fullName, team, position, college, [position+team]",
@@ -117,19 +117,21 @@ export class NotSleepingDatabase extends Dexie {
       evidence:
         "cacheKey, leagueId, week, sourceClass, expiresAt, [leagueId+week], *playerIds, *teamIds",
     });
-    this.version(4)
-      .stores({
-        leagues:
-          "id, [userId+leagueId], userId, leagueId, season, name, favorite, lastUsedAt, updatedAt",
-        leagueWorkspaces:
-          "id, [userId+leagueId+season], userId, leagueId, season, workspace, updatedAt",
-      })
-      .upgrade(async (transaction) => {
-        // Version 3 used account-ambiguous keys. The public Sleeper catalog can
-        // be rebuilt safely, so fail closed instead of guessing ownership.
-        await transaction.table("leagues").clear();
-        await transaction.table("leagueWorkspaces").clear();
-      });
+    // IndexedDB cannot change a primary key in place. Version 3 keyed leagues
+    // by leagueId; delete only these rebuildable public-data tables first.
+    this.version(4).stores({
+      leagues: null,
+      leagueWorkspaces: null,
+    });
+    // Recreate them in a separate upgrade with account-scoped primary keys.
+    // Existing version-4 installs that already have this shape simply advance
+    // to version 5 without dropping their data.
+    this.version(5).stores({
+      leagues:
+        "id, [userId+leagueId], userId, leagueId, season, name, favorite, lastUsedAt, updatedAt",
+      leagueWorkspaces:
+        "id, [userId+leagueId+season], userId, leagueId, season, workspace, updatedAt",
+    });
   }
 }
 

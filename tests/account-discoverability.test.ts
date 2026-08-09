@@ -15,6 +15,12 @@ const src = (path: string) =>
 describe("connecting a Sleeper account is discoverable in the side panel", () => {
   const panel = src("features/workspaces/all-workspaces.tsx");
 
+  it("automatically detects the signed-in profile from Sleeper pages", () => {
+    const content = src("entrypoints/content.ts");
+    expect(content).toContain("observeSignedInSleeperUsername");
+    expect(content).toContain("DETECT_SLEEPER_ACCOUNT");
+  });
+
   it("offers the connect action from the panel settings workspace", () => {
     const settings = panel.slice(
       panel.indexOf("export function SettingsWorkspace"),
