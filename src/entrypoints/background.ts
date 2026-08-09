@@ -34,6 +34,11 @@ import {
   restrictSecretStorage,
 } from "@/services/storage/key-vault";
 import { getSettings } from "@/services/storage/settings";
+import { saveSettings } from "@/services/storage/settings";
+import {
+  discoverSleeperAccount,
+  type DetectedSleeperAccount,
+} from "@/services/account/sleeper-account-discovery";
 import type {
   AiProviderId,
   LiveDraftState,
@@ -66,6 +71,10 @@ const playerResearch = new PlayerResearchService(aiProviders, getSettings);
 const liveDraft = new LiveDraftController(loadLiveDraft, loadTabContext);
 const activeRequests = new Map<string, AbortController>();
 const latestLeagueSelection = new Map<string, string>();
+const accountDiscoveryRequests = new Map<
+  string,
+  Promise<DetectedSleeperAccount>
+>();
 
 export default defineBackground(() => {
   void initialize();
@@ -206,6 +215,14 @@ async function routeMessage(
       }
       await chrome.sidePanel.open({ tabId });
       return { opened: true };
+    }
+    case "DETECT_SLEEPER_ACCOUNT": {
+      const account = await detectAndSyncSleeperAccount(
+        message.payload.username,
+      );
+      const tabId = sender.tab?.id;
+      if (tabId !== undefined) liveDraft.notifyAccountDetected(tabId, account);
+      return account;
     }
     case "RESOLVE_USER": {
       const user = await sleeper.getUser(message.payload.username);
@@ -673,6 +690,23 @@ async function resolveSyncWindow(): Promise<{
     ),
     week: state?.week ?? 1,
   };
+}
+
+function detectAndSyncSleeperAccount(
+  username: string,
+): Promise<DetectedSleeperAccount> {
+  const key = username.toLocaleLowerCase("en-US");
+  const active = accountDiscoveryRequests.get(key);
+  if (active) return active;
+  const request = discoverSleeperAccount(username, {
+    getUser: (candidate) => sleeper.getUser(candidate),
+    getSettings,
+    saveSettings,
+    resolveSyncWindow,
+    syncCatalog: (input) => leagues.syncCatalog(input),
+  }).finally(() => accountDiscoveryRequests.delete(key));
+  accountDiscoveryRequests.set(key, request);
+  return request;
 }
 
 async function assertOpenAIPermission(): Promise<void> {

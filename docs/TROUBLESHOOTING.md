@@ -11,6 +11,13 @@ Not Sleeping preserves usable cached data during outages. Open Diagnostics,
 confirm connectivity, then refresh context or clear the relevant cache.
 Sleeper requests are intentionally rate limited.
 
+## My Sleeper account was not detected
+
+Keep a signed-in `https://sleeper.com/` page open and reload that tab once. The
+extension reads only the visible username in Sleeper's navigation profile; it
+does not read credentials, cookies, or session storage. If the profile is not
+visible, open Settings and use the public-username form as a fallback.
+
 ## OpenAI research is unavailable
 
 Local analysis still works. In Settings, confirm that a key is configured,

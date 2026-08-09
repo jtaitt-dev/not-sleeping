@@ -96,6 +96,18 @@ export const messageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...messageBase,
+    type: z.literal("DETECT_SLEEPER_ACCOUNT"),
+    payload: z.object({
+      username: z
+        .string()
+        .trim()
+        .min(1)
+        .max(64)
+        .refine((value) => !/[\s\p{C}]/u.test(value)),
+    }),
+  }),
+  z.object({
+    ...messageBase,
     type: z.literal("RESOLVE_USER"),
     payload: z.object({ username: z.string().min(1).max(64) }),
   }),
@@ -438,6 +450,7 @@ export function validateMessage(
 
 const CONTENT_MESSAGE_TYPES = new Set<RuntimeMessageType>([
   "CONTEXT_UPDATE",
+  "DETECT_SLEEPER_ACCOUNT",
   "GET_LAUNCHER_SETTINGS",
   "OPEN_SIDE_PANEL",
 ]);

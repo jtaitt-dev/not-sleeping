@@ -97,29 +97,31 @@ if ($null -eq $extensionLabel) {
     throw "Could not find the '$ExtensionName' extension card."
 }
 
-$card = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent(
-    $extensionLabel
-)
+$walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+$reloadButton = $null
+$candidate = $walker.GetNextSibling($extensionLabel)
 
-if ($null -eq $card) {
-    throw "Could not resolve the '$ExtensionName' extension card."
+while ($null -ne $candidate) {
+    $candidateId = $candidate.Current.AutomationId
+
+    # Chrome flattens every extension card under one accessibility parent.
+    # Stop at the next card instead of searching descendants and accidentally
+    # reloading whichever unpacked extension appears first on the page.
+    if ($candidateId -eq "name") {
+        break
+    }
+
+    if (
+        $candidateId -eq "dev-reload-button" -and
+        $candidate.Current.ControlType -eq
+            [System.Windows.Automation.ControlType]::Button
+    ) {
+        $reloadButton = $candidate
+        break
+    }
+
+    $candidate = $walker.GetNextSibling($candidate)
 }
-
-$reloadCondition = [System.Windows.Automation.AndCondition]::new(
-    [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::Button
-    ),
-    [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
-        "dev-reload-button"
-    )
-)
-
-$reloadButton = $card.FindFirst(
-    [System.Windows.Automation.TreeScope]::Descendants,
-    $reloadCondition
-)
 
 if ($null -eq $reloadButton) {
     throw "Could not find Reload for '$ExtensionName'. Is Developer mode enabled?"

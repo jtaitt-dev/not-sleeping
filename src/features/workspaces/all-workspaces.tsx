@@ -1371,7 +1371,10 @@ export function SettingsWorkspace() {
             <UserRound />
             <div>
               <h2>Sleeper account</h2>
-              <p>Public username only. No password or Sleeper token.</p>
+              <p>
+                Detected from your signed-in Sleeper page. Manual entry remains
+                available as a fallback.
+              </p>
             </div>
             <StatusBadge tone={settings.sleeperUserId ? "success" : "warning"}>
               {settings.sleeperUserId ? "Connected" : "Not connected"}
@@ -1380,7 +1383,7 @@ export function SettingsWorkspace() {
           <p>
             {settings.sleeperUserId
               ? "Every league across all seasons is loaded. Use the switcher at the top of the panel to move between them."
-              : "Workspaces show demo data until an account is connected. Connecting loads every league across all seasons."}
+              : "Keep a signed-in Sleeper page open and the extension will connect and load every league automatically."}
           </p>
           <label className="capability-override-field">
             <span>Sleeper username</span>

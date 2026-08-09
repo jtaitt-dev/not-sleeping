@@ -2,6 +2,7 @@ import {
   observeSleeperNavigation,
   parseSleeperRoute,
 } from "@/services/context/route-detection";
+import { observeSignedInSleeperUsername } from "@/services/context/sleeper-identity";
 import { sendRuntimeMessage } from "@/services/messaging/protocol";
 
 const LAUNCHER_ID = "not-sleeping-launcher";
@@ -11,6 +12,8 @@ export default defineContentScript({
   runAt: "document_idle",
   async main(ctx) {
     let launcher: HTMLButtonElement | null = null;
+    let invalidated = false;
+    const discoveryTimers = new Set<number>();
 
     const sendContext = async () => {
       const route = parseSleeperRoute(location.href);
@@ -39,8 +42,37 @@ export default defineContentScript({
 
     await sendContext();
     const stop = observeSleeperNavigation(() => void sendContext());
+    const stopIdentityDetection = observeSignedInSleeperUsername((username) => {
+      void detectSleeperAccount(username);
+    });
+
+    async function detectSleeperAccount(username: string, attempt = 0) {
+      try {
+        const response = await sendRuntimeMessage({
+          type: "DETECT_SLEEPER_ACCOUNT",
+          payload: { username },
+        });
+        if (isSuccessfulResponse(response) || attempt >= 2 || invalidated)
+          return;
+      } catch {
+        if (attempt >= 2 || invalidated) return;
+      }
+      const timer = window.setTimeout(
+        () => {
+          discoveryTimers.delete(timer);
+          void detectSleeperAccount(username, attempt + 1);
+        },
+        1_500 * 2 ** attempt,
+      );
+      discoveryTimers.add(timer);
+    }
+
     ctx.onInvalidated(() => {
+      invalidated = true;
       stop();
+      stopIdentityDetection();
+      for (const timer of discoveryTimers) window.clearTimeout(timer);
+      discoveryTimers.clear();
       launcher?.remove();
     });
   },
@@ -82,4 +114,12 @@ function extractData(value: unknown): Record<string, unknown> {
   return data && typeof data === "object"
     ? (data as Record<string, unknown>)
     : {};
+}
+
+function isSuccessfulResponse(value: unknown): boolean {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    (value as Record<string, unknown>)["ok"] === true
+  );
 }

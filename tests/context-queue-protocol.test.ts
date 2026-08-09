@@ -116,6 +116,45 @@ describe("runtime protocol", () => {
         content,
       ),
     ).toThrow();
+    const detection = createMessage({
+      type: "DETECT_SLEEPER_ACCOUNT",
+      payload: { username: "signed_in_user" },
+    });
+    expect(() =>
+      validateSender(
+        {
+          id: chrome.runtime.id,
+          tab: { id: 1 } as chrome.tabs.Tab,
+          url: "https://sleeper.com/leagues/1234",
+        },
+        detection,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      validateSender(
+        {
+          id: chrome.runtime.id,
+          tab: { id: 1 } as chrome.tabs.Tab,
+          url: "https://evil.example",
+        },
+        detection,
+      ),
+    ).toThrow();
+  });
+
+  it("bounds visible usernames used for automatic detection", () => {
+    expect(() =>
+      createMessage({
+        type: "DETECT_SLEEPER_ACCOUNT",
+        payload: { username: "valid_user" },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      createMessage({
+        type: "DETECT_SLEEPER_ACCOUNT",
+        payload: { username: "not a username" },
+      }),
+    ).toThrow();
   });
 });
 

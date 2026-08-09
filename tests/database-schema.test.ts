@@ -9,8 +9,8 @@ describe("NotSleepingDatabase", () => {
     );
   });
 
-  it("uses the account-scoped v4 league and workspace indexes", () => {
-    expect(db.verno).toBe(4);
+  it("uses the account-scoped v5 league and workspace indexes", () => {
+    expect(db.verno).toBe(5);
     expect(db.leagues.schema.primKey.name).toBe("id");
     expect(db.leagues.schema.indexes.map((index) => index.name)).toContain(
       "[userId+leagueId]",

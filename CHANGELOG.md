@@ -5,6 +5,35 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-08
+
+### Added
+
+- Automatic signed-in Sleeper profile detection, stable user-ID resolution,
+  and multi-season league synchronization from supported Sleeper pages.
+- Tab-scoped account-detection notifications so an already-open side panel
+  refreshes its league catalog without a manual reconnect.
+
+### Changed
+
+- Account setup guidance now explains automatic detection while retaining the
+  public-username form as a manual fallback.
+- The Windows Chrome reload helper locates Reload within the named extension's
+  flattened accessibility card instead of selecting the first unpacked card.
+
+### Fixed
+
+- Split the account-scoped IndexedDB key migration into delete and recreate
+  versions because IndexedDB cannot change a primary key in place.
+- Ignore stale side-panel ports after an extension reload so they cannot fail a
+  successful account sync.
+
+### Security
+
+- Detection accepts only a bounded visible username from Sleeper's signed-in
+  navigation profile through the allowlisted, versioned content-script message;
+  no Sleeper credential, cookie, session value, or generic page name is read.
+
 ## [0.7.0] - 2026-08-08
 
 ### Added
@@ -139,7 +168,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.1...v0.5.0

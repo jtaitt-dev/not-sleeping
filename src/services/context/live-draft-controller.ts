@@ -83,6 +83,17 @@ export class LiveDraftController {
     if (draftChanged && context.draftId) void this.refreshNow(tabId);
   }
 
+  notifyAccountDetected(
+    tabId: number,
+    account: { username: string; userId: string; leagueCount: number },
+  ) {
+    this.broadcast(tabId, {
+      type: "SLEEPER_ACCOUNT_DETECTED",
+      tabId,
+      ...account,
+    });
+  }
+
   async refreshNow(tabId: number): Promise<void> {
     const draftId = this.contexts.get(tabId)?.draftId;
     if (!draftId) return;
@@ -149,7 +160,15 @@ export class LiveDraftController {
 
   private broadcast(tabId: number, message: Record<string, unknown>) {
     for (const [port, state] of this.ports) {
-      if (state.tabId === tabId) port.postMessage(message);
+      if (state.tabId !== tabId) continue;
+      try {
+        port.postMessage(message);
+      } catch {
+        // Chrome can invalidate a side-panel port during an extension reload
+        // before onDisconnect runs. One stale view must not fail the action
+        // that produced this notification or block healthy subscribers.
+        this.ports.delete(port);
+      }
     }
   }
 }
