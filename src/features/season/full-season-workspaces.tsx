@@ -959,7 +959,7 @@ export function TradeCenterWorkspace() {
           <strong>{market.typicalAssetCount ?? "Insufficient"}</strong>
         </span>
       </section>
-      <div className="trade-builder">
+      <div className="season-trade-builder">
         <AssetPicker
           title="You send"
           players={rosterPlayers}

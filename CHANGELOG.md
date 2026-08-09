@@ -5,6 +5,8 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-08
+
 ### Added
 
 - One unified Not Sleeping build and release artifact with Advanced Research
@@ -21,6 +23,19 @@ semantic versioning.
 - Full Sleeper matchup, transaction, bracket, traded-pick, league-draft, player, and trending coverage.
 - Seeded smoke/exhaustive simulation harness and leakage-safe nflverse walk-forward backtests with generated reports.
 - Manual per-league capability overrides, configurable freshness thresholds, source preferences, and persisted workspace/scroll state.
+
+### Changed
+
+- Refreshed the README and release media from the packaged v0.7.0 extension,
+  including the current Luna, league mock, waiver, trade, rookie, and settings
+  surfaces.
+
+### Fixed
+
+- Isolated the full-season trade builder from a legacy CSS class collision so
+  both asset columns remain equal and player names no longer overlap.
+- Gave rookie-board identity, opportunity, and strategy columns explicit
+  responsive tracks so prospect details stay readable at side-panel widths.
 
 ### Security
 
@@ -124,7 +139,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.4.0...v0.4.1

@@ -568,7 +568,7 @@
 }
 
 .matchup-columns,
-.trade-builder,
+.season-trade-builder,
 .mock-layout {
   display: grid;
   gap: 10px;
@@ -843,6 +843,12 @@
   color: var(--accent-primary);
 }
 
+.asset-picker button strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .trade-verdict {
   display: grid;
   gap: 10px;
@@ -1005,6 +1011,35 @@
   border-top: 1px solid var(--border-subtle);
   grid-template-columns: 28px auto minmax(0, 1fr) auto;
   padding: 7px 0;
+}
+
+.rookie-board > header,
+.rookie-board > button {
+  display: grid;
+  gap: 8px;
+  grid-template-columns:
+    28px minmax(145px, 1.2fr) minmax(90px, 0.8fr)
+    minmax(100px, 1fr);
+}
+
+.rookie-board > button > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.rookie-board > button > span:nth-child(2) > span {
+  display: grid;
+  min-width: 0;
+}
+
+.rookie-board > button > span:nth-child(2) strong,
+.rookie-board > button > span:nth-child(2) small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rookie-board > button {
@@ -1404,7 +1439,7 @@
 
 @media (max-width: 480px) {
   .matchup-columns,
-  .trade-builder,
+  .season-trade-builder,
   .mock-layout {
     grid-template-columns: 1fr;
   }
@@ -1451,6 +1486,16 @@
     grid-column: 1 / -1;
   }
 
+  .rookie-board > header,
+  .rookie-board > button {
+    grid-template-columns: 28px minmax(130px, 1fr) minmax(90px, 0.75fr);
+  }
+
+  .rookie-board > header > :last-child,
+  .rookie-board > button > :last-child {
+    display: none;
+  }
+
   .mock-recommendations > div {
     grid-template-columns: 20px minmax(0, 1fr) auto;
   }
@@ -1484,12 +1529,12 @@
     grid-template-columns: 1fr;
   }
 
+  .rookie-board > header,
   .rookie-board > button,
   .idp-board > div {
-    grid-template-columns: 24px auto minmax(0, 1fr);
+    grid-template-columns: 24px minmax(120px, 1fr) minmax(82px, 0.7fr);
   }
 
-  .rookie-board > button > strong,
   .idp-board > div > strong {
     grid-column: 3;
   }
