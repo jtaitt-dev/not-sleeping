@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { OpenAIProvider } from "@/providers/openai/openai-provider";
 import {
+  assertBoundedPayload,
   normalizeSleeperPlayer,
   SleeperProvider,
 } from "@/providers/sleeper/sleeper-provider";
@@ -90,6 +91,29 @@ describe("Sleeper provider", () => {
     await expect(provider.getLeague("league-1")).rejects.toMatchObject({
       code: "SLEEPER_UNAVAILABLE",
     });
+  });
+
+  it("accepts the current player-catalog shape while retaining a node ceiling", () => {
+    const playerShape = Object.fromEntries(
+      Array.from({ length: 55 }, (_, index) => [`field-${index}`, index]),
+    );
+    const currentSizeCatalog = Object.fromEntries(
+      Array.from({ length: 12_500 }, (_, index) => [
+        `player-${index}`,
+        playerShape,
+      ]),
+    );
+    const oversizedCatalog = Object.fromEntries(
+      Array.from({ length: 22_500 }, (_, index) => [
+        `player-${index}`,
+        playerShape,
+      ]),
+    );
+
+    expect(() => assertBoundedPayload(currentSizeCatalog, true)).not.toThrow();
+    expect(() => assertBoundedPayload(oversizedCatalog, true)).toThrow(
+      /could not be safely used/i,
+    );
   });
 
   it.each([

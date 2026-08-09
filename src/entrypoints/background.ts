@@ -399,10 +399,6 @@ async function routeMessage(
     }
     case "GET_PLAYER_POOL": {
       if ((await db.players.count()) === 0) await sleeper.refreshPlayers();
-      const rows = await db.players
-        .orderBy("searchRank")
-        .limit(message.payload.limit * 3)
-        .toArray();
       const idp = new Set([
         "DL",
         "DE",
@@ -417,15 +413,15 @@ async function routeMessage(
         "FS",
         "SS",
       ]);
-      return rows
+      return db.players
+        .orderBy("searchRank")
         .filter(
           (player) =>
-            !message.payload.rookiesOnly || player.yearsExperience === 0,
+            (!message.payload.rookiesOnly || player.yearsExperience === 0) &&
+            (!message.payload.idpOnly || idp.has(player.position)),
         )
-        .filter(
-          (player) => !message.payload.idpOnly || idp.has(player.position),
-        )
-        .slice(0, message.payload.limit);
+        .limit(message.payload.limit)
+        .toArray();
     }
     case "GET_TRENDING_PLAYERS": {
       if ((await db.players.count()) === 0) await sleeper.refreshPlayers();

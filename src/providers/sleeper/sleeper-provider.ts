@@ -495,8 +495,8 @@ function responseLimit(url: string): number {
     : DEFAULT_RESPONSE_BYTES;
 }
 
-function assertBoundedPayload(value: unknown, large: boolean): void {
-  const maximumNodes = large ? 600_000 : 100_000;
+export function assertBoundedPayload(value: unknown, large: boolean): void {
+  const maximumNodes = large ? 1_250_000 : 100_000;
   const maximumCollection = large ? 25_000 : 10_000;
   let nodes = 0;
   const visit = (entry: unknown, depth: number): void => {

@@ -22,6 +22,7 @@ import { buildLeagueMockDraftPlan } from "@/services/draft/league-mock-config";
 
 const liveAuditEnabled = process.env.RUN_LIVE_SLEEPER_AUDIT === "1";
 const accountName = process.env.SLEEPER_AUDIT_USERNAME?.trim() ?? "";
+const leagueIdFilter = process.env.SLEEPER_AUDIT_LEAGUE_ID?.trim() ?? "";
 
 describe.skipIf(!liveAuditEnabled)(
   "live Sleeper account read-only mock audit",
@@ -53,9 +54,19 @@ describe.skipIf(!liveAuditEnabled)(
         );
         const players = toEnginePlayers(playerRecords, nflState.season);
         const report: Array<Record<string, unknown>> = [];
+        const auditedLeagues = leagueIdFilter
+          ? leagues.filter((league) => league.league_id === leagueIdFilter)
+          : leagues;
 
-        expect(leagues.length).toBeGreaterThanOrEqual(4);
-        for (const league of leagues) {
+        if (leagueIdFilter) {
+          expect(
+            auditedLeagues,
+            `Sleeper league ${leagueIdFilter} for ${nflState.season}`,
+          ).toHaveLength(1);
+        } else {
+          expect(leagues.length).toBeGreaterThanOrEqual(4);
+        }
+        for (const league of auditedLeagues) {
           const [users, rosters, drafts, tradedPicks] = await Promise.all([
             sleeperGet(`/v1/league/${league.league_id}/users`).then((value) =>
               sleeperLeagueUserSchema.array().parse(value),
