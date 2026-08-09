@@ -4,6 +4,7 @@
 [![CodeQL](https://github.com/jtaitt-dev/not-sleeping/actions/workflows/codeql.yml/badge.svg)](https://github.com/jtaitt-dev/not-sleeping/actions/workflows/codeql.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-22e6c3.svg)](LICENSE)
 [![Node 22](https://img.shields.io/badge/node-22_LTS-60a5fa.svg)](.nvmrc)
+[![Latest release](https://img.shields.io/github/v/release/jtaitt-dev/not-sleeping?color=22e6c3)](https://github.com/jtaitt-dev/not-sleeping/releases/latest)
 
 An independent, open-source fantasy-football intelligence companion for
 [Sleeper](https://sleeper.com/). Not Sleeping adds a responsive Chrome side
@@ -26,7 +27,26 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
+The current release is **[v0.7.0](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.7.0)**.
+It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
+
 ![Live draft workspace](docs/screenshots/live-draft.png)
+
+## New in v0.7.0
+
+- League mocks derive their format, order, scoring, roster slots, player pool,
+  and traded-pick ownership from verified Sleeper settings.
+- Manual entry is the default. Every pick is checked for exact order,
+  ownership, eligibility, pool limits, and duplicates without writing anything
+  to Sleeper.
+- Mock drafts autosave by account, league, and draft, with pause, undo, redo,
+  reset, and deterministic non-AI recommendations.
+- The unified Luna overlay remains optional; legality and local rankings stay
+  authoritative when AI is unavailable or disabled.
+
+<p align="center">
+  <img src="docs/screenshots/manual-mock-draft.png" alt="Completed 48-pick Sleeper-derived manual mock draft with legality validation" width="420">
+</p>
 
 ## Why it is different
 
