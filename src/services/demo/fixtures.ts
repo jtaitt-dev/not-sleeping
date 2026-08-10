@@ -56,10 +56,10 @@ const playerRows: Array<
   ["11620", "Bucky Irving", "RB", "TB", 24.1, 34, 125],
   ["11566", "Marvin Harrison Jr.", "WR", "ARI", 23.9, 16, 4],
   ["11637", "Trey Benson", "RB", "ARI", 24.0, 42, 66],
-  ["14701", "Arch Manning", "QB", "FA", 22.1, 3, 1],
-  ["14702", "Jeremiah Smith", "WR", "FA", 20.7, 5, 3],
-  ["14703", "Ryan Williams", "WR", "FA", 19.8, 9, 8],
-  ["14704", "Nicholas Singleton", "RB", "FA", 22.1, 17, 24],
+  ["demo-rookie-1", "Arch Manning", "QB", "FA", 22.1, 3, 1],
+  ["demo-rookie-2", "Jeremiah Smith", "WR", "FA", 20.7, 5, 3],
+  ["demo-rookie-3", "Ryan Williams", "WR", "FA", 19.8, 9, 8],
+  ["demo-rookie-4", "Nicholas Singleton", "RB", "FA", 22.1, 17, 24],
 ];
 
 export const DEMO_PLAYERS = playerRows.map(
@@ -103,8 +103,8 @@ function fixture(
   const format = formatFor(mode);
   const players = DEMO_PLAYERS.filter((player) =>
     mode === "dynasty_rookie"
-      ? player.id.startsWith("147")
-      : !player.id.startsWith("147"),
+      ? isDemoRookieId(player.id)
+      : !isDemoRookieId(player.id),
   ).map((player) => ({
     player,
     inputs: {
@@ -123,9 +123,15 @@ function fixture(
     source: "demo",
     username: "demo_manager",
     leagueId: `demo-league-${id}`,
+    sourceLeagueId: `demo-league-${id}`,
     leagueName: "Sunday Night Sickos",
     draftId: `demo-draft-${id}`,
     draftName: label,
+    sessionKind: "league_mock",
+    sessionKindConfidence: 0.99,
+    sessionKindEvidence: ["Verified local QA fixture derived from a league"],
+    sessionKindOverride: false,
+    draftStyle: "snake",
     rosterId: "demo-roster-7",
     mode,
     modeConfidence: 0.98,
@@ -135,6 +141,8 @@ function fixture(
     currentDrafter: "Grid Iron Giants",
     nextUserPick: mode === "dynasty_rookie" ? 19 : 35,
     picksUntilUser: 4,
+    ownedPickNumbers: [35, 50, 59],
+    isUserOnClock: false,
     secondsRemaining: 84,
     status: "drafting",
     lastUpdatedAt: Date.now(),
@@ -154,11 +162,77 @@ function fixture(
 }
 
 export const DEMO_FIXTURES: DemoFixture[] = [
+  fixture("big-bucks", "Big Bucks Mock", "dynasty_rookie", {
+    context: {
+      ...fixture("big-bucks-base", "Big Bucks Mock", "dynasty_rookie").context,
+      leagueId: "big-bucks",
+      sourceLeagueId: "big-bucks",
+      leagueName: "Big Bucks",
+      draftId: "big-bucks-rookie-2026",
+      draftName: "Big Bucks Rookie Mock",
+      sessionKind: "league_mock",
+      sessionKindConfidence: 0.99,
+      sessionKindEvidence: [
+        "Sleeper supplied a source league in draft metadata",
+        "The draft route identifies a mock",
+      ],
+      currentPick: 15,
+      currentRound: 1,
+      currentDrafter: "You",
+      nextUserPick: 15,
+      picksUntilUser: 0,
+      ownedPickNumbers: [15, 26, 47],
+      isUserOnClock: true,
+    },
+    format: {
+      ...formatFor("dynasty_rookie"),
+      teams: 16,
+      draftRounds: 3,
+      scoring: "standard",
+      tightEndPremium: false,
+      starters: {
+        QB: 1,
+        RB: 2,
+        WR: 2,
+        TE: 1,
+        FLEX: 2,
+        K: 1,
+        DEF: 1,
+      },
+      bench: 8,
+      taxi: 2,
+    },
+  }),
   fixture("redraft", "Full-PPR Redraft", "redraft"),
   fixture("startup", "Superflex Dynasty Startup", "dynasty_startup"),
   fixture("rookie", "Superflex Rookie Draft", "dynasty_rookie"),
   fixture("keeper", "Keeper Draft", "keeper"),
   fixture("best-ball", "Best Ball Draft", "best_ball"),
+  fixture("auction-draft", "Redraft Auction", "redraft", {
+    context: {
+      ...fixture("auction-base", "Redraft Auction", "redraft").context,
+      leagueName: "Redraft Auction",
+      draftName: "Auction Mock",
+      draftStyle: "auction",
+      currentPick: 7,
+      currentRound: 1,
+      currentDrafter: "Gridiron Giants",
+      nextUserPick: undefined,
+      picksUntilUser: 1,
+      ownedPickNumbers: [],
+      isUserOnClock: false,
+      auction: {
+        initialBudget: 200,
+        remainingBudget: 182,
+        minimumBid: 1,
+        rosterSpots: 15,
+        filledSpots: 2,
+        currentBid: 18,
+        bidLeader: "Gridiron Giants",
+        currentNominationPlayerId: "p4",
+      },
+    },
+  }),
   fixture("idp", "IDP League", "redraft", {
     format: {
       ...formatFor("redraft"),
@@ -212,6 +286,10 @@ export const DEMO_FIXTURES: DemoFixture[] = [
   }),
 ];
 
+function isDemoRookieId(id: string): boolean {
+  return id.startsWith("demo-rookie-");
+}
+
 function makePlayer(
   id: string,
   fullName: string,
@@ -234,9 +312,9 @@ function makePlayer(
     position,
     team,
     age,
-    yearsExperience: id.startsWith("147") ? 0 : 2,
+    yearsExperience: isDemoRookieId(id) ? 0 : 2,
     status: "active",
-    nflDraftYear: id.startsWith("147") ? 2026 : 2024,
+    nflDraftYear: isDemoRookieId(id) ? 2026 : 2024,
     nflDraftRound: Math.ceil(nflDraftPick / 32),
     nflDraftPick,
     searchRank,

@@ -20,6 +20,7 @@ import {
   isIdpPosition,
   isPlayerEligibleForAnyRosterSlot,
 } from "@/services/roster/position-eligibility";
+import { resolveRookieEligibility } from "@/services/ranking/rookie-eligibility";
 
 type SimulationAction = {
   type: "draft" | "wait" | "remove";
@@ -90,8 +91,10 @@ export const useAppStore = create<AppState>((set) => ({
       const draftId =
         typeof route["draftId"] === "string" ? route["draftId"] : undefined;
       const supported = route["supported"] === true;
-      const explicitDemo = status.demo?.enabled === true;
-      if (supported && draftId && !explicitDemo) {
+      // A supported Sleeper draft is always authoritative. Demo mode is a
+      // fallback for non-draft pages; a previously persisted demo preference
+      // must never mask a real league draft or Sleeper mock.
+      if (supported && draftId) {
         try {
           const liveState = await requestRuntime<LiveDraftState>({
             type: "GET_LIVE_DRAFT",
@@ -284,6 +287,7 @@ export function getRecommendations(
     nextUserPick:
       (fixture.context.nextUserPick ?? fixture.context.currentPick + 4) +
       draftStep,
+    draftStyle: fixture.context.draftStyle,
     rosterNeeds: { QB: 1, RB: 0.5, WR: 1.5, TE: 2, FLEX: 0.5 },
     positionDemand: { QB: 0.8, RB: 0.7, WR: 1.1, TE: 0.65 },
     remainingInTier: { QB: 3, RB: 4, WR: 2, TE: 2 },
@@ -317,6 +321,11 @@ export function getLiveRecommendations(
     .filter(
       (player) =>
         Boolean(player.team && player.team !== "FA") &&
+        (liveState.format.mode !== "dynasty_rookie" ||
+          resolveRookieEligibility(
+            player,
+            liveState.context.season ?? new Date().getFullYear(),
+          ).eligible) &&
         isEligibleForFormat(player, liveState.format) &&
         !hiddenPlayers.includes(player.id),
     )
@@ -346,10 +355,12 @@ export function getLiveRecommendations(
     nextUserPick:
       liveState.context.nextUserPick ??
       liveState.context.currentPick + liveState.format.teams,
+    draftStyle: liveState.context.draftStyle,
     rosterNeeds: deriveRosterNeeds(
       liveState.format,
       liveState.picks,
       liveState.context.currentPick,
+      liveState.rosterPlayers,
     ),
     positionDemand,
     remainingInTier,

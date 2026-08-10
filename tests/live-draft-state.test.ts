@@ -2,6 +2,7 @@ import {
   sleeperDraftPickSchema,
   sleeperDraftSchema,
   sleeperLeagueSchema,
+  sleeperRosterSchema,
 } from "@/schemas/sleeper";
 import { buildLiveDraftState } from "@/services/context/live-draft-state";
 import { DEFAULT_SETTINGS } from "@/services/storage/settings";
@@ -198,6 +199,73 @@ describe("buildLiveDraftState", () => {
     });
   });
 
+  it("treats Sleeper player_type 1 as a rookie-only draft pool", () => {
+    const draft = sleeperDraftSchema.parse({
+      draft_id: "big-bucks-rookie-mock",
+      league_id: null,
+      type: "linear",
+      status: "pre_draft",
+      season: "2026",
+      settings: { teams: 16, rounds: 3, player_type: 1 },
+      metadata: {
+        league_id: "big-bucks",
+        league_type: "2",
+        name: "Big Bucks",
+        type: "league_mock",
+      },
+      draft_order: { user_c: 10 },
+      slot_to_roster_id: Object.fromEntries(
+        Array.from({ length: 16 }, (_, index) => [
+          String(index + 1),
+          index + 1,
+        ]),
+      ),
+    });
+    const league = sleeperLeagueSchema.parse({
+      league_id: "big-bucks",
+      name: "Big Bucks",
+      season: "2026",
+      total_rosters: 16,
+      settings: { type: 2, num_teams: 16, taxi_slots: 3 },
+      scoring_settings: { rec: 0 },
+      roster_positions: ["QB", "RB", "WR", "TE", "FLEX", "BN"],
+    });
+    const rookieByExperience = { ...players[0]!, yearsExperience: 0 };
+    const rookieByDraftYear = { ...players[1]!, nflDraftYear: 2026 };
+    const veteran = { ...players[2]!, yearsExperience: 3 };
+
+    const state = buildLiveDraftState({
+      draft,
+      league,
+      picks: [],
+      players: [rookieByExperience, rookieByDraftYear, veteran],
+      rosters: [
+        sleeperRosterSchema.parse({
+          roster_id: 8,
+          owner_id: "user_c",
+          league_id: "big-bucks",
+          players: ["p3"],
+          starters: ["p3"],
+          settings: {},
+          metadata: {},
+        }),
+      ],
+      settings: { ...DEFAULT_SETTINGS, sleeperUserId: "user_c" },
+    });
+
+    expect(state.context).toMatchObject({
+      season: 2026,
+      mode: "dynasty_rookie",
+      sessionKind: "league_mock",
+      rosterId: "10",
+      nextUserPick: 10,
+      picksUntilUser: 9,
+      ownedPickNumbers: [10, 26, 42],
+    });
+    expect(state.players.map((entry) => entry.id)).toEqual(["p1", "p2"]);
+    expect(state.rosterPlayers?.map((entry) => entry.id)).toEqual(["p3"]);
+  });
+
   it("maps picks, removes drafted players, and calculates the snake turn", () => {
     const draft = sleeperDraftSchema.parse({
       draft_id: "mock-draft-5678",
@@ -261,6 +329,69 @@ describe("buildLiveDraftState", () => {
       pickedBy: "Draft slot 1",
     });
     expect(state.players.map((entry) => entry.id)).toEqual(["p2", "p3"]);
+  });
+
+  it("derives auction budget and legal-roster context from Sleeper data", () => {
+    const draft = sleeperDraftSchema.parse({
+      draft_id: "auction-live",
+      league_id: null,
+      type: "auction",
+      status: "drafting",
+      season: "2026",
+      settings: {
+        teams: 10,
+        rounds: 8,
+        auction_budget: 200,
+        auction_min_bid: 1,
+        slots_qb: 1,
+        slots_rb: 2,
+        slots_wr: 2,
+        slots_te: 1,
+        slots_flex: 1,
+        slots_bn: 1,
+      },
+      metadata: { current_bid: "17", bid_leader: "user_c" },
+      draft_order: { user_c: 1 },
+    });
+    const auctionPicks = [
+      sleeperDraftPickSchema.parse({
+        player_id: "p1",
+        picked_by: "user_c",
+        roster_id: 1,
+        round: 1,
+        draft_slot: 1,
+        pick_no: 1,
+        metadata: { amount: "18", position: "RB" },
+      }),
+      sleeperDraftPickSchema.parse({
+        player_id: "p2",
+        picked_by: "user_c",
+        roster_id: 1,
+        round: 1,
+        draft_slot: 1,
+        pick_no: 2,
+        metadata: { price: 12, position: "WR" },
+      }),
+    ];
+
+    const state = buildLiveDraftState({
+      draft,
+      picks: auctionPicks,
+      players,
+      settings: { ...DEFAULT_SETTINGS, sleeperUserId: "user_c" },
+    });
+
+    expect(state.context.draftStyle).toBe("auction");
+    expect(state.picks.map((pick) => pick.price)).toEqual([18, 12]);
+    expect(state.context.auction).toEqual({
+      initialBudget: 200,
+      remainingBudget: 170,
+      minimumBid: 1,
+      rosterSpots: 8,
+      filledSpots: 2,
+      currentBid: 17,
+      bidLeader: "user_c",
+    });
   });
 });
 

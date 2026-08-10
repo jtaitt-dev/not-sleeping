@@ -82,6 +82,11 @@ export class SleeperProvider {
     string,
     { expiresAt: number; rows: SleeperProjection[] }
   >();
+  private playerRefresh: Promise<{
+    players: number;
+    stale: boolean;
+    fetchedAt: number;
+  }> | null = null;
 
   constructor(
     private readonly fetcher: typeof fetch = fetch,
@@ -251,6 +256,19 @@ export class SleeperProvider {
   }
 
   async refreshPlayers(force = false): Promise<{
+    players: number;
+    stale: boolean;
+    fetchedAt: number;
+  }> {
+    if (this.playerRefresh) return this.playerRefresh;
+    const refresh = this.refreshPlayersUncached(force).finally(() => {
+      if (this.playerRefresh === refresh) this.playerRefresh = null;
+    });
+    this.playerRefresh = refresh;
+    return refresh;
+  }
+
+  private async refreshPlayersUncached(force = false): Promise<{
     players: number;
     stale: boolean;
     fetchedAt: number;

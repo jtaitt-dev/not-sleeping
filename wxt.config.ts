@@ -16,6 +16,7 @@ export default defineConfig({
       "https://api.sleeper.app/*",
       "https://sleeper.com/*",
       "https://*.sleeper.com/*",
+      "https://sleepercdn.com/*",
       "https://api.open-meteo.com/*",
     ],
     optional_host_permissions: [

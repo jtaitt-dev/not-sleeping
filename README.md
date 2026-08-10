@@ -27,10 +27,41 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.7.1](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.7.1)**.
+The current release is **[v0.8.0](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.0)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
-![Live draft workspace](docs/screenshots/live-draft.png)
+![Premium Draft Copilot on the clock](docs/screenshots/draft-premium-on-clock.png)
+
+## New in v0.8.0
+
+- Draft is now one premium decision surface: Draft Context, Draft Copilot,
+  Recommendation Board, Recent Picks, and What-If, without duplicate top-pick
+  cards or manual secondary AI actions.
+- Signed-in Sleeper navigation automatically resolves the account, leagues,
+  active draft, real-versus-mock session, source league, settings, player pool,
+  owned picks, traded picks, and current roster. Not Sleeping remains GET-only
+  and never submits a pick, bid, nomination, or other Sleeper action.
+- Local recommendations remain immediate when AI is off or unavailable. The
+  in-card AI switch shows provider, model, effort, completed preparation work,
+  working/ready state, and safe bounded errors without exposing provider or
+  schema internals.
+- Verified player headshots use a centralized resolver with lazy loading,
+  preloading, failure memoization, and team/position/initial fallbacks.
+- Scores preserve candidate separation instead of saturating at 100, while
+  seeded next-pick simulations account for order, turns, traded ownership,
+  tiers, ADP, opponent needs, and format-specific pools without claiming false
+  precision.
+- Rookie, auction, best-ball, IDP, Superflex/2QB, TE-premium, completed-draft,
+  and consecutive-pick states now receive format-specific Draft Copilot logic.
+
+| Big Bucks-style rookie mock                                        | Auction-specific Copilot                                             |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| ![Rookie Draft Copilot](docs/screenshots/draft-premium-rookie.png) | ![Auction Draft Copilot](docs/screenshots/draft-premium-auction.png) |
+| ![AI working](docs/screenshots/draft-premium-ai-working.png)       | ![AI ready](docs/screenshots/draft-premium-ai-ready.png)             |
+
+The narrow-panel acceptance capture is
+[320px Draft Copilot](docs/screenshots/draft-premium-320.png); the wider state
+is [600px Draft Copilot](docs/screenshots/draft-premium-600.png).
 
 ## New in v0.7.1
 
@@ -55,7 +86,7 @@ It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
   to Sleeper.
 - Mock drafts autosave by account, league, and draft, with pause, undo, redo,
   reset, and deterministic non-AI recommendations.
-- The unified Luna overlay remains optional; legality and local rankings stay
+- Optional Luna analysis remains bounded; legality and local rankings stay
   authoritative when AI is unavailable or disabled.
 
 <p align="center">
@@ -74,7 +105,7 @@ It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
   each league's actual settings. Unknown inputs stay visible and overridable.
 - OpenAI and Anthropic implement one provider-neutral interface with dynamic
   models, capability-aware effort/thinking controls, strict structured output,
-  bounded overlays, retries, timeouts, and optional consensus.
+  bounded analysis, retries, timeouts, and optional consensus.
 - Each provider key defaults to session-only storage and never crosses a runtime
   message, log, diagnostic export, or content-script boundary.
 - Sleeper access is read-only. The extension cannot draft, trade, edit a team,
@@ -162,10 +193,11 @@ workflows remain available locally.
 
 ## Demo mode
 
-The default first-run experience uses safe local data. Fifteen fixtures cover
-redraft, dynasty startup, rookie, keeper, best ball, IDP, completed drafts,
-traded picks, position runs, ambiguous identities, Sleeper outages, invalid
-keys, quota exhaustion, rate limits, and offline use.
+The default first-run experience uses safe local data. Seventeen fixtures cover
+Big Bucks-style league mocks, redraft, dynasty startup, rookie, keeper, best
+ball, auction, IDP, completed drafts, traded picks, position runs, ambiguous
+identities, Sleeper outages, invalid keys, quota exhaustion, rate limits, and
+offline use.
 
 Demo controls can pause, advance, reset, and change speed. The decision
 simulator never mutates the live draft board.
@@ -201,7 +233,8 @@ simulator never mutates the live draft board.
 - [Privacy](PRIVACY.md)
 - [Security policy](SECURITY.md)
 - [Security review](docs/SECURITY_REVIEW.md)
-- [Final validation report](docs/VALIDATION_REPORT_2026-08-08.md)
+- [Draft Copilot](docs/DRAFT_COPILOT.md)
+- [Final validation report](docs/VALIDATION_REPORT_2026-08-10.md)
 - [Installation and updates](docs/INSTALLATION.md)
 - [OpenAI setup](docs/OPENAI_SETUP.md)
 - [Anthropic and multi-provider setup](docs/MULTI_PROVIDER_SETUP.md)

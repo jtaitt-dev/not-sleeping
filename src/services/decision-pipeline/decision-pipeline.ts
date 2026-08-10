@@ -119,23 +119,6 @@ export class DecisionPipeline {
           firstFailure?.reason ?? new Error("AI providers were unavailable.")
         );
       }
-      for (const completed of successful) {
-        await this.budget.record(
-          settings.aiBudgets,
-          completed.provider,
-          completed.model,
-          completed.result.usage,
-        );
-        await recordUsage({
-          feature: input.feature,
-          model: completed.model,
-          status: "success",
-          inputTokens: completed.result.usage.inputTokens,
-          outputTokens: completed.result.usage.outputTokens,
-          totalTokens: completed.result.usage.totalTokens,
-          durationMs: Math.max(0, this.now() - startedAt),
-        }).catch(() => undefined);
-      }
       const current = this.jobs.get(jobId);
       if (!current) return;
       if (this.latestState.get(scope) !== current.baseline.stateHash) {
@@ -154,6 +137,28 @@ export class DecisionPipeline {
         generatedAt: this.now(),
       });
       this.jobs.set(jobId, { ...current, aiStatus: "ready", overlay });
+      // Readiness is a product state; telemetry is best-effort bookkeeping.
+      // Publishing the valid result first prevents a slow local IndexedDB write
+      // from leaving Draft Copilot on “AI working” after the provider finished.
+      void Promise.allSettled(
+        successful.flatMap((completed) => [
+          this.budget.record(
+            settings.aiBudgets,
+            completed.provider,
+            completed.model,
+            completed.result.usage,
+          ),
+          recordUsage({
+            feature: input.feature,
+            model: completed.model,
+            status: "success",
+            inputTokens: completed.result.usage.inputTokens,
+            outputTokens: completed.result.usage.outputTokens,
+            totalTokens: completed.result.usage.totalTokens,
+            durationMs: Math.max(0, this.now() - startedAt),
+          }),
+        ]),
+      );
     } catch (error) {
       await recordUsage({
         feature: input.feature,

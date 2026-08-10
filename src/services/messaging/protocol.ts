@@ -308,6 +308,19 @@ export const messageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...messageBase,
+    type: z.literal("SET_DRAFT_SESSION_OVERRIDE"),
+    payload: z.object({
+      draftId: id,
+      sessionKind: z.enum([
+        "league_draft",
+        "league_mock",
+        "standalone_mock",
+        "unknown",
+      ]),
+    }),
+  }),
+  z.object({
+    ...messageBase,
     type: z.literal("RESEARCH_PLAYER"),
     payload: z.object({
       playerId: id,

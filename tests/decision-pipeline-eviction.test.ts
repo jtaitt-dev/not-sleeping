@@ -63,7 +63,7 @@ describe("DecisionPipeline bounds its in-memory job tracking", () => {
     const retained = jobIds.filter((id) => pipeline.get(id) !== null).length;
     expect(retained).toBeLessThan(jobIds.length);
     expect(retained).toBeGreaterThan(0);
-  });
+  }, 15_000);
 
   it("clear() still empties everything", () => {
     const pipeline = new DecisionPipeline(

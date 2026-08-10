@@ -5,6 +5,57 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-10
+
+### Added
+
+- Premium Draft Copilot hierarchy with one dominant recommendation, compact
+  legal board, recent picks, What-If, safe/upside alternatives, roster and
+  board impact, and consecutive-pick optimization.
+- Multi-signal real-league, league-mock, and standalone-mock detection with
+  source-league separation, confidence evidence, and draft-scoped overrides.
+- Central player-headshot resolution with verified Sleeper IDs, eager top-pick
+  loading, lazy rows, preloading, 404 memoization, and defense/position/initial
+  fallbacks.
+- Auction budgets and bid ceilings, rookie-only filtering, live source-roster
+  needs, completed-draft transition, seeded next-pick ranges, AI preparation
+  milestones, and Draft Copilot latency/readiness instrumentation.
+- Sanitized Big Bucks 16-team, three-round regression coverage and packaged
+  screenshots for waiting, on-clock, AI off/working/ready, rookie, auction,
+  320px, and 600px states.
+
+### Changed
+
+- Local calibrated recommendations now remain immediately authoritative while
+  optional AI analysis runs automatically near the user's pick with compact
+  provider, model, effort, progress, and ready/fallback state.
+- Draft display scores retain meaningful separation; availability now uses
+  draft order, owned/traded picks, turns, tiers, ADP, opponent needs, format,
+  and seeded uncertainty ranges instead of repeated fallback percentages.
+- League-derived mocks merge source-league traded picks when Sleeper's mock
+  draft endpoint omits them, and roster needs include the user's real league
+  roster without double-counting live draft selections.
+
+### Fixed
+
+- Normalized realtime candidate scarcity and risk at the producer boundary so
+  score-scale values cannot violate the runtime `0..1` contract.
+- Replaced duplicate Draft recommendation cards, manual AI-overlay actions,
+  ambiguous AI state, oversized raw runtime/provider errors, player initials
+  where verified images exist, broad score saturation, and stale AI results.
+- Rookie recommendations now reject veterans; injured/IR players receive
+  explicit high-risk treatment; mock ownership follows season-filtered source
+  trades even when the active draft reports none.
+
+### Security
+
+- Sleeper integration remains read-only behind the centralized GET-only
+  boundary. The extension never submits picks, bids, nominations, queues,
+  trades, chats, slot claims, auto-pick changes, or settings mutations.
+- Draft errors expose only safe diagnostic metadata, while provider keys remain
+  restricted to trusted extension contexts and are excluded from runtime
+  messages, logs, UI, and diagnostic exports.
+
 ## [0.7.1] - 2026-08-08
 
 ### Added
@@ -168,7 +219,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.5.0...v0.6.0

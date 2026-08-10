@@ -18,6 +18,25 @@ function jsonResponse(value: unknown, status = 200, headers?: HeadersInit) {
 }
 
 describe("Sleeper provider", () => {
+  it("deduplicates concurrent player catalog refreshes", async () => {
+    const provider = new SleeperProvider();
+    const refreshPlayersUncached = vi.fn(async () => {
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 5));
+      return { players: 0, stale: false, fetchedAt: 1 };
+    });
+    Object.defineProperty(provider, "refreshPlayersUncached", {
+      value: refreshPlayersUncached,
+    });
+
+    await Promise.all([
+      provider.refreshPlayers(true),
+      provider.refreshPlayers(true),
+      provider.refreshPlayers(true),
+    ]);
+
+    expect(refreshPlayersUncached).toHaveBeenCalledTimes(1);
+  });
+
   it("uses encoded read-only endpoints and validates responses", async () => {
     const fetcher = vi.fn(async () =>
       jsonResponse({ user_id: "123", username: "manager" }),

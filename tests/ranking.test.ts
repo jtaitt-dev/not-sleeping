@@ -245,6 +245,52 @@ describe("deterministic valuation", () => {
     expect(deriveRosterNeeds(format, picks, 20).WR).toBeGreaterThan(0);
   });
 
+  it("includes the verified source roster without double-counting live picks", () => {
+    const format = {
+      ...fixture.format,
+      teams: 16,
+      draftRounds: 3,
+      mode: "dynasty_rookie" as const,
+      superflex: false,
+      twoQuarterback: false,
+      starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 },
+    };
+    const rosterPlayers = [
+      { ...DEMO_PLAYERS[0]!, id: "existing-qb", position: "QB" as const },
+      { ...DEMO_PLAYERS[1]!, id: "existing-rb-1", position: "RB" as const },
+      { ...DEMO_PLAYERS[2]!, id: "existing-rb-2", position: "RB" as const },
+      { ...DEMO_PLAYERS[3]!, id: "existing-wr-1", position: "WR" as const },
+      { ...DEMO_PLAYERS[4]!, id: "live-rookie", position: "WR" as const },
+      { ...DEMO_PLAYERS[5]!, id: "existing-te", position: "TE" as const },
+    ];
+    const picks = [
+      {
+        pickNumber: 3,
+        round: 1,
+        pickInRound: 3,
+        playerId: "live-rookie",
+        playerName: "Live Rookie",
+        position: "WR" as const,
+        isKeeper: false,
+        isUserPick: true,
+      },
+    ];
+
+    const needs = deriveRosterNeeds(format, picks, 19, rosterPlayers);
+    const needsWithoutDuplicate = deriveRosterNeeds(
+      format,
+      [],
+      19,
+      rosterPlayers,
+    );
+
+    expect(needs).toEqual(needsWithoutDuplicate);
+    expect(needs.QB ?? 0).toBeLessThanOrEqual(0);
+    expect(needs.TE ?? 0).toBeLessThanOrEqual(0);
+    expect(needs.RB ?? 0).toBeLessThan(10);
+    expect(needs.WR ?? 0).toBeLessThan(10);
+  });
+
   it("steers an overstocked late-round bench toward the thinner flex position", () => {
     const format = {
       ...fixture.format,
@@ -528,7 +574,8 @@ describe("deterministic valuation", () => {
 
   it("estimates next-pick odds with and without ADP", () => {
     const known = estimateAvailability({
-      playerScore: 85,
+      playerId: "known",
+      position: "WR",
       adp: 36,
       currentPick: 31,
       nextPick: 43,
@@ -536,7 +583,8 @@ describe("deterministic valuation", () => {
       remainingTier: 2,
     });
     const unknown = estimateAvailability({
-      playerScore: 72,
+      playerId: "unknown",
+      position: "WR",
       currentPick: 31,
       nextPick: 43,
       positionDemand: 0.4,
@@ -544,7 +592,7 @@ describe("deterministic valuation", () => {
     });
     expect(known.probability).toBeGreaterThanOrEqual(2);
     expect(known.confidence).toBeGreaterThan(unknown.confidence);
-    expect(unknown.warning).toContain("lower confidence");
+    expect(unknown.warning).toContain("ADP");
   });
 
   it("detects emerging and strong position runs", () => {

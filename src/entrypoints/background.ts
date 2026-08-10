@@ -13,6 +13,7 @@ import {
 } from "@/services/context/live-draft-state";
 import { mergeTeamDefenseFallback } from "@/services/context/team-defense-fallback";
 import { AppError, normalizeError } from "@/services/errors/app-error";
+import { resolveLiveDraftTradedPicks } from "@/services/draft/traded-pick-resolution";
 import { DecisionPipeline } from "@/services/decision-pipeline/decision-pipeline";
 import { PlayerResearchService } from "@/services/intelligence/player-research-service";
 import {
@@ -41,6 +42,7 @@ import {
 } from "@/services/account/sleeper-account-discovery";
 import type {
   AiProviderId,
+  DraftSessionKind,
   LiveDraftState,
   Player,
   Position,
@@ -53,6 +55,7 @@ import { recordUsage } from "@/services/usage/usage-service";
 const CONTEXT_KEY = "currentSleeperContext";
 const DEMO_KEY = "demoMode";
 const ACTIVE_LEAGUE_KEY_PREFIX = "activeLeagueId";
+const DRAFT_SESSION_OVERRIDE_PREFIX = "draftSessionKind";
 const sleeper = new SleeperProvider();
 const sleeperPlayerContext = new SleeperPlayerContextProvider(sleeper);
 const weather = new OpenMeteoProvider();
@@ -456,6 +459,13 @@ async function routeMessage(
     }
     case "GET_LIVE_DRAFT":
       return loadLiveDraft(message.payload.draftId);
+    case "SET_DRAFT_SESSION_OVERRIDE": {
+      await chrome.storage.local.set({
+        [draftSessionOverrideKey(message.payload.draftId)]:
+          message.payload.sessionKind,
+      });
+      return { saved: true };
+    }
     case "RESEARCH_PLAYER": {
       const startedAt = Date.now();
       const settings = await getSettings();
@@ -588,17 +598,28 @@ async function loadLiveDraft(
     stale: true,
     fetchedAt: 0,
   }));
-  const [draft, picks, settings, refresh, storedContext] = await Promise.all([
+  const [
+    draft,
+    picks,
+    draftTradedPicks,
+    settings,
+    refresh,
+    storedContext,
+    override,
+  ] = await Promise.all([
     sleeper.getDraft(draftId),
     sleeper.getDraftPicks(draftId),
+    optionalSleeper(() => sleeper.getDraftTradedPicks(draftId)),
     getSettings(),
     playerRefresh,
     chrome.storage.session.get(contextStorageKey(tabId)),
+    chrome.storage.local.get(draftSessionOverrideKey(draftId)),
   ]);
   const leagueId = resolveDraftLeagueId(draft);
   const playerLimit = liveDraftPlayerLimit(draft.settings);
   const [
     league,
+    leagueTradedPicks,
     users,
     rosters,
     corePlayers,
@@ -608,6 +629,9 @@ async function loadLiveDraft(
     projections,
   ] = await Promise.all([
     leagueId ? optionalSleeper(() => sleeper.getLeague(leagueId)) : null,
+    leagueId
+      ? optionalSleeper(() => sleeper.getLeagueTradedPicks(leagueId))
+      : [],
     leagueId ? optionalSleeper(() => sleeper.getLeagueUsers(leagueId)) : [],
     leagueId ? optionalSleeper(() => sleeper.getRosters(leagueId)) : [],
     sleeper.searchPlayers("", [], playerLimit),
@@ -616,11 +640,28 @@ async function loadLiveDraft(
     sleeper.searchPlayers("", ["DL", "LB", "DB"], 300),
     optionalSleeper(() => sleeper.getNflProjections(draft.season)),
   ]);
+  const rosterPlayerIds = [
+    ...new Set(
+      (rosters ?? []).flatMap((roster) => [
+        ...(roster.players ?? []),
+        ...(roster.starters ?? []),
+        ...(roster.reserve ?? []),
+        ...(roster.taxi ?? []),
+      ]),
+    ),
+  ];
+  const rosterPlayers = (await db.players.bulkGet(rosterPlayerIds)).filter(
+    (player): player is Player => player !== undefined,
+  );
   const players = mergeTeamDefenseFallback([
     ...new Map(
-      [...corePlayers, ...kickers, ...teamDefenses, ...idpPlayers].map(
-        (player) => [player.id, player],
-      ),
+      [
+        ...corePlayers,
+        ...kickers,
+        ...teamDefenses,
+        ...idpPlayers,
+        ...rosterPlayers,
+      ].map((player) => [player.id, player]),
     ).values(),
   ]);
   const routeContext = asRecord(storedContext[contextStorageKey(tabId)]);
@@ -636,6 +677,18 @@ async function loadLiveDraft(
     league,
     users: users ?? [],
     rosters: rosters ?? [],
+    tradedPicks: resolveLiveDraftTradedPicks({
+      draft,
+      draftTradedPicks,
+      leagueTradedPicks,
+    }),
+    ...(isDraftSessionKind(override[draftSessionOverrideKey(draftId)])
+      ? {
+          sessionKindOverride: override[
+            draftSessionOverrideKey(draftId)
+          ] as DraftSessionKind,
+        }
+      : {}),
     playerIndexStale: refresh.stale,
   });
 }
@@ -756,6 +809,16 @@ async function clearCache(
 
 function activeLeagueKey(userId: string): string {
   return `${ACTIVE_LEAGUE_KEY_PREFIX}:${encodeURIComponent(userId)}`;
+}
+
+function draftSessionOverrideKey(draftId: string): string {
+  return `${DRAFT_SESSION_OVERRIDE_PREFIX}:${encodeURIComponent(draftId)}`;
+}
+
+function isDraftSessionKind(value: unknown): value is DraftSessionKind {
+  return ["league_draft", "league_mock", "standalone_mock", "unknown"].includes(
+    String(value),
+  );
 }
 
 async function maintainCaches() {

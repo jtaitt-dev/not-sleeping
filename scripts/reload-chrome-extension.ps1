@@ -3,7 +3,9 @@ param(
     [string]$ExtensionName = "Not Sleeping",
 
     [ValidateRange(1, 30)]
-    [int]$TimeoutSeconds = 10
+    [int]$TimeoutSeconds = 10,
+
+    [bool]$RefreshSleeperTabs = $true
 )
 
 Set-StrictMode -Version Latest
@@ -63,6 +65,70 @@ function Get-ExtensionsWindow {
     }
 
     return $null
+}
+
+function Refresh-SleeperTabs {
+    param(
+        [Parameter(Mandatory)]
+        [System.Windows.Automation.AutomationElement]$ChromeWindow
+    )
+
+    $tabCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::TabItem
+    )
+    $tabs = $ChromeWindow.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        $tabCondition
+    )
+    $refreshed = 0
+
+    foreach ($tab in $tabs) {
+        if ($tab.Current.Name -notlike "*Sleeper*") {
+            continue
+        }
+
+        $selection = $tab.GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern
+        )
+        $selection.Select()
+        Start-Sleep -Milliseconds 150
+
+        $reloadButton = $null
+        foreach ($buttonName in @("Reload this page", "Reload")) {
+            $buttonCondition = [System.Windows.Automation.AndCondition]::new(
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::NameProperty,
+                    $buttonName
+                ),
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Button
+                )
+            )
+            $reloadButton = $ChromeWindow.FindFirst(
+                [System.Windows.Automation.TreeScope]::Descendants,
+                $buttonCondition
+            )
+            if ($null -ne $reloadButton) {
+                break
+            }
+        }
+
+        if ($null -eq $reloadButton) {
+            Write-Warning "Reloaded the extension, but could not refresh Sleeper tab '$($tab.Current.Name)'."
+            continue
+        }
+
+        $reload = $reloadButton.GetCurrentPattern(
+            [System.Windows.Automation.InvokePattern]::Pattern
+        )
+        $reload.Invoke()
+        $refreshed += 1
+        Start-Sleep -Milliseconds 250
+    }
+
+    return $refreshed
 }
 
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -133,3 +199,9 @@ $invokePattern = $reloadButton.GetCurrentPattern(
 
 $invokePattern.Invoke()
 Write-Host "Reloaded Chrome extension: $ExtensionName"
+
+if ($RefreshSleeperTabs) {
+    Start-Sleep -Milliseconds 500
+    $refreshedTabs = Refresh-SleeperTabs -ChromeWindow $extensionsWindow
+    Write-Host "Refreshed Sleeper tabs after extension reload: $refreshedTabs"
+}
