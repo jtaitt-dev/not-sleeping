@@ -1,15 +1,42 @@
 # UI Component Inventory
 
-Core shell components include `AppShell`, `LeagueHeader`, compact primary and
-secondary navigation, global search, connection status, and contextual
-actions.
+## Shared shell
 
-Draft and player components include `LiveDraftStatus`, `PlayerRow`,
-`PlayerAvatar`, position/status/tier badges, `ScoreDisplay`,
-`ScoreBreakdown`, recommendation cards, freshness and availability indicators,
-roster needs, position-run alerts, compact tabs, and sticky action controls.
+- `AppShell`: theme root, active workspace, responsive navigation, subscreen
+  header, and bottom connectivity status.
+- `LeagueHeader` and `LeagueSwitcher`: account-scoped league identity, sync
+  state, active draft context, and stale-response-safe league switching.
+- `Button` and `IconButton`: primary, secondary, ghost, danger, compact,
+  disabled, hover, and focus states.
+- `CompactTabs`: horizontally scrollable semantic tabs using the shared 40 px
+  navigation height.
 
-Supporting patterns include metric clusters, filters, source cards, empty and
-error states, skeleton rows, confirmation dialogs, toasts, and responsive
-bottom actions. The same tokens and accessibility behaviors are shared by the
-side panel, popup, and options page.
+## Draft and player primitives
+
+- `PlayerAvatar`, position/status/tier badges, player rows, score displays, and
+  score breakdowns.
+- Draft context, Draft Copilot, recommendation board, recent picks, What-If,
+  current-pick status, roster need, position-run alerts, and auction budget
+  panels.
+- League-derived manual mock workspace with exact order, ownership, roster
+  eligibility, player-pool, duplicate, pause, undo, redo, reset, autosave, and
+  completion checks.
+
+## Feedback and overlays
+
+- Skeleton rows preserve the destination layout while data loads.
+- Empty states explain the missing prerequisite and the next valid action.
+- Inline errors stay local and retain cached/local functionality.
+- Radix-backed dialogs, confirmation alerts, dropdowns, and tooltips supply
+  focus management, escape behavior, and semantic names.
+
+## Surfaces migrated
+
+The shared tokens and primitives are used by Today, League, Draft, Mock Draft,
+Team, Players, Trade, Start/Sit, Waivers, Matchup, Chopped, Research,
+Deadlines, Dynasty, Rankings, Compare, Watchlist, Rookie, Taxi, IDP, Auction,
+Data Center, Usage, Settings, Diagnostics, About, popup, and options/onboarding.
+
+Each route may compose domain-specific cards, tables, charts, or filters, but
+may not define a second typography, color, control-height, radius, or icon
+system.

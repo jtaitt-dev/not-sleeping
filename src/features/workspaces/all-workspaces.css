@@ -4,7 +4,7 @@
 
 .search-toolbar {
   display: flex;
-  min-height: 44px;
+  min-height: calc(var(--input-height) + var(--space-2));
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
@@ -35,7 +35,7 @@
 .search-field input,
 .search-toolbar select,
 .compare-picker select {
-  min-height: 30px;
+  min-height: var(--input-height);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-small);
   background: var(--background-sidebar);
@@ -52,7 +52,7 @@
 }
 
 .search-toolbar > button {
-  min-height: 28px;
+  min-height: var(--button-height-small);
   border-radius: var(--radius-small);
   background: transparent;
   color: var(--text-muted);
@@ -85,7 +85,7 @@
 .result-list > button {
   display: grid;
   width: 100%;
-  min-height: 46px;
+  min-height: var(--player-row-height);
   align-items: center;
   gap: 7px;
   border-bottom: 1px solid var(--border-subtle);

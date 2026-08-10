@@ -90,7 +90,7 @@
 }
 
 .league-context > svg {
-  width: 13px;
+  width: var(--icon-size-small);
   flex: 0 0 auto;
   color: var(--text-muted);
 }
@@ -155,8 +155,8 @@
 }
 
 .header-actions .icon-button {
-  width: 30px;
-  height: 30px;
+  width: var(--button-height-small);
+  height: var(--button-height-small);
 }
 
 .freshness-row {
@@ -185,7 +185,7 @@
 .primary-navigation a {
   display: flex;
   min-width: 0;
-  height: 32px;
+  height: var(--navigation-height);
   align-items: center;
   justify-content: center;
   gap: 5px;

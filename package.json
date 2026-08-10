@@ -1,6 +1,6 @@
 {
   "name": "not-sleeping",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Independent, open-source fantasy football intelligence companion for Sleeper.",
   "type": "module",
   "private": true,
@@ -41,6 +41,8 @@
     "validate:phase3": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:performance:ci && pnpm test:simulations && pnpm test:ai-evals && pnpm build && pnpm assert:unified-bundle && pnpm test:e2e && pnpm test:visual && pnpm audit:prod"
   },
   "dependencies": {
+    "@fontsource/lato": "5.3.0",
+    "@fontsource/poppins": "5.3.0",
     "@radix-ui/react-alert-dialog": "1.1.23",
     "@radix-ui/react-dialog": "1.1.23",
     "@radix-ui/react-dropdown-menu": "2.1.22",

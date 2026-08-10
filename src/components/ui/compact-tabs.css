@@ -9,7 +9,7 @@
 
 .compact-tab {
   position: relative;
-  min-height: 34px;
+  min-height: var(--navigation-height);
   flex: 0 0 auto;
   border: 0;
   background: transparent;

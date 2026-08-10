@@ -93,6 +93,17 @@
   --cell-wr-ink: #08222e;
   --cell-empty: #212635;
 
+  /* Type system. Lato and Poppins are bundled from Fontsource under OFL-1.1;
+     no Sleeper-owned font assets are redistributed. The family split matches
+     the rendered product: Lato for dense data, Poppins for navigation and
+     display labels. */
+  --font-family-body: "Lato", "Segoe UI", sans-serif;
+  --font-family-display: "Poppins", "Segoe UI", sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
   /* Type scale. 11px is a hard floor for labels — the shipped UI ran on 7, 8,
      9 and 10px, which is the "text looks off" defect this redesign starts
      from. Numeric columns use tabular-nums. */
@@ -116,6 +127,21 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+
+  /* Measured component geometry shared by every extension surface. */
+  --icon-size-small: 14px;
+  --icon-size-medium: 18px;
+  --icon-size-large: 24px;
+  --player-row-height: 44px;
+  --navigation-height: 40px;
+  --button-height-small: 32px;
+  --button-height-medium: 40px;
+  --input-height: 40px;
+  --draft-cell-width: 132px;
+  --draft-cell-height: 50px;
+  --modal-width: min(520px, calc(100vw - 32px));
+  --drawer-width: min(440px, 100vw);
+  --bottom-sheet-height: min(78vh, 720px);
 
   --shadow-low: 0 4px 12px rgb(0 0 0 / 20%);
   --shadow-medium: 0 10px 30px rgb(0 0 0 / 28%);

@@ -27,10 +27,28 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.1](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.1)**.
+The current release is **[v0.8.2](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.2)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 ![Premium Draft Copilot on the clock](docs/screenshots/draft-premium-on-clock.png)
+
+## New in v0.8.2
+
+- League mocks now filter the full player index for the selected league's
+  veteran/rookie and offensive/IDP eligibility before applying the result
+  limit. Large Best Ball and Chopped drafts no longer fail with an undersized
+  pool.
+- Live dynasty and rookie draft recommendations exclude players already
+  rostered in that league, while the user's roster remains available for need
+  analysis.
+- Rankings and live recommendations are derived from the selected league's
+  verified board instead of a static fixture.
+- Lato body/data typography, Poppins display/navigation typography, and shared
+  Sleeper-measured control, row, tab, and draft-cell geometry now apply across
+  the side panel, popup, and options page.
+- The authenticated account audit completed all 1,224 configured picks across
+  testt, Beers BB $50, NFL Last Man Standing, and Big Bucks with zero legality
+  or duplicate failures and no Sleeper writes.
 
 ## New in v0.8.1
 

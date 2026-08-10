@@ -18,13 +18,13 @@
 }
 
 .button {
-  min-height: 34px;
+  min-height: var(--button-height-medium);
   gap: 7px;
   padding: 0 12px;
 }
 
 .button--small {
-  min-height: 28px;
+  min-height: var(--button-height-small);
   padding: 0 9px;
   font-size: 11px;
 }
@@ -74,8 +74,8 @@
 }
 
 .icon-button {
-  width: 34px;
-  height: 34px;
+  width: var(--button-height-medium);
+  height: var(--button-height-medium);
   padding: 0;
 }
 

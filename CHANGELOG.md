@@ -5,6 +5,42 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-10
+
+### Added
+
+- Bundled OFL-licensed Lato and Poppins font packages and shared geometry tokens
+  for navigation, buttons, inputs, player rows, draft cells, icons, modals,
+  drawers, and bottom sheets.
+- A measured Sleeper DevTools UI audit, component inventory, workflow map, and
+  all-league legality validation evidence.
+
+### Changed
+
+- Player-pool queries now apply selected-league roster eligibility,
+  rookie/veteran mode, IDP mode, and unavailable-player exclusions before the
+  result limit.
+- Live draft loading can retrieve the complete eligible pool for large Best
+  Ball and Chopped formats, and rankings use the selected league's live
+  recommendations.
+- Shared shell, tabs, controls, player rows, popup, and options surfaces now use
+  the measured Sleeper type and geometry system.
+
+### Fixed
+
+- Prevented 12-team, 28-round Beers BB $50 mocks from reporting an insufficient
+  pool after a valid 336-player requirement.
+- Excluded already-rostered players from dynasty, rookie, and supplemental live
+  draft candidate pools without removing the user's roster from need analysis.
+- Removed duplicate Best Ball context labeling and clarified the disabled
+  waiver subtitle.
+
+### Security
+
+- Sleeper requests remain centralized and GET-only. The authenticated audit
+  completed 1,224 local draft-engine picks across all four current leagues with
+  zero illegal or duplicate picks and no external writes.
+
 ## [0.8.1] - 2026-08-10
 
 ### Changed
@@ -248,7 +284,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.0...v0.7.1

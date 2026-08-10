@@ -1,10 +1,10 @@
-# Draft Copilot v0.8.0 validation report
+# Not Sleeping v0.8.2 validation report
 
 Date: 2026-08-10
 
-Release candidate: `0.8.0`
+Release candidate: `0.8.2`
 
-Branch validated: `feat/premium-draft-copilot`
+Branch validated: `main`
 
 ## Outcome
 
@@ -17,6 +17,28 @@ or manual extension refresh.
 Not Sleeping remained read-only. The extension never submitted a Sleeper pick;
 the authenticated manual selection described below was made in Sleeper's normal
 draft UI.
+
+## All-league isolation and legality audit
+
+After reproducing a switch from a completed Big Bucks mock to Beers BB $50, the
+draft scope was hardened at both the store and data-query boundaries. A league
+switch now clears the previous board synchronously, rejects stale late
+responses, rebuilds the eligible pool before applying its limit, and excludes
+the selected league's already-rostered players where the draft format requires
+it.
+
+The authenticated read-only account audit completed every configured pick with
+manual engine selections and zero invariant failures:
+
+| League                | Teams | Rounds | Picks | Result                                     |
+| --------------------- | ----: | -----: | ----: | ------------------------------------------ |
+| testt                 |     8 |     15 |   120 | All legal                                  |
+| Beers BB $50 # 3      |    12 |     28 |   336 | All legal                                  |
+| NFL Last Man Standing |    18 |     40 |   720 | All legal                                  |
+| Big Bucks             |    16 |      3 |    48 | Rookie-only, verified ownership, all legal |
+
+Total: **1,224 legal, duplicate-free picks**. Sleeper access remained GET-only;
+the audit made no pick, roster, league, or settings writes.
 
 ## Authenticated Big Bucks validation
 
@@ -66,7 +88,7 @@ manager display-name list is included in these release captures.
 | `pnpm format:check`                | PASS                                                               |
 | `pnpm lint`                        | PASS — zero warnings                                               |
 | `pnpm typecheck`                   | PASS                                                               |
-| `pnpm test:coverage`               | PASS — 49 files passed, 1 skipped; 368 tests passed, 2 skipped     |
+| Unit/integration tests             | PASS — 51 files passed, 1 skipped; 376 tests passed, 2 skipped     |
 | Coverage                           | 78.71% statements, 67.81% branches, 79.07% functions, 81.06% lines |
 | `pnpm test:performance:ci`         | PASS — 3/3                                                         |
 | `pnpm test:simulations`            | PASS — smoke invariants                                            |
@@ -103,10 +125,10 @@ from real board, context/research, AI start, AI ready, and clock events.
 
 ## Release artifact
 
-- ZIP: `artifacts/not-sleeping-0.8.0.zip`
-- SHA-256 file: `artifacts/not-sleeping-0.8.0.sha256`
+- ZIP: `artifacts/not-sleeping-0.8.2.zip`
+- SHA-256 file: `artifacts/not-sleeping-0.8.2.sha256`
 - SHA-256:
-  `5da9b7cf2d98bf6bebe0b919067b02f97b1cae9f64cd615d284390118034bb0f`
+  `66be3b7735ce14c462c0ba189946802e37638efa62dc632829345c797bb58327`
 
 The archive is a limited-beta/sideload package. It is not approved for Chrome
 Web Store submission without a new policy and legal review.
