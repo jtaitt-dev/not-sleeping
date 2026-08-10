@@ -454,7 +454,7 @@ export function LeagueMockDraftWorkspace() {
               onChange={(event) => setAiEnabled(event.target.checked)}
             />
             <span>
-              <strong>Allow optional AI overlay</strong>
+              <strong>Enable optional AI analysis</strong>
               <small>
                 Deterministic legality remains authoritative; AI can be turned
                 off.

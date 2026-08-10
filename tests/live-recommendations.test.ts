@@ -27,6 +27,103 @@ describe("live recommendations", () => {
     ).toEqual([]);
   });
 
+  it("never leaks veterans into a rookie-only live draft", () => {
+    const state = liveState("drafting");
+    state.format = {
+      ...state.format,
+      mode: "dynasty_rookie",
+      bestBall: false,
+      idp: false,
+      starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 },
+    };
+    state.players = [
+      {
+        ...player("rookie", "Eligible Rookie", "WR", "BUF", 2),
+        yearsExperience: 0,
+      },
+      {
+        ...player("veteran", "Ineligible Veteran", "WR", "KC", 1),
+        yearsExperience: 4,
+      },
+    ];
+
+    expect(
+      getLiveRecommendations(state, "balanced", 0.5, []).map(
+        (entry) => entry.player.id,
+      ),
+    ).toEqual(["rookie"]);
+  });
+
+  it("uses the Big Bucks source roster and downranks an injured zero-projection rookie", () => {
+    const state = liveState("drafting");
+    state.context.currentPick = 19;
+    state.context.currentRound = 2;
+    state.context.nextUserPick = 20;
+    state.context.ownedPickNumbers = [3, 19, 20, 35];
+    state.format = {
+      ...state.format,
+      teams: 16,
+      draftRounds: 3,
+      mode: "dynasty_rookie",
+      scoring: "standard",
+      superflex: false,
+      twoQuarterback: false,
+      tightEndPremium: false,
+      bestBall: false,
+      idp: false,
+      starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 2 },
+    };
+    state.picks = [
+      {
+        pickNumber: 3,
+        round: 1,
+        pickInRound: 3,
+        playerId: "jordyn-tyson",
+        playerName: "Jordyn Tyson",
+        position: "WR",
+        isKeeper: false,
+        isUserPick: true,
+      },
+    ];
+    state.rosterPlayers = [
+      player("roster-qb", "Roster Quarterback", "QB", "BUF", 1),
+      player("roster-rb-1", "Roster Runner One", "RB", "BUF", 2),
+      player("roster-rb-2", "Roster Runner Two", "RB", "BUF", 3),
+      player("roster-wr-1", "Roster Receiver One", "WR", "BUF", 4),
+      player("jordyn-tyson", "Jordyn Tyson", "WR", "NO", 51),
+      player("roster-te", "Roster Tight End", "TE", "BUF", 5),
+    ];
+    state.players = [
+      {
+        ...player("chris-brazzell", "Chris Brazzell", "WR", "CAR", 152),
+        yearsExperience: 0,
+        status: "injured",
+        injuryStatus: "IR",
+      },
+      {
+        ...player("elijah-sarratt", "Elijah Sarratt", "WR", "BAL", 154),
+        yearsExperience: 0,
+      },
+      {
+        ...player("zachariah-branch", "Zachariah Branch", "WR", "ATL", 158),
+        yearsExperience: 0,
+      },
+    ];
+    state.playerValues = {
+      "chris-brazzell": { adp: 150, projectedPoints: 0 },
+      "elijah-sarratt": { adp: 151.2, projectedPoints: 57.1 },
+      "zachariah-branch": { adp: 154.7, projectedPoints: 63.6 },
+    };
+
+    const recommendations = getLiveRecommendations(state, "balanced", 0.5, []);
+
+    expect(recommendations[0]!.player.id).not.toBe("chris-brazzell");
+    expect(
+      recommendations.find((entry) => entry.player.id === "chris-brazzell")!
+        .risk,
+    ).toBe("high");
+  });
+
   it("prefers the current-market quarterback over a later equivalent option", () => {
     const currentQuarterback = player(
       "current-qb",
@@ -199,11 +296,18 @@ function liveState(
     context: {
       supported: true,
       source: "sleeper",
+      sessionKind: "league_draft",
+      sessionKindConfidence: 1,
+      sessionKindEvidence: ["Test league"],
+      sessionKindOverride: false,
+      draftStyle: "snake",
       mode: "best_ball",
       modeConfidence: 1,
       modeEvidence: ["Best ball setting is enabled"],
       currentPick: 1,
       currentRound: 1,
+      ownedPickNumbers: [1],
+      isUserOnClock: true,
       status,
       lastUpdatedAt: 1,
       connected: true,

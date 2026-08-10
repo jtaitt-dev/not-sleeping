@@ -181,8 +181,8 @@ export function RealtimeIntelligenceCard({
           {routingOff
             ? "AI off in Settings"
             : activeDecision
-              ? "Refresh overlay"
-              : `Add ${modelDisplayName(activeModel)} overlay`}
+              ? "Refresh AI analysis"
+              : `Run ${modelDisplayName(activeModel)} analysis`}
         </Button>
       </div>
       {top ? (

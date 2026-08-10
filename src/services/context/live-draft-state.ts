@@ -4,6 +4,7 @@ import type {
   SleeperLeague,
   SleeperRoster,
   SleeperProjection,
+  SleeperTradedPick,
   SleeperUser,
 } from "@/schemas/sleeper";
 import {
@@ -13,11 +14,20 @@ import {
 import type {
   AppSettings,
   DraftContext,
+  DraftSessionKind,
   DraftPick,
   LiveDraftState,
   Player,
   Position,
 } from "@/types/domain";
+import {
+  draftSlotForPick,
+  nextOwnedPick,
+  ownedDraftPicks,
+} from "@/services/draft/draft-order";
+import { detectDraftSession } from "@/services/draft/session-detection";
+import { detectPlayerPool } from "@/config/sleeper-capabilities";
+import { resolveRookieEligibility } from "@/services/ranking/rookie-eligibility";
 
 const POSITIONS = new Set<Position>([
   "QB",
@@ -42,6 +52,8 @@ type BuildLiveDraftStateInput = {
   league?: SleeperLeague | null;
   users?: SleeperUser[];
   rosters?: SleeperRoster[];
+  tradedPicks?: SleeperTradedPick[];
+  sessionKindOverride?: DraftSessionKind;
   playerIndexStale?: boolean;
   now?: number;
 };
@@ -67,6 +79,7 @@ export function buildLiveDraftState(
     : rosterPositionsFromDraftSettings(draftSettings);
   const leagueType = finiteNumber(leagueSettings["type"]);
   const playerPool = playerPoolSignals(input.draft);
+  const playerPoolKind = detectPlayerPool(input.draft);
   const detectionInput = {
     ...(leagueType === undefined ? {} : { leagueType }),
     leagueSettings: {
@@ -111,38 +124,74 @@ export function buildLiveDraftState(
   const userRoster = input.rosters?.find(
     (roster) => roster.owner_id === userId,
   );
+  const userRosterPlayerIds = new Set([
+    ...(userRoster?.players ?? []),
+    ...(userRoster?.starters ?? []),
+    ...(userRoster?.reserve ?? []),
+    ...(userRoster?.taxi ?? []),
+  ]);
+  const rosterPlayers = [...userRosterPlayerIds].flatMap((playerId) => {
+    const player = playerById.get(playerId);
+    return player ? [player] : [];
+  });
+  const userSlot = userId ? input.draft.draft_order?.[userId] : undefined;
+  const draftRosterId =
+    (userSlot === undefined
+      ? undefined
+      : input.draft.slot_to_roster_id?.[String(userSlot)]) ??
+    userRoster?.roster_id;
   const picks = input.picks
     .toSorted((a, b) => a.pick_no - b.pick_no)
     .map((pick) =>
-      normalizePick(pick, playerById, userNames, userId, userRoster),
+      normalizePick(pick, playerById, userNames, userId, draftRosterId),
     );
   const currentPick = nextPickNumber(picks, input.draft.status);
-  const userSlot =
-    userId && input.draft.draft_order
-      ? input.draft.draft_order[userId]
-      : undefined;
-  const nextUserPick =
-    userSlot === undefined
-      ? undefined
-      : findNextOwnedPick(currentPick, teams, rounds, userSlot);
-  const currentSlot = slotForPick(currentPick, teams);
+  const ownership = ownedDraftPicks({
+    draft: input.draft,
+    tradedPicks: input.tradedPicks,
+    teams,
+    rounds,
+    ...(userId ? { userId } : {}),
+    ...(draftRosterId === undefined ? {} : { rosterId: draftRosterId }),
+  });
+  const nextUserPick = nextOwnedPick(ownership.picks, currentPick);
+  const currentSlot = draftSlotForPick(currentPick, teams, ownership.style);
   const currentDrafterId = userAtSlot(input.draft.draft_order, currentSlot);
   const status = normalizeDraftStatus(input.draft.status);
   const leagueId = resolveDraftLeagueId(input.draft);
-  const rosterId =
-    userRoster?.roster_id ??
-    (userSlot === undefined
-      ? undefined
-      : input.draft.slot_to_roster_id?.[String(userSlot)]);
+  const session = detectDraftSession({
+    draft: input.draft,
+    ...(input.routeUrl ? { routeUrl: input.routeUrl } : {}),
+    ...(input.sessionKindOverride
+      ? { override: input.sessionKindOverride }
+      : {}),
+  });
+  const rosterId = draftRosterId;
+  const auction =
+    ownership.style === "auction"
+      ? buildAuctionContext(
+          draftSettings,
+          input.draft.metadata,
+          picks,
+          rosterPositions,
+          rounds,
+        )
+      : undefined;
   const context: DraftContext = {
     supported: true,
     source: "sleeper",
+    ...(positiveInteger(Number(input.draft.season), 3_000)
+      ? { season: positiveInteger(Number(input.draft.season), 3_000) }
+      : {}),
     ...(input.routeUrl ? { url: input.routeUrl } : {}),
     ...(userId ? { userId } : {}),
     ...(input.settings.sleeperUsername || userNames.get(userId)
       ? { username: input.settings.sleeperUsername || userNames.get(userId) }
       : {}),
     ...(leagueId ? { leagueId } : {}),
+    ...(session.sourceLeagueId
+      ? { sourceLeagueId: session.sourceLeagueId }
+      : {}),
     leagueName:
       input.league?.name ??
       stringValue(input.draft.metadata["name"]) ??
@@ -151,6 +200,12 @@ export function buildLiveDraftState(
     draftName:
       stringValue(input.draft.metadata["name"]) ??
       (input.draft.league_id ? "League draft" : "Mock draft"),
+    sessionKind: session.kind,
+    sessionKindConfidence: session.confidence,
+    sessionKindEvidence: session.evidence,
+    sessionKindOverride: session.overridden,
+    draftStyle: ownership.style,
+    ...(auction ? { auction } : {}),
     ...(rosterId === undefined ? {} : { rosterId: String(rosterId) }),
     mode: mode.mode,
     modeConfidence: mode.confidence,
@@ -174,6 +229,8 @@ export function buildLiveDraftState(
           nextUserPick,
           picksUntilUser: Math.max(0, nextUserPick - currentPick),
         }),
+    ownedPickNumbers: ownership.picks,
+    isUserOnClock: ownership.picks.includes(currentPick),
     ...(finiteNumber(draftSettings["pick_timer"]) === undefined
       ? {}
       : { secondsRemaining: finiteNumber(draftSettings["pick_timer"]) }),
@@ -188,7 +245,12 @@ export function buildLiveDraftState(
     context,
     format,
     picks,
-    players: input.players.filter((player) => !pickedIds.has(player.id)),
+    players: filterPlayerPool(
+      input.players.filter((player) => !pickedIds.has(player.id)),
+      playerPoolKind,
+      Number(input.draft.season),
+    ),
+    ...(rosterPlayers.length > 0 ? { rosterPlayers } : {}),
     ...(Object.keys(playerValues).length > 0 ? { playerValues } : {}),
     fetchedAt: now,
     playerIndexStale: input.playerIndexStale ?? false,
@@ -249,7 +311,7 @@ function normalizePick(
   playerById: Map<string, Player>,
   userNames: Map<string, string>,
   userId: string,
-  userRoster?: SleeperRoster,
+  userRosterId?: number,
 ): DraftPick {
   const player = playerById.get(pick.player_id);
   const position =
@@ -261,6 +323,11 @@ function normalizePick(
     .filter(Boolean)
     .join(" ");
   const safeMetadataName = metadataName ? metadataName : undefined;
+  const price = firstNumericValue(pick.metadata, [
+    "amount",
+    "price",
+    "bid_amount",
+  ]);
   return {
     pickNumber: pick.pick_no,
     round: pick.round,
@@ -290,11 +357,50 @@ function normalizePick(
     isKeeper: Boolean(pick.is_keeper),
     isUserPick:
       Boolean(userId && pick.picked_by === userId) ||
-      Boolean(
-        userRoster &&
+      (userRosterId !== undefined &&
         pick.roster_id !== null &&
-        pick.roster_id === userRoster.roster_id,
-      ),
+        pick.roster_id === userRosterId),
+    ...(price === undefined ? {} : { price }),
+  };
+}
+
+function buildAuctionContext(
+  settings: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+  picks: DraftPick[],
+  rosterPositions: string[],
+  rounds: number,
+): NonNullable<DraftContext["auction"]> {
+  const initialBudget =
+    firstNumericValue(settings, ["auction_budget", "budget"]) ?? 200;
+  const minimumBid =
+    firstNumericValue(settings, [
+      "auction_min_bid",
+      "minimum_bid",
+      "min_bid",
+    ]) ?? 1;
+  const rosterSpots = Math.max(
+    1,
+    rosterPositions.filter(
+      (position) => !["TAXI", "IR", "RESERVE"].includes(position),
+    ).length || rounds,
+  );
+  const userPicks = picks.filter((pick) => pick.isUserPick);
+  const spent = userPicks.reduce((total, pick) => total + (pick.price ?? 0), 0);
+  const currentBid = firstNumericValue(metadata, ["current_bid", "bid"]);
+  const bidLeader = stringValue(metadata["bid_leader"]);
+  const currentNominationPlayerId =
+    stringValue(metadata["nomination_player_id"]) ??
+    stringValue(metadata["player_id"]);
+  return {
+    initialBudget,
+    remainingBudget: Math.max(0, initialBudget - spent),
+    minimumBid,
+    rosterSpots,
+    filledSpots: userPicks.length,
+    ...(currentBid === undefined ? {} : { currentBid }),
+    ...(bidLeader ? { bidLeader } : {}),
+    ...(currentNominationPlayerId ? { currentNominationPlayerId } : {}),
   };
 }
 
@@ -324,25 +430,6 @@ function normalizeDraftStatus(status: string): DraftContext["status"] {
 function nextPickNumber(picks: DraftPick[], status: string): number {
   const last = picks.at(-1)?.pickNumber ?? 0;
   return /complete/i.test(status) ? Math.max(1, last) : last + 1;
-}
-
-function slotForPick(pickNumber: number, teams: number): number {
-  const round = Math.max(1, Math.ceil(pickNumber / teams));
-  const inRound = ((Math.max(1, pickNumber) - 1) % teams) + 1;
-  return round % 2 === 0 ? teams - inRound + 1 : inRound;
-}
-
-function findNextOwnedPick(
-  currentPick: number,
-  teams: number,
-  rounds: number,
-  userSlot: number,
-): number | undefined {
-  const maximum = teams * rounds;
-  for (let pick = currentPick; pick <= maximum; pick += 1) {
-    if (slotForPick(pick, teams) === userSlot) return pick;
-  }
-  return undefined;
 }
 
 function userAtSlot(
@@ -394,6 +481,10 @@ function resolveDraftUserId(
 }
 
 function playerPoolSignals(draft: SleeperDraft): string[] {
+  const detected = detectPlayerPool(draft);
+  if (detected === "rookies_only") return ["rookies"];
+  if (detected === "veterans_only") return ["veterans"];
+  if (detected === "all_available") return ["rookies", "veterans"];
   const raw = [
     stringValue(draft.metadata["player_type"]),
     stringValue(draft.metadata["player_pool"]),
@@ -406,6 +497,24 @@ function playerPoolSignals(draft: SleeperDraft): string[] {
   if (raw.includes("rook")) signals.push("rookies");
   if (raw.includes("vet") || !raw.includes("rook")) signals.push("veterans");
   return signals;
+}
+
+function filterPlayerPool(
+  players: Player[],
+  pool: ReturnType<typeof detectPlayerPool>,
+  season: number,
+): Player[] {
+  if (pool === "rookies_only") {
+    return players.filter(
+      (player) => resolveRookieEligibility(player, season).eligible,
+    );
+  }
+  if (pool === "veterans_only") {
+    return players.filter(
+      (player) => !resolveRookieEligibility(player, season).eligible,
+    );
+  }
+  return players;
 }
 
 function finiteNumber(value: unknown): number | undefined {
@@ -431,4 +540,19 @@ function objectSize(
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function firstNumericValue(
+  record: Record<string, unknown>,
+  keys: string[],
+): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
 }

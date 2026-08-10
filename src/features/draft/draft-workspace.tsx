@@ -1,26 +1,28 @@
 import {
+  AlertTriangle,
   ArrowRight,
-  Ban,
+  ChevronDown,
   ChevronRight,
   Clock3,
-  Eye,
-  Gauge,
+  EyeOff,
+  Filter,
   Pause,
   Play,
   RotateCcw,
+  Settings2,
+  ShieldCheck,
   Sparkles,
   Star,
-  Target,
   TimerReset,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
-import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-intelligence-card";
-import { Button, IconButton } from "@/components/ui/button";
 import { ScoreBreakdown } from "@/components/intelligence/score-breakdown";
-import { CompactTabs } from "@/components/ui/compact-tabs";
+import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
+import { Button, IconButton } from "@/components/ui/button";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
+import { translateDraftError } from "@/services/draft/draft-errors";
+import { requestRuntime } from "@/services/messaging/runtime-client";
 import {
   getActiveFixture,
   getLiveRecommendations,
@@ -28,8 +30,14 @@ import {
   getVisiblePicks,
   useAppStore,
 } from "@/stores/app-store";
-import type { Recommendation, Strategy } from "@/types/domain";
+import type {
+  DraftContext,
+  DraftSessionKind,
+  Recommendation,
+  Strategy,
+} from "@/types/domain";
 
+import { DraftCopilotCard } from "./draft-copilot-card";
 import "./draft-workspace.css";
 
 const strategyLabels: Record<Strategy, string> = {
@@ -38,6 +46,25 @@ const strategyLabels: Record<Strategy, string> = {
   productive_struggle: "Productive struggle",
   rebuild: "Rebuild",
 };
+
+const sessionLabels: Record<DraftSessionKind, string> = {
+  league_draft: "League draft",
+  league_mock: "League mock",
+  standalone_mock: "Standalone mock",
+  unknown: "Unknown session",
+};
+
+const boardPositions = [
+  "ALL",
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  "K",
+  "DEF",
+  "IDP",
+] as const;
+type BoardPosition = (typeof boardPositions)[number];
 
 export function DraftWorkspace() {
   const {
@@ -59,14 +86,17 @@ export function DraftWorkspace() {
     setRiskTolerance,
     nextDemoPick,
     resetDemo,
+    refreshLiveDraft,
     toggleWatch,
     toggleHidden,
     addSimulation,
     undoSimulation,
     resetSimulation,
   } = useAppStore();
-  const [activeTab, setActiveTab] = useState("recommendations");
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
+  const [position, setPosition] = useState<BoardPosition>("ALL");
+  const [boardLimit, setBoardLimit] = useState(12);
+  const [sessionSaving, setSessionSaving] = useState(false);
   const fixture = getActiveFixture(fixtureId);
   const context =
     !demoEnabled && liveState ? liveState.context : fixture.context;
@@ -115,469 +145,357 @@ export function DraftWorkspace() {
     !demoEnabled && liveState
       ? liveState.picks
       : getVisiblePicks(fixtureId, draftStep);
-  const top = recommendations[0];
   const draftComplete = context.status === "complete";
-  const visibleTab = draftComplete ? "recent" : activeTab;
-  const picksUntil =
-    (!demoEnabled && !liveState) || context.picksUntilUser === undefined
-      ? undefined
-      : Math.max(0, context.picksUntilUser - (demoEnabled ? draftStep : 0));
+  const visibleRecommendations = recommendations.filter((entry) => {
+    if (position === "ALL") return true;
+    if (position === "IDP") {
+      return [
+        "DL",
+        "DE",
+        "DT",
+        "EDGE",
+        "LB",
+        "ILB",
+        "OLB",
+        "DB",
+        "CB",
+        "S",
+        "FS",
+        "SS",
+        "IDP_FLEX",
+      ].includes(entry.player.position);
+    }
+    return entry.player.position === position;
+  });
+  const safeError = runtimeError ? translateDraftError(runtimeError) : null;
+
+  const saveSessionKind = async (sessionKind: DraftSessionKind) => {
+    if (demoEnabled || !context.draftId) return;
+    setSessionSaving(true);
+    try {
+      await requestRuntime({
+        type: "SET_DRAFT_SESSION_OVERRIDE",
+        payload: { draftId: context.draftId, sessionKind },
+      });
+      await refreshLiveDraft();
+    } finally {
+      setSessionSaving(false);
+    }
+  };
 
   return (
     <section className="draft-workspace">
-      <div className="draft-control-strip" aria-label="Draft controls">
-        <div className="on-clock">
-          <span className="section-label">
-            {draftComplete ? "Draft complete" : "On the clock"}
-          </span>
-          <strong className="tabular">
-            {draftComplete
-              ? `${picks.length} picks recorded`
-              : !demoEnabled && !liveState
-                ? "Sleeper refresh"
-                : (context.currentDrafter ?? "Draft room")}
-          </strong>
-          <span>
-            <Clock3 aria-hidden="true" />
-            {draftComplete
-              ? "Final board synced"
-              : picksUntil === undefined
-                ? context.status === "pre_draft"
-                  ? "Waiting to start"
-                  : "Manager slot not linked"
-                : picksUntil === 0
-                  ? "You are up"
-                  : `${picksUntil} picks until you`}
-          </span>
-        </div>
-        <label>
-          <span>Strategy</span>
-          <select
-            value={strategy}
-            onChange={(event) => setStrategy(event.target.value as Strategy)}
-          >
-            {Object.entries(strategyLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="risk-control">
-          <span>
-            Risk tolerance <b>{Math.round(riskTolerance * 100)}%</b>
-          </span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={riskTolerance}
-            onChange={(event) => setRiskTolerance(Number(event.target.value))}
-          />
-        </label>
-        {demoEnabled ? (
-          <div className="demo-controls">
-            <StatusBadge tone="info">Demo</StatusBadge>
-            <IconButton
-              label={demoPaused ? "Play demo draft" : "Pause demo draft"}
-              onClick={() => setDemoPaused(!demoPaused)}
-            >
-              {demoPaused ? <Play /> : <Pause />}
-            </IconButton>
-            <select
-              aria-label="Demo playback speed"
-              value={demoSpeed}
-              onChange={(event) => setDemoSpeed(Number(event.target.value))}
-            >
-              <option value="0.5">0.5×</option>
-              <option value="1">1×</option>
-              <option value="2">2×</option>
-            </select>
-            <IconButton label="Reset demo" onClick={resetDemo}>
-              <RotateCcw />
-            </IconButton>
-          </div>
-        ) : (
-          <StatusBadge
-            tone={
-              !liveState || liveState.playerIndexStale ? "warning" : "success"
-            }
-          >
-            {!liveState
-              ? "Retry needed"
-              : liveState.playerIndexStale
-                ? "Cached player index"
-                : draftComplete
-                  ? "Sleeper complete"
-                  : "Sleeper live"}
-          </StatusBadge>
-        )}
-      </div>
+      <DraftContextRail
+        context={context}
+        format={format}
+        demoEnabled={demoEnabled}
+        demoPaused={demoPaused}
+        demoSpeed={demoSpeed}
+        strategy={strategy}
+        riskTolerance={riskTolerance}
+        sessionSaving={sessionSaving}
+        onSessionKindChange={(value) => void saveSessionKind(value)}
+        onDemoPausedChange={setDemoPaused}
+        onDemoSpeedChange={setDemoSpeed}
+        onResetDemo={resetDemo}
+        onStrategyChange={setStrategy}
+        onRiskToleranceChange={setRiskTolerance}
+      />
 
-      {!draftComplete ? (
-        <RealtimeIntelligenceCard
-          feature={
-            context.mode === "keeper"
-              ? "keeper"
-              : format.bestBall
-                ? "best_ball"
-                : "draft"
-          }
-          subject={context.draftId ?? "current-draft"}
-          contextSummary={`${context.mode.replaceAll("_", " ")} draft. Pick ${context.currentPick}; ${format.teams} teams; ${format.superflex ? "superflex" : "single QB"}; ${format.tightEndPremium ? "TE premium" : "standard TE"}.`}
-          candidates={recommendations.slice(0, 30).map((recommendation) => ({
-            id: recommendation.player.id,
-            label: recommendation.player.fullName,
-            position: recommendation.player.position,
-            ...(recommendation.player.team
-              ? { team: recommendation.player.team }
-              : {}),
-            baseValue: recommendation.contextualScore,
-            rosterFit:
-              recommendation.rosterFit === "strong"
-                ? 0.8
-                : recommendation.rosterFit === "weak"
-                  ? -0.5
-                  : 0,
-            scarcity: recommendation.scarcity,
-            risk:
-              recommendation.risk === "high"
-                ? 0.85
-                : recommendation.risk === "moderate"
-                  ? 0.5
-                  : 0.2,
-            available: true,
-            eligible: true,
-            alreadySelected: picks.some(
-              (pick) => pick.playerId === recommendation.player.id,
-            ),
-            reasons: recommendation.components
-              .slice(0, 4)
-              .map((component) => component.reason),
-            metadata: {
-              age: recommendation.player.age ?? null,
-              yearsExperience: recommendation.player.yearsExperience ?? null,
-            },
-          }))}
-          strategy={strategy}
-          riskTolerance={riskTolerance}
-          currentPick={context.currentPick}
-          picksUntilNext={picksUntil}
-        />
+      {safeError ? (
+        <aside className="draft-safe-banner" role="status">
+          <AlertTriangle aria-hidden="true" />
+          <span>
+            <strong>{safeError.title}</strong>
+            <small>
+              {safeError.detail} {safeError.action}
+            </small>
+          </span>
+          <Button
+            size="small"
+            variant="ghost"
+            onClick={() => void refreshLiveDraft()}
+          >
+            Retry
+          </Button>
+        </aside>
       ) : null}
 
-      {!draftComplete && top ? (
-        <TopRecommendation
-          recommendation={top}
-          isWatched={watchlist.includes(top.player.id)}
-          onWatch={() => toggleWatch(top.player.id)}
-          onDraft={() =>
-            addSimulation({
-              type: "draft",
-              playerId: top.player.id,
-              label: `Draft ${top.player.fullName}`,
-            })
-          }
+      {context.status === "pre_draft" ? (
+        <WaitingState context={context} recommendations={recommendations} />
+      ) : null}
+
+      {!draftComplete && recommendations.length > 0 ? (
+        <DraftCopilotCard
+          context={context}
+          format={format}
+          recommendations={recommendations}
+          strategy={strategy}
+          riskTolerance={riskTolerance}
         />
+      ) : draftComplete ? (
+        <CompletedState context={context} picks={picks.length} />
       ) : (
-        <div className="surface draft-complete">
-          <Sparkles aria-hidden="true" />
-          <div>
-            <h2>
-              {context.status === "complete"
-                ? "Draft complete"
-                : !demoEnabled && !liveState
-                  ? "Live draft unavailable"
-                  : "Player board unavailable"}
-            </h2>
-            <p>
-              {draftComplete
-                ? `All ${picks.length} selections are synced. Review the final board under Recent picks.`
-                : demoEnabled
-                  ? "Every available player in this demo fixture has been selected."
-                  : runtimeError
-                    ? `${runtimeError.safeDetail} ${runtimeError.suggestedAction}`
-                    : "Refresh the Sleeper player index to restore recommendations."}
-            </p>
-          </div>
-          {demoEnabled ? (
-            <Button size="small" onClick={resetDemo}>
-              Reset draft
-            </Button>
-          ) : null}
-        </div>
+        <UnavailableState
+          demoEnabled={demoEnabled}
+          hasError={Boolean(runtimeError)}
+          onReset={resetDemo}
+          onRefresh={() => void refreshLiveDraft()}
+        />
       )}
 
-      <div className="draft-tabs-row">
-        <CompactTabs
-          label="Draft workspace"
-          value={visibleTab}
-          onValueChange={setActiveTab}
-          items={
-            draftComplete
-              ? [{ value: "recent", label: `Recent picks (${picks.length})` }]
-              : [
-                  { value: "recommendations", label: "Recommendations" },
-                  { value: "recent", label: `Recent picks (${picks.length})` },
-                  { value: "simulator", label: "Simulator" },
-                ]
-          }
-        />
-      </div>
-
-      {visibleTab === "recommendations" ? (
-        <div className="recommendation-board">
-          <div className="board-heading">
+      {!draftComplete ? (
+        <section
+          className="recommendation-board"
+          aria-labelledby="recommendation-board-heading"
+        >
+          <header className="board-heading">
             <div>
-              <span className="section-label">Available board</span>
-              <h2>Best contextual fits</h2>
+              <span className="section-label">Recommendation board</span>
+              <h2 id="recommendation-board-heading">
+                Available, eligible, and context-ranked
+              </h2>
             </div>
-            <span>Local score · live scarcity · next-pick odds</span>
+            <span className="read-only-chip">
+              <ShieldCheck aria-hidden="true" /> Read-only
+            </span>
+          </header>
+          <div className="board-toolbar">
+            <div
+              className="position-filters"
+              aria-label="Filter recommendation board by position"
+            >
+              {boardPositions
+                .filter((value) => value !== "IDP" || format.idp)
+                .map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={position === value ? "active" : ""}
+                    aria-pressed={position === value}
+                    onClick={() => setPosition(value)}
+                  >
+                    {value === "ALL" ? "All" : value}
+                  </button>
+                ))}
+            </div>
+            <span>
+              <Filter aria-hidden="true" /> Score · tier · next-pick range
+            </span>
           </div>
           <div className="player-table" aria-label="Draft recommendations">
             <div className="player-table-head">
-              <span>Rank</span>
+              <span>#</span>
               <span>Player</span>
               <span>Score</span>
-              <span>Next pick</span>
+              <span>At next pick</span>
               <span className="sr-only">Actions</span>
             </div>
-            {recommendations.slice(0, 12).map((recommendation) => (
-              <RecommendationRow
-                key={recommendation.player.id}
-                recommendation={recommendation}
-                expanded={expandedPlayer === recommendation.player.id}
-                watched={watchlist.includes(recommendation.player.id)}
-                onExpand={() =>
-                  setExpandedPlayer((current) =>
-                    current === recommendation.player.id
-                      ? null
-                      : recommendation.player.id,
-                  )
-                }
-                onWatch={() => toggleWatch(recommendation.player.id)}
-                onHide={() => toggleHidden(recommendation.player.id)}
-                onDraft={() =>
-                  addSimulation({
-                    type: "draft",
-                    playerId: recommendation.player.id,
-                    label: `Draft ${recommendation.player.fullName}`,
-                  })
-                }
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {visibleTab === "recent" ? (
-        <div className="recent-picks-grid" aria-label="Recent draft picks">
-          {picks
-            .toReversed()
-            .slice(0, 12)
-            .map((pick) => (
-              <article
-                className="surface recent-pick"
-                key={`${pick.pickNumber}-${pick.playerId}`}
-              >
-                <span className="tabular">
-                  {pick.round}.{String(pick.pickInRound).padStart(2, "0")}
-                </span>
-                <PositionBadge position={pick.position} />
-                <div>
-                  <strong>{pick.playerName}</strong>
-                  <small>{pick.pickedBy ?? "Unknown team"}</small>
-                </div>
-                {pick.isUserPick ? (
-                  <StatusBadge tone="info">You</StatusBadge>
-                ) : null}
-              </article>
-            ))}
-        </div>
-      ) : null}
-
-      {visibleTab === "simulator" ? (
-        <div className="surface simulator-panel">
-          <header>
-            <div>
-              <span className="section-label">Decision simulator</span>
-              <h2>Explore without changing the live board</h2>
-            </div>
-            <div>
-              <Button
-                size="small"
-                variant="ghost"
-                onClick={undoSimulation}
-                disabled={simulation.length === 0}
-              >
-                Undo
-              </Button>
-              <Button
-                size="small"
-                variant="ghost"
-                onClick={resetSimulation}
-                disabled={simulation.length === 0}
-              >
-                Reset
-              </Button>
-            </div>
-          </header>
-          <div className="simulation-actions">
-            <Button
-              size="small"
-              icon={<TimerReset />}
-              onClick={() =>
-                addSimulation({ type: "wait", label: "Wait one round" })
-              }
-            >
-              Wait one round
-            </Button>
-            {recommendations.slice(0, 3).map((entry) => (
-              <Button
-                size="small"
-                key={entry.player.id}
-                onClick={() =>
-                  addSimulation({
-                    type: "draft",
-                    playerId: entry.player.id,
-                    label: `Draft ${entry.player.fullName}`,
-                  })
-                }
-              >
-                {entry.player.fullName}
-              </Button>
-            ))}
-          </div>
-          {simulation.length ? (
-            <ol className="simulation-path">
-              {simulation.map((action, index) => (
-                <li key={`${action.label}-${index}`}>
-                  <span>{index + 1}</span>
-                  <strong>{action.label}</strong>
-                  <ArrowRight aria-hidden="true" />
-                  <small>
-                    {action.type === "wait"
-                      ? "Recalculate availability"
-                      : "Recalculate roster fit"}
-                  </small>
-                </li>
+            {visibleRecommendations
+              .slice(0, boardLimit)
+              .map((recommendation) => (
+                <RecommendationRow
+                  key={recommendation.player.id}
+                  recommendation={recommendation}
+                  expanded={expandedPlayer === recommendation.player.id}
+                  watched={watchlist.includes(recommendation.player.id)}
+                  onExpand={() =>
+                    setExpandedPlayer((current) =>
+                      current === recommendation.player.id
+                        ? null
+                        : recommendation.player.id,
+                    )
+                  }
+                  onWatch={() => toggleWatch(recommendation.player.id)}
+                  onHide={() => toggleHidden(recommendation.player.id)}
+                  onExplore={() =>
+                    addSimulation({
+                      type: "draft",
+                      playerId: recommendation.player.id,
+                      label: `Explore ${recommendation.player.fullName}`,
+                    })
+                  }
+                />
               ))}
-            </ol>
-          ) : (
-            <p className="simulator-empty">
-              Select a player or wait a round to compare possible outcomes.
-            </p>
-          )}
-        </div>
+          </div>
+          {visibleRecommendations.length > boardLimit ? (
+            <button
+              className="board-more"
+              type="button"
+              onClick={() => setBoardLimit((value) => value + 12)}
+            >
+              Show more ({visibleRecommendations.length - boardLimit} remaining)
+              <ChevronDown aria-hidden="true" />
+            </button>
+          ) : null}
+        </section>
+      ) : null}
+
+      <RecentPicks picks={picks} context={context} teams={format.teams} />
+
+      {!draftComplete ? (
+        <WhatIf
+          recommendations={recommendations}
+          simulation={simulation}
+          onAdd={addSimulation}
+          onUndo={undoSimulation}
+          onReset={resetSimulation}
+        />
       ) : null}
     </section>
   );
 }
 
-function TopRecommendation({
-  recommendation,
-  isWatched,
-  onWatch,
-  onDraft,
+function DraftContextRail({
+  context,
+  format,
+  demoEnabled,
+  demoPaused,
+  demoSpeed,
+  strategy,
+  riskTolerance,
+  sessionSaving,
+  onSessionKindChange,
+  onDemoPausedChange,
+  onDemoSpeedChange,
+  onResetDemo,
+  onStrategyChange,
+  onRiskToleranceChange,
 }: {
-  recommendation: Recommendation;
-  isWatched: boolean;
-  onWatch: () => void;
-  onDraft: () => void;
+  context: DraftContext;
+  format: ReturnType<typeof getActiveFixture>["format"];
+  demoEnabled: boolean;
+  demoPaused: boolean;
+  demoSpeed: number;
+  strategy: Strategy;
+  riskTolerance: number;
+  sessionSaving: boolean;
+  onSessionKindChange: (value: DraftSessionKind) => void;
+  onDemoPausedChange: (value: boolean) => void;
+  onDemoSpeedChange: (value: number) => void;
+  onResetDemo: () => void;
+  onStrategyChange: (value: Strategy) => void;
+  onRiskToleranceChange: (value: number) => void;
 }) {
-  const { player } = recommendation;
+  const formatParts = [
+    context.mode.replaceAll("_", " "),
+    format.superflex ? "Superflex" : format.twoQuarterback ? "2QB" : "1QB",
+    `${format.teams} teams`,
+    context.draftStyle.replaceAll("_", " "),
+    format.tightEndPremium ? "TE premium" : null,
+    format.bestBall ? "Best ball" : null,
+    format.idp ? "IDP" : null,
+  ].filter(Boolean);
   return (
-    <article className="top-recommendation">
-      <div className="top-recommendation__eyebrow">
-        <span>
-          <Sparkles aria-hidden="true" />
-          Best available for your build
+    <section className="draft-context-rail" aria-label="Draft context">
+      <div className="draft-context-rail__summary">
+        <span className={context.isUserOnClock ? "is-on-clock" : ""}>
+          <Clock3 aria-hidden="true" />
+          <strong>
+            {context.status === "pre_draft"
+              ? "Waiting for draft"
+              : context.isUserOnClock
+                ? "You are on the clock"
+                : (context.currentDrafter ?? "Draft room")}
+          </strong>
         </span>
-        <StatusBadge
-          tone={recommendation.risk === "high" ? "warning" : "success"}
-        >
-          {Math.round(recommendation.confidence * 100)}% confidence
-        </StatusBadge>
+        <span>
+          {context.nextUserPick === undefined
+            ? "Owned pick not linked"
+            : context.isUserOnClock
+              ? `Next owned pick ${formatPick(context.nextUserPick, format.teams)}`
+              : `${context.picksUntilUser} pick${context.picksUntilUser === 1 ? "" : "s"} until you`}
+        </span>
       </div>
-      <div className="top-recommendation__body">
-        <PlayerAvatar player={player} size="large" />
-        <div className="top-recommendation__identity">
-          <div>
-            <h1>{player.fullName}</h1>
-            <PositionBadge position={player.position} />
-            <TierBadge tier={recommendation.tier} />
-          </div>
-          <p>{recommendation.rationale}</p>
-          <div className="reason-chips">
-            <span>
-              <Target aria-hidden="true" />
-              {recommendation.rosterFit} roster fit
-            </span>
-            <span>
-              <Gauge aria-hidden="true" />
-              {recommendation.scarcity > 4 ? "Scarce tier" : "Stable tier"}
-            </span>
-          </div>
-        </div>
-        <dl className="recommendation-metrics">
-          <div>
-            <dt>Local</dt>
-            <dd>{recommendation.localScore}</dd>
-          </div>
-          <div data-research={recommendation.researchAdjustment !== 0}>
-            <dt>Research</dt>
-            <dd>
-              {recommendation.researchAdjustment === 0
-                ? "—"
-                : `${recommendation.researchAdjustment > 0 ? "+" : ""}${recommendation.researchAdjustment}`}
-            </dd>
-          </div>
-          <div>
-            <dt>Contextual</dt>
-            <dd>{recommendation.contextualScore}</dd>
-          </div>
-          <div>
-            <dt>At next pick</dt>
-            <dd>{recommendation.nextPickAvailability}%</dd>
-          </div>
-        </dl>
-        <ScoreBreakdown
-          localScore={recommendation.localScore}
-          factors={recommendation.components.map((component) => ({
-            key: component.key,
-            label: component.label,
-            impact: component.value,
-            note: component.reason,
-          }))}
-          {...(recommendation.researchAdjustment !== 0
-            ? {
-                researchAdjustment: recommendation.researchAdjustment,
-                researchBound: 8,
+      <div className="draft-context-rail__facts">
+        {formatParts.map((part) => (
+          <span key={part}>{part}</span>
+        ))}
+      </div>
+      <details className="draft-context-rail__settings">
+        <summary>
+          <Settings2 aria-hidden="true" /> Draft controls
+        </summary>
+        <div>
+          <label>
+            <span>Session type</span>
+            <select
+              value={context.sessionKind}
+              disabled={demoEnabled || sessionSaving || !context.draftId}
+              onChange={(event) =>
+                onSessionKindChange(event.target.value as DraftSessionKind)
               }
-            : {})}
-        />
-      </div>
-      <footer>
-        <Button
-          size="small"
-          variant={isWatched ? "secondary" : "ghost"}
-          icon={<Star />}
-          onClick={onWatch}
-          aria-pressed={isWatched}
-        >
-          {isWatched ? "Watching" : "Watch"}
-        </Button>
-        <Button
-          size="small"
-          variant="primary"
-          icon={<ArrowRight />}
-          onClick={onDraft}
-        >
-          Simulate pick
-        </Button>
-      </footer>
-    </article>
+            >
+              {Object.entries(sessionLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <small>
+              {context.sessionKindOverride
+                ? "Saved correction"
+                : `${Math.round(context.sessionKindConfidence * 100)}% detected`}
+            </small>
+          </label>
+          <label>
+            <span>Strategy</span>
+            <select
+              value={strategy}
+              onChange={(event) =>
+                onStrategyChange(event.target.value as Strategy)
+              }
+            >
+              {Object.entries(strategyLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="context-risk-control">
+            <span>
+              Risk tolerance <b>{Math.round(riskTolerance * 100)}%</b>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={riskTolerance}
+              onChange={(event) =>
+                onRiskToleranceChange(Number(event.target.value))
+              }
+            />
+          </label>
+          {demoEnabled ? (
+            <div className="context-demo-controls">
+              <StatusBadge tone="info">QA demo</StatusBadge>
+              <IconButton
+                label={demoPaused ? "Play demo" : "Pause demo"}
+                onClick={() => onDemoPausedChange(!demoPaused)}
+              >
+                {demoPaused ? <Play /> : <Pause />}
+              </IconButton>
+              <select
+                aria-label="Demo speed"
+                value={demoSpeed}
+                onChange={(event) =>
+                  onDemoSpeedChange(Number(event.target.value))
+                }
+              >
+                <option value="0.5">0.5×</option>
+                <option value="1">1×</option>
+                <option value="2">2×</option>
+              </select>
+              <IconButton label="Reset demo" onClick={onResetDemo}>
+                <RotateCcw />
+              </IconButton>
+            </div>
+          ) : null}
+        </div>
+      </details>
+    </section>
   );
 }
 
@@ -588,7 +506,7 @@ function RecommendationRow({
   onExpand,
   onWatch,
   onHide,
-  onDraft,
+  onExplore,
 }: {
   recommendation: Recommendation;
   expanded: boolean;
@@ -596,7 +514,7 @@ function RecommendationRow({
   onExpand: () => void;
   onWatch: () => void;
   onHide: () => void;
-  onDraft: () => void;
+  onExplore: () => void;
 }) {
   const { player } = recommendation;
   return (
@@ -616,61 +534,322 @@ function RecommendationRow({
           <span>
             <strong>{player.fullName}</strong>
             <small>
-              {player.team ?? "FA"} · age {player.age?.toFixed(1) ?? "—"}
+              {player.team ?? "FA"} · Tier {recommendation.tier} ·{" "}
+              {recommendation.rosterFit} fit
             </small>
           </span>
           <PositionBadge position={player.position} />
         </span>
         <span className="score-cell tabular">
-          <b>{recommendation.contextualScore}</b>
-          <small>Tier {recommendation.tier}</small>
+          <b>{Math.round(recommendation.contextualScore)}</b>
+          <small>raw {recommendation.rawScore}</small>
         </span>
-        <span className="availability-cell">
-          <b className="tabular">{recommendation.nextPickAvailability}%</b>
-          <span>
-            <i style={{ width: `${recommendation.nextPickAvailability}%` }} />
-          </span>
+        <span className="availability-cell tabular">
+          <b>
+            {recommendation.nextPickAvailabilityRange[0]}–
+            {recommendation.nextPickAvailabilityRange[1]}%
+          </b>
+          <small>
+            {Math.round(recommendation.nextPickConfidence * 100)}% model
+            confidence
+          </small>
         </span>
+        <ChevronDown className="row-chevron" aria-hidden="true" />
       </button>
-      <div className="row-actions">
-        <IconButton
-          label={watched ? "Remove from watchlist" : "Add to watchlist"}
-          active={watched}
-          onClick={onWatch}
-        >
-          <Star />
-        </IconButton>
-        <IconButton label={`Hide ${player.fullName}`} onClick={onHide}>
-          <Ban />
-        </IconButton>
-      </div>
       {expanded ? (
-        <div className="recommendation-detail">
-          <div>
-            <strong>Why this rank</strong>
-            <ul>
-              {recommendation.components.slice(1, 4).map((component) => (
-                <li key={component.key}>
-                  <span>{component.label}</span>
-                  <b className={component.value >= 0 ? "positive" : "negative"}>
-                    {component.value >= 0 ? "+" : ""}
-                    {component.value}
-                  </b>
-                  <small>{component.reason}</small>
-                </li>
-              ))}
-            </ul>
+        <div className="recommendation-row__details">
+          <p>{recommendation.rationale}</p>
+          <div className="recommendation-tags">
+            <TierBadge tier={recommendation.tier} />
+            <StatusBadge
+              tone={recommendation.risk === "high" ? "warning" : "neutral"}
+            >
+              {recommendation.risk} risk
+            </StatusBadge>
+            <span>
+              VOR {recommendation.valueOverReplacement > 0 ? "+" : ""}
+              {recommendation.valueOverReplacement}
+            </span>
           </div>
-          <div className="detail-actions">
-            <Button size="small" icon={<Eye />}>
-              Player view
+          <ScoreBreakdown
+            localScore={recommendation.normalizedScore}
+            factors={recommendation.components.map((component) => ({
+              key: component.key,
+              label: component.label,
+              impact: component.value,
+              note: component.reason,
+            }))}
+          />
+          <div className="recommendation-actions">
+            <Button
+              size="small"
+              variant={watched ? "secondary" : "ghost"}
+              icon={<Star />}
+              onClick={onWatch}
+              aria-pressed={watched}
+            >
+              {watched ? "Watching" : "Watch"}
             </Button>
-            <Button size="small" variant="primary" onClick={onDraft}>
-              Simulate
+            <Button
+              size="small"
+              variant="ghost"
+              icon={<EyeOff />}
+              onClick={onHide}
+            >
+              Hide
+            </Button>
+            <Button
+              size="small"
+              variant="secondary"
+              icon={<ArrowRight />}
+              onClick={onExplore}
+            >
+              Explore what-if
             </Button>
           </div>
         </div>
       ) : null}
     </div>
   );
+}
+
+function RecentPicks({
+  picks,
+  context,
+  teams,
+}: {
+  picks: ReturnType<typeof getVisiblePicks>;
+  context: DraftContext;
+  teams: number;
+}) {
+  return (
+    <section className="recent-picks" aria-labelledby="recent-picks-heading">
+      <header>
+        <div>
+          <span className="section-label">Recent picks</span>
+          <h2 id="recent-picks-heading">Board movement</h2>
+        </div>
+        <span>{picks.length} recorded</span>
+      </header>
+      <div
+        className="recent-picks-strip"
+        role="region"
+        aria-label="Scrollable recent draft picks"
+        tabIndex={0}
+      >
+        {picks.slice(-7).map((pick) => (
+          <article key={`${pick.pickNumber}-${pick.playerId}`}>
+            <span className="tabular">
+              {pick.round}.{String(pick.pickInRound).padStart(2, "0")}
+            </span>
+            <strong>{pick.playerName}</strong>
+            <small>
+              {pick.position} · {pick.pickedBy ?? "Unknown manager"}
+            </small>
+            {pick.isUserPick ? (
+              <StatusBadge tone="info">You</StatusBadge>
+            ) : null}
+          </article>
+        ))}
+        {context.status !== "complete" ? (
+          <article className="recent-picks-strip__clock">
+            <span>{formatPick(context.currentPick, teams)}</span>
+            <strong>
+              {context.isUserOnClock
+                ? "You're on the clock"
+                : (context.currentDrafter ?? "Waiting")}
+            </strong>
+          </article>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function WhatIf({
+  recommendations,
+  simulation,
+  onAdd,
+  onUndo,
+  onReset,
+}: {
+  recommendations: Recommendation[];
+  simulation: Array<{
+    type: "draft" | "wait" | "remove";
+    label: string;
+    playerId?: string;
+  }>;
+  onAdd: (action: {
+    type: "draft" | "wait" | "remove";
+    label: string;
+    playerId?: string;
+  }) => void;
+  onUndo: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <details className="what-if" open={simulation.length > 0}>
+      <summary>
+        <span>
+          <TimerReset aria-hidden="true" />
+          <strong>What if I draft…</strong>
+          <small>Explore roster and board impact locally</small>
+        </span>
+        <span>
+          Never sends picks to Sleeper <ChevronDown aria-hidden="true" />
+        </span>
+      </summary>
+      <div className="what-if__body">
+        <div className="what-if__actions">
+          <Button
+            size="small"
+            icon={<TimerReset />}
+            onClick={() => onAdd({ type: "wait", label: "Wait one round" })}
+          >
+            Wait one round
+          </Button>
+          {recommendations.slice(0, 4).map((entry) => (
+            <Button
+              size="small"
+              key={entry.player.id}
+              onClick={() =>
+                onAdd({
+                  type: "draft",
+                  playerId: entry.player.id,
+                  label: `Explore ${entry.player.fullName}`,
+                })
+              }
+            >
+              {entry.player.fullName}
+            </Button>
+          ))}
+          <Button
+            size="small"
+            variant="ghost"
+            onClick={onUndo}
+            disabled={simulation.length === 0}
+          >
+            Undo
+          </Button>
+          <Button
+            size="small"
+            variant="ghost"
+            onClick={onReset}
+            disabled={simulation.length === 0}
+          >
+            Reset
+          </Button>
+        </div>
+        {simulation.length > 0 ? (
+          <ol>
+            {simulation.map((action, index) => (
+              <li key={`${action.label}-${index}`}>
+                <span>{index + 1}</span>
+                <strong>{action.label}</strong>
+                <small>
+                  {action.type === "wait"
+                    ? "Recalculate next-pick survival"
+                    : "Recalculate roster fit and tier pressure"}
+                </small>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p>
+            Select a candidate to compare the local outcome without touching the
+            live draft.
+          </p>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function WaitingState({
+  context,
+  recommendations,
+}: {
+  context: DraftContext;
+  recommendations: Recommendation[];
+}) {
+  return (
+    <aside className="draft-state-card draft-state-card--waiting">
+      <Clock3 aria-hidden="true" />
+      <div>
+        <span className="section-label">Draft room ready</span>
+        <h2>Waiting for Sleeper to start the draft</h2>
+        <p>
+          The player board and local scoring are ready. Live picks will follow
+          this draft automatically.
+        </p>
+        <small>
+          {sessionLabels[context.sessionKind]} · {recommendations.length}{" "}
+          eligible players pre-ranked
+        </small>
+      </div>
+    </aside>
+  );
+}
+
+function CompletedState({
+  context,
+  picks,
+}: {
+  context: DraftContext;
+  picks: number;
+}) {
+  return (
+    <aside className="draft-state-card draft-state-card--complete">
+      <Sparkles aria-hidden="true" />
+      <div>
+        <span className="section-label">Draft complete</span>
+        <h2>{picks} picks safely synced</h2>
+        <p>
+          The final board remains available below. Not Sleeping never submitted
+          or altered a Sleeper selection.
+        </p>
+        <small>
+          {context.leagueName ?? context.draftName ?? "Sleeper draft"}
+        </small>
+      </div>
+    </aside>
+  );
+}
+
+function UnavailableState({
+  demoEnabled,
+  hasError,
+  onReset,
+  onRefresh,
+}: {
+  demoEnabled: boolean;
+  hasError: boolean;
+  onReset: () => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <aside className="draft-state-card draft-state-card--warning">
+      <AlertTriangle aria-hidden="true" />
+      <div>
+        <span className="section-label">Board unavailable</span>
+        <h2>
+          {hasError && !demoEnabled
+            ? "Live draft unavailable"
+            : hasError
+              ? "Draft data needs a refresh"
+              : "No eligible players remain"}
+        </h2>
+        <p>
+          The app will not invent candidates or expose an unsafe provider error.
+        </p>
+      </div>
+      <Button size="small" onClick={demoEnabled ? onReset : onRefresh}>
+        {demoEnabled ? "Reset demo" : "Retry"}
+      </Button>
+    </aside>
+  );
+}
+
+function formatPick(pick: number, teams: number): string {
+  return `${Math.ceil(pick / teams)}.${String(((pick - 1) % teams) + 1).padStart(2, "0")}`;
 }

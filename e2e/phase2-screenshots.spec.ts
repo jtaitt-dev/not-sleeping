@@ -7,11 +7,13 @@ import { loadExtension, type LoadedExtension } from "./extension-fixture";
 
 let loaded: LoadedExtension;
 const screenshotDir = resolve(process.cwd(), "docs", "screenshots");
+let openAiResponseDelayMs = 0;
 
 test.beforeAll(async () => {
   await mkdir(screenshotDir, { recursive: true });
   loaded = await loadExtension();
   await installSleeperFixture(loaded.context);
+  await installOpenAiFixture(loaded.context);
   await loaded.page.evaluate(async () => {
     await chrome.storage.local.set({
       appSettings: {
@@ -143,6 +145,124 @@ test("captures every required Phase 2 workspace from the shipped extension", asy
   );
 });
 
+test("captures premium Draft Copilot release states", async () => {
+  test.setTimeout(90_000);
+  const { page, extensionId } = loaded;
+  await page.setViewportSize({ width: 520, height: 1000 });
+  await captureDraftFixture(page, extensionId, "startup", "draft-copilot.png");
+  await captureCurrentDraft(page, "draft-premium-waiting.png");
+  await captureDraftFixture(
+    page,
+    extensionId,
+    "big-bucks",
+    "draft-copilot-big-bucks.png",
+  );
+  await captureCurrentDraft(page, "draft-premium-on-clock.png");
+  await captureCurrentDraft(page, "draft-premium-rookie.png");
+  await captureCurrentDraft(page, "draft-premium-ai-off.png");
+  await captureDraftFixture(
+    page,
+    extensionId,
+    "auction-draft",
+    "draft-copilot-auction.png",
+  );
+  await captureCurrentDraft(page, "draft-premium-auction.png");
+
+  await page.evaluate(async () => {
+    const { appSettings } = await chrome.storage.local.get("appSettings");
+    const settings =
+      appSettings && typeof appSettings === "object" ? appSettings : {};
+    await chrome.storage.session.set({
+      openaiApiKeySession: "sk-release_fixture_1234567890",
+    });
+    await chrome.storage.local.set({
+      appSettings: { ...settings, automaticAnalysis: true },
+    });
+  });
+  openAiResponseDelayMs = 2_000;
+  await page.reload();
+  await expect(page.getByLabel("Enable AI analysis")).toBeChecked();
+  await expect(
+    page.locator('.draft-copilot[data-ai-status="queued"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator(".draft-copilot__primary .player-avatar img"),
+  ).toBeVisible({ timeout: 4_000 });
+  await captureCurrentDraft(page, "draft-premium-ai-working.png");
+  await expect(page.locator(".draft-copilot")).toHaveAttribute(
+    "data-ai-job-id",
+    /.+/,
+    { timeout: 15_000 },
+  );
+  const jobId = await page
+    .locator(".draft-copilot")
+    .getAttribute("data-ai-job-id");
+  if (!jobId)
+    throw new Error("Draft Copilot did not expose its active AI job.");
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(async (activeJobId) => {
+          const response: unknown = await chrome.runtime.sendMessage({
+            v: 1,
+            requestId: crypto.randomUUID(),
+            timestamp: Date.now(),
+            type: "GET_REALTIME_DECISION",
+            payload: { jobId: activeJobId },
+          });
+          if (
+            typeof response !== "object" ||
+            response === null ||
+            !("data" in response)
+          ) {
+            return null;
+          }
+          const data: unknown = response.data;
+          return typeof data === "object" &&
+            data !== null &&
+            "aiStatus" in data &&
+            typeof data.aiStatus === "string"
+            ? data.aiStatus
+            : null;
+        }, jobId),
+      { timeout: 30_000 },
+    )
+    .toBe("ready");
+  await expect(
+    page.locator('.draft-copilot[data-ai-status="ready"]'),
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+  await captureCurrentDraft(page, "draft-premium-ai-ready.png");
+  openAiResponseDelayMs = 0;
+  await page.evaluate(async () => {
+    const { appSettings } = await chrome.storage.local.get("appSettings");
+    const settings =
+      appSettings && typeof appSettings === "object" ? appSettings : {};
+    await chrome.storage.local.set({
+      appSettings: { ...settings, automaticAnalysis: false },
+    });
+  });
+  await page.reload();
+  await expect(page.getByLabel("Enable AI analysis")).not.toBeChecked();
+  await page.setViewportSize({ width: 320, height: 900 });
+  await captureDraftFixture(
+    page,
+    extensionId,
+    "big-bucks",
+    "draft-copilot-320.png",
+  );
+  await captureCurrentDraft(page, "draft-premium-320.png");
+  await page.setViewportSize({ width: 600, height: 1000 });
+  await captureDraftFixture(
+    page,
+    extensionId,
+    "startup",
+    "draft-premium-600.png",
+  );
+  await page.setViewportSize({ width: 520, height: 1000 });
+});
+
 async function captureLeagueSwitcher(page: Page) {
   await page.goto(
     `chrome-extension://${loaded.extensionId}/sidepanel.html#/today`,
@@ -170,6 +290,97 @@ async function captureRoute(
   await page.screenshot({
     path: resolve(screenshotDir, file),
     animations: "disabled",
+  });
+}
+
+async function captureDraftFixture(
+  page: Page,
+  extensionId: string,
+  fixture: string,
+  file: string,
+) {
+  await page.goto(`chrome-extension://${extensionId}/sidepanel.html#/draft`);
+  await page.evaluate(async (fixtureId) => {
+    await chrome.storage.local.set({
+      demoMode: { enabled: true, fixture: fixtureId },
+    });
+  }, fixture);
+  // Hash navigation keeps the existing React store alive. Reload so hydration
+  // reads the newly selected fixture before the release screenshot is taken.
+  await page.reload();
+  await expect(
+    page.getByRole("heading", {
+      name: fixture === "auction-draft" ? "Auction Copilot" : "Draft Copilot",
+      exact: true,
+    }),
+  ).toBeVisible();
+  if (fixture === "big-bucks") {
+    await expect(page.getByText("16 teams", { exact: true })).toBeVisible();
+  } else if (fixture === "auction-draft") {
+    await expect(page.getByText(/\$182 budget/)).toBeVisible();
+  } else {
+    await expect(page.getByText("12 teams", { exact: true })).toBeVisible();
+  }
+  await page.screenshot({
+    path: resolve(screenshotDir, file),
+    animations: "disabled",
+  });
+}
+
+async function captureCurrentDraft(page: Page, file: string) {
+  await page.screenshot({
+    path: resolve(screenshotDir, file),
+    animations: "disabled",
+  });
+}
+
+async function installOpenAiFixture(context: BrowserContext) {
+  await context.route("https://api.openai.com/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/models")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          object: "list",
+          data: [
+            {
+              id: "gpt-5.6-luna",
+              object: "model",
+              created: 0,
+              owned_by: "openai",
+            },
+          ],
+        }),
+      });
+      return;
+    }
+    if (openAiResponseDelayMs > 0) {
+      await new Promise((resolvePromise) =>
+        setTimeout(resolvePromise, openAiResponseDelayMs),
+      );
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "resp_release_fixture",
+        model: "gpt-5.6-luna",
+        output_text: JSON.stringify({
+          recommendationId: null,
+          summary:
+            "The local leader remains legal after a bounded roster and board review.",
+          adjustment: 1,
+          confidenceDelta: 0.02,
+          reasons: [
+            "The verified rookie pool and current pick ownership agree.",
+          ],
+          risks: ["Opponent intentions remain probabilistic."],
+        }),
+        output: [],
+        usage: { input_tokens: 120, output_tokens: 40, total_tokens: 160 },
+      }),
+    });
   });
 }
 

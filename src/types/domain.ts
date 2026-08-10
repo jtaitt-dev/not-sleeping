@@ -6,6 +6,17 @@ export type DraftMode =
   | "best_ball"
   | "unknown";
 
+export type DraftSessionKind =
+  "league_draft" | "league_mock" | "standalone_mock" | "unknown";
+
+export type LiveDraftStyle =
+  | "snake"
+  | "linear"
+  | "third_round_reversal"
+  | "auction"
+  | "manual_custom"
+  | "unknown";
+
 export type Strategy =
   "contender" | "balanced" | "productive_struggle" | "rebuild";
 
@@ -86,18 +97,37 @@ export type DraftPick = {
   isKeeper: boolean;
   isUserPick: boolean;
   timestamp?: number;
+  price?: number;
 };
 
 export type DraftContext = {
   supported: boolean;
   source: "sleeper" | "manual" | "demo";
+  season?: number;
   url?: string;
   userId?: string;
   username?: string;
   leagueId?: string;
+  /** The league whose settings informed this draft, including league mocks. */
+  sourceLeagueId?: string;
   leagueName?: string;
   draftId?: string;
   draftName?: string;
+  sessionKind: DraftSessionKind;
+  sessionKindConfidence: number;
+  sessionKindEvidence: string[];
+  sessionKindOverride: boolean;
+  draftStyle: LiveDraftStyle;
+  auction?: {
+    initialBudget: number;
+    remainingBudget: number;
+    minimumBid: number;
+    rosterSpots: number;
+    filledSpots: number;
+    currentBid?: number;
+    bidLeader?: string;
+    currentNominationPlayerId?: string;
+  };
   rosterId?: string;
   mode: DraftMode;
   modeConfidence: number;
@@ -107,6 +137,8 @@ export type DraftContext = {
   currentDrafter?: string;
   nextUserPick?: number;
   picksUntilUser?: number;
+  ownedPickNumbers: number[];
+  isUserOnClock: boolean;
   secondsRemaining?: number;
   status: "pre_draft" | "drafting" | "paused" | "complete" | "unknown";
   lastUpdatedAt: number;
@@ -118,6 +150,8 @@ export type LiveDraftState = {
   format: LeagueFormat;
   picks: DraftPick[];
   players: Player[];
+  /** Verified players already on the connected user's source-league roster. */
+  rosterPlayers?: Player[];
   playerValues?: Record<
     string,
     {
@@ -146,14 +180,24 @@ export type Recommendation = {
   player: Player;
   rank: number;
   tier: number;
+  /** Unbounded local-model score before presentation calibration. */
+  rawScore: number;
+  /** Calibrated 0..100 local score. */
+  normalizedScore: number;
   localScore: number;
   researchAdjustment: number;
   contextualScore: number;
+  aiAdjustedScore?: number;
   confidence: number;
   valueOverReplacement: number;
   rosterFit: "weak" | "neutral" | "strong";
   scarcity: number;
   nextPickAvailability: number;
+  nextPickAvailabilityRange: [number, number];
+  nextPickConfidence: number;
+  nextPickFactors: string[];
+  nextPickWarning?: string;
+  marketAdp?: number;
   risk: "low" | "moderate" | "high";
   rationale: string;
   researchFreshness?: number;

@@ -12,6 +12,8 @@ import {
   type DraftEnginePlayer,
   type OpponentArchetype,
 } from "@/services/draft/draft-engine";
+import { calibrateDraftScore } from "@/services/draft/recommendation-contract";
+import { nextPickSurvivalEstimate } from "@/services/scenarios/next-pick-survival";
 
 export type ValuationInputs = {
   importedRank?: number;
@@ -34,6 +36,13 @@ export type RankingContext = {
   riskTolerance: number;
   currentPick: number;
   nextUserPick: number;
+  draftStyle?:
+    | "snake"
+    | "linear"
+    | "third_round_reversal"
+    | "auction"
+    | "manual_custom"
+    | "unknown";
   rosterNeeds: Partial<Record<Player["position"], number>>;
   positionDemand: Partial<Record<Player["position"], number>>;
   remainingInTier: Partial<Record<Player["position"], number>>;
@@ -55,6 +64,8 @@ const URGENT_STARTER_NEED = 10;
 
 type PlayerScore = {
   player: Player;
+  rawScore: number;
+  normalizedScore: number;
   localScore: number;
   researchAdjustment: number;
   contextualScore: number;
@@ -189,10 +200,14 @@ export function calculatePlayerScore(
     draftTiming +
     draftCapital +
     injuryPenalty;
-  const localScore = clamp(orderingScore, 0, 100);
+  const rawScore = round(orderingScore);
+  const normalizedScore = calibrateDraftScore(rawScore);
+  const localScore = normalizedScore;
   const researchAdjustment = clamp(inputs.researchAdjustment ?? 0, -8, 8);
   return {
     player,
+    rawScore,
+    normalizedScore,
     localScore: round(localScore),
     researchAdjustment: round(researchAdjustment),
     contextualScore: round(clamp(localScore + researchAdjustment, 0, 100)),
@@ -242,8 +257,17 @@ export function rankPlayers(
   );
 
   return scored.map((entry, index) => {
+    const percentileScore =
+      scored.length <= 1 ? 88 : 90 - (index / (scored.length - 1)) * 70;
+    const normalizedScore = round(
+      clamp(entry.normalizedScore * 0.78 + percentileScore * 0.22, 0, 100),
+    );
+    const contextualScore = round(
+      clamp(normalizedScore + entry.researchAdjustment, 0, 100),
+    );
     const availability = estimateAvailability({
-      playerScore: entry.contextualScore,
+      playerId: entry.player.id,
+      position: entry.player.position,
       adp: eligiblePlayers.find((item) => item.player.id === entry.player.id)
         ?.inputs.adp,
       currentPick: context.currentPick,
@@ -259,15 +283,31 @@ export function rankPlayers(
       player: entry.player,
       rank: index + 1,
       tier: tiers[index] ?? 1,
-      localScore: entry.localScore,
+      rawScore: entry.rawScore,
+      normalizedScore,
+      localScore: normalizedScore,
       researchAdjustment: entry.researchAdjustment,
-      contextualScore: entry.contextualScore,
+      contextualScore,
       confidence: round(0.55 + availability.confidence * 0.35),
       valueOverReplacement: round(vor),
       rosterFit: need > 1 ? "strong" : need < -0.5 ? "weak" : "neutral",
       scarcity: round(scarcityScore(entry.player, context)),
       nextPickAvailability: availability.probability,
-      risk: riskLabel(entry.components),
+      nextPickAvailabilityRange: availability.confidenceInterval,
+      nextPickConfidence: availability.confidence,
+      nextPickFactors: availability.factors,
+      ...(availability.warning
+        ? { nextPickWarning: availability.warning }
+        : {}),
+      ...(eligiblePlayers.find((item) => item.player.id === entry.player.id)
+        ?.inputs.adp === undefined
+        ? {}
+        : {
+            marketAdp: eligiblePlayers.find(
+              (item) => item.player.id === entry.player.id,
+            )?.inputs.adp,
+          }),
+      risk: riskLabel(entry.components, entry.player),
       rationale: buildRationale(
         entry.player,
         entry.components,
@@ -321,7 +361,12 @@ function sharedDraftEngineScores(
       1,
       context.format.draftRounds ?? expandedRosterSlots(context.format).length,
     ),
-    style: "snake",
+    style:
+      context.draftStyle === "linear" ||
+      context.draftStyle === "third_round_reversal" ||
+      context.draftStyle === "auction"
+        ? context.draftStyle
+        : "snake",
     playerPool:
       context.format.mode === "dynasty_rookie"
         ? "rookies_only"
@@ -366,14 +411,30 @@ export function deriveRosterNeeds(
   format: LeagueFormat,
   picks: DraftPick[],
   currentPick: number,
+  existingRosterPlayers: Player[] = [],
 ): Partial<Record<Player["position"], number>> {
   const currentSlot = slotForPick(currentPick, format.teams);
-  const rosterCounts = picks
-    .filter((pick) => pick.pickInRound === currentSlot)
-    .reduce<Partial<Record<Player["position"], number>>>((counts, pick) => {
-      counts[pick.position] = (counts[pick.position] ?? 0) + 1;
-      return counts;
-    }, {});
+  const hasUserOwnership = picks.some((pick) => pick.isUserPick);
+  const existingPlayerIds = new Set(
+    existingRosterPlayers.map((player) => player.id),
+  );
+  const rosterCounts = existingRosterPlayers.reduce<
+    Partial<Record<Player["position"], number>>
+  >((counts, player) => {
+    counts[player.position] = (counts[player.position] ?? 0) + 1;
+    return counts;
+  }, {});
+  picks
+    .filter(
+      (pick) =>
+        (hasUserOwnership
+          ? pick.isUserPick
+          : pick.pickInRound === currentSlot) &&
+        !existingPlayerIds.has(pick.playerId),
+    )
+    .forEach((pick) => {
+      rosterCounts[pick.position] = (rosterCounts[pick.position] ?? 0) + 1;
+    });
   const needs: Partial<Record<Player["position"], number>> = {};
 
   for (const position of DIRECT_ROSTER_POSITIONS) {
@@ -468,7 +529,8 @@ export function calculateReplacementLevels(
 }
 
 type AvailabilityInput = {
-  playerScore: number;
+  playerId: string;
+  position: Player["position"];
   adp?: number;
   currentPick: number;
   nextPick: number;
@@ -484,39 +546,26 @@ export function estimateAvailability(input: AvailabilityInput): {
   warning?: string;
 } {
   const picksAway = Math.max(1, input.nextPick - input.currentPick);
-  const adpGap = input.adp === undefined ? 0 : input.adp - input.nextPick;
-  const scorePressure = (input.playerScore - 75) / 8;
-  const demandPressure = clamp(input.positionDemand, 0, 1.5) * 1.4;
-  const tierPressure =
-    input.remainingTier <= 2 ? 1.2 : input.remainingTier <= 5 ? 0.5 : 0;
-  const survival =
-    1 /
-    (1 +
-      Math.exp(
-        scorePressure +
-          demandPressure +
-          tierPressure -
-          picksAway / 7 -
-          adpGap / 12,
-      ));
-  const probability = Math.round(clamp(survival * 100, 2, 98));
-  const confidence = input.adp === undefined ? 0.46 : 0.74;
-  const margin = input.adp === undefined ? 24 : 13;
+  const estimate = nextPickSurvivalEstimate({
+    candidateId: input.playerId,
+    position: input.position,
+    adp: input.adp,
+    currentPick: input.currentPick,
+    picksUntilNext: picksAway,
+    positionDemand: clamp(input.positionDemand, 0, 1.5) * 0.04,
+    remainingTier: input.remainingTier,
+    simulations: 800,
+  });
+  const probability = Math.round(estimate.probability * 100);
   return {
     probability,
     confidenceInterval: [
-      Math.max(0, probability - margin),
-      Math.min(100, probability + margin),
+      Math.round(estimate.interval[0] * 100),
+      Math.round(estimate.interval[1] * 100),
     ],
-    confidence,
-    factors: [
-      `${picksAway} selections before the next owned pick`,
-      `${input.remainingTier} players remain in the tier`,
-      input.adp === undefined ? "No imported ADP" : `Imported ADP ${input.adp}`,
-    ],
-    ...(input.adp === undefined
-      ? { warning: "Availability is lower confidence without imported ADP." }
-      : {}),
+    confidence: estimate.confidence,
+    factors: estimate.factors,
+    ...(estimate.warning ? { warning: estimate.warning } : {}),
   };
 }
 
@@ -829,7 +878,17 @@ function slotForPick(pickNumber: number, teams: number): number {
   return round % 2 === 0 ? teams - inRound + 1 : inRound;
 }
 
-function riskLabel(components: ScoreComponent[]): Recommendation["risk"] {
+function riskLabel(
+  components: ScoreComponent[],
+  player: Player,
+): Recommendation["risk"] {
+  const injuryStatus = player.injuryStatus?.trim().toUpperCase() ?? "";
+  if (
+    player.status === "injured" ||
+    ["IR", "PUP", "OUT", "SUSPENDED"].includes(injuryStatus)
+  ) {
+    return "high";
+  }
   const penalty =
     components.find((component) => component.key === "risk")?.value ?? 0;
   if (penalty <= -4.5) return "high";

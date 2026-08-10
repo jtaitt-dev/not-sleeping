@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-08-10T17:30:19.931Z",
+  "mode": "deterministic instrumentation-contract fixture",
+  "summary": {
+    "samples": 2,
+    "localBoardLatencyMs": {
+      "median": 4,
+      "p95": 6
+    },
+    "shortlistLatencyMs": {
+      "median": 2,
+      "p95": 2
+    },
+    "researchStartLatencyMs": {
+      "median": 8,
+      "p95": 12
+    },
+    "aiJobStartLatencyMs": {
+      "median": 12,
+      "p95": 20
+    },
+    "aiCompletionLatencyMs": {
+      "median": 68,
+      "p95": 120
+    },
+    "precedingPickToLocalBoardMs": {
+      "median": 5,
+      "p95": 8
+    },
+    "precedingPickToAiReadyMs": {
+      "median": 80,
+      "p95": 140
+    },
+    "userPicksWithClockEvidence": 2,
+    "readyBeforeUserClock": 1,
+    "readyBeforeUserClockRate": 0.5
+  },
+  "measurements": [
+    {
+      "stateHash": "ready-before-clock",
+      "precedingPickToLocalBoardMs": 5,
+      "localBoardLatencyMs": 4,
+      "shortlistLatencyMs": 2,
+      "researchStartLatencyMs": 8,
+      "aiJobStartLatencyMs": 12,
+      "aiCompletionLatencyMs": 68,
+      "precedingPickToAiReadyMs": 80,
+      "readyBeforeUserClock": true
+    },
+    {
+      "stateHash": "ready-after-clock",
+      "precedingPickToLocalBoardMs": 8,
+      "localBoardLatencyMs": 6,
+      "shortlistLatencyMs": 2,
+      "researchStartLatencyMs": 12,
+      "aiJobStartLatencyMs": 20,
+      "aiCompletionLatencyMs": 120,
+      "precedingPickToAiReadyMs": 140,
+      "readyBeforeUserClock": false
+    }
+  ],
+  "limitations": [
+    "The fixture validates timing arithmetic and readiness classification; it is not a production AI-latency benchmark.",
+    "The shipped Draft Copilot tracker records the same milestones from real board, Sleeper-context, AI-start, AI-ready, and clock events."
+  ]
+}

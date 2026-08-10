@@ -22,7 +22,7 @@ test("loads the MV3 extension and navigates every primary workspace", async () =
   await expect(primaryNav.getByRole("link")).toHaveCount(6);
 
   for (const workspace of [
-    { link: "Draft", heading: "Best contextual fits" },
+    { link: "Draft", heading: "Draft Copilot" },
     { link: "Team", heading: "Team" },
     { link: "Players", heading: "Players" },
     { link: "Trade", heading: "Trade Center" },
@@ -52,6 +52,114 @@ test("loads the MV3 extension and navigates every primary workspace", async () =
   ).toBeVisible();
 });
 
+test("distinguishes Sleeper page traffic and keeps extension Sleeper requests GET-only", async () => {
+  const { context, page } = loaded;
+  const observed: Array<{
+    method: string;
+    source: "extension-service-worker" | "sleeper-page" | "other";
+    url: string;
+  }> = [];
+  const onRequest = (request: import("@playwright/test").Request) => {
+    if (!request.url().startsWith("https://api.sleeper.app/")) return;
+    const workerUrl = request.serviceWorker()?.url() ?? "";
+    let frameUrl = "";
+    try {
+      frameUrl = request.frame().url();
+    } catch {
+      // Service-worker requests intentionally have no frame.
+    }
+    observed.push({
+      method: request.method(),
+      source: workerUrl.startsWith("chrome-extension://")
+        ? "extension-service-worker"
+        : frameUrl.startsWith("https://sleeper.com/")
+          ? "sleeper-page"
+          : "other",
+      url: request.url(),
+    });
+  };
+  context.on("request", onRequest);
+  await context.route("https://api.sleeper.app/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const body =
+      path === "/v1/draft/audit-draft"
+        ? {
+            draft_id: "audit-draft",
+            league_id: null,
+            type: "mock",
+            status: "drafting",
+            season: "2026",
+            sport: "nfl",
+            settings: {},
+            metadata: {},
+          }
+        : path === "/v1/state/nfl"
+          ? {
+              week: 1,
+              season_type: "pre",
+              season_start_date: "2026-09-08",
+              season: "2026",
+            }
+          : [];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify(body),
+    });
+  });
+  await context.route("https://sleeper.com/network-audit", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<!doctype html><title>network audit</title>",
+    });
+  });
+
+  await page.goto(
+    `chrome-extension://${loaded.extensionId}/sidepanel.html#/draft`,
+  );
+  const extensionSucceeded = await page.evaluate(async () => {
+    const response: unknown = await chrome.runtime.sendMessage({
+      v: 1,
+      requestId: crypto.randomUUID(),
+      timestamp: Date.now(),
+      type: "GET_DRAFT",
+      payload: { draftId: "audit-draft" },
+    });
+    return (
+      typeof response === "object" &&
+      response !== null &&
+      "ok" in response &&
+      response.ok === true
+    );
+  });
+  expect(extensionSucceeded).toBe(true);
+
+  const sleeperPage = await context.newPage();
+  await sleeperPage.goto("https://sleeper.com/network-audit");
+  await sleeperPage.evaluate(async () => {
+    await fetch("https://api.sleeper.app/v1/state/nfl");
+  });
+  await sleeperPage.close();
+
+  await context.unroute("https://sleeper.com/network-audit");
+  await context.unroute("https://api.sleeper.app/**");
+  context.off("request", onRequest);
+
+  const extensionRequests = observed.filter(
+    (request) => request.source === "extension-service-worker",
+  );
+  expect(extensionRequests.length).toBeGreaterThanOrEqual(3);
+  expect(extensionRequests.every((request) => request.method === "GET")).toBe(
+    true,
+  );
+  expect(observed.some((request) => request.source === "sleeper-page")).toBe(
+    true,
+  );
+  expect(observed.every((request) => request.source !== "other")).toBe(true);
+});
+
 test("renders every standard side-panel route and the popup without console errors", async () => {
   const { context, page, extensionId } = loaded;
   const consoleErrors: string[] = [];
@@ -66,7 +174,7 @@ test("renders every standard side-panel route and the popup without console erro
   const routes: Array<{ path: string; heading: string | RegExp }> = [
     { path: "today", heading: "Today" },
     { path: "leagues", heading: "Leagues" },
-    { path: "draft", heading: "Best contextual fits" },
+    { path: "draft", heading: "Draft Copilot" },
     { path: "mock-draft", heading: "Choose a Sleeper league" },
     { path: "start-sit", heading: /Start & Sit|Best Ball Optimizer/ },
     { path: "matchup", heading: "Matchup Center" },
@@ -223,16 +331,12 @@ test("recalculates strategy and supports draft decision interactions", async () 
   await page.goto(
     `chrome-extension://${loaded.extensionId}/sidepanel.html#/draft`,
   );
+  await page.locator(".draft-context-rail__settings > summary").click();
   await page.getByLabel("Strategy").selectOption("rebuild");
   await expect(page.getByLabel("Strategy")).toHaveValue("rebuild");
-  await page.getByRole("tab", { name: "Simulator" }).click();
-  await expect(
-    page.getByRole("heading", {
-      name: "Explore without changing the live board",
-    }),
-  ).toBeVisible();
+  await page.locator(".what-if > summary").click();
   await page.getByRole("button", { name: "Wait one round" }).click();
-  await expect(page.getByText("Recalculate availability")).toBeVisible();
+  await expect(page.getByText("Recalculate next-pick survival")).toBeVisible();
 });
 
 test("completes a full league-derived mock with every pick entered manually", async () => {
@@ -340,12 +444,29 @@ test("renders at the 320px minimum without horizontal overflow", async () => {
   await page.goto(
     `chrome-extension://${loaded.extensionId}/sidepanel.html#/draft`,
   );
-  const overflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth >
-      document.documentElement.clientWidth,
-  );
-  expect(overflow).toBe(false);
+  const overflow = await page.evaluate(() => {
+    const viewport = document.documentElement.clientWidth;
+    return [...document.querySelectorAll<HTMLElement>("body *")]
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        if (!(rect.right > viewport + 0.5 || rect.left < -0.5)) return false;
+        let parent = element.parentElement;
+        while (parent) {
+          const overflowX = getComputedStyle(parent).overflowX;
+          if (overflowX === "auto" || overflowX === "scroll") return false;
+          parent = parent.parentElement;
+        }
+        return true;
+      })
+      .map((element) => ({
+        element: `${element.tagName.toLowerCase()}.${element.className}`,
+        left: Math.round(element.getBoundingClientRect().left),
+        right: Math.round(element.getBoundingClientRect().right),
+        scrollWidth: element.scrollWidth,
+      }))
+      .slice(0, 20);
+  });
+  expect(overflow).toEqual([]);
 });
 
 test("propagates a Sleeper route and never disguises a live error as demo data", async () => {

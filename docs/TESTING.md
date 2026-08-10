@@ -12,10 +12,12 @@
   the loaded-extension browser suite.
 - Playwright launches `dist` as a real MV3 extension and checks navigation,
   interactions, offline use, 320px layout, the two-stage Advanced Research
-  gate, and a complete manual-entry mock without implicit autopicks.
+  gate, truthful Draft Copilot AI states, verified headshots, and a complete
+  48-pick manual-entry mock without implicit autopicks.
 - axe checks loaded extension pages for serious and critical accessibility
   violations.
-- Targeted screenshots cover the live draft and trusted key settings.
+- Targeted screenshots cover waiting, on-clock, AI off/working/ready, rookie,
+  auction, 320px, 600px, and trusted-key states from the packaged extension.
 - CI also runs formatting, typed lint, strict typecheck, build, audit, and
   source-map checks.
 
@@ -38,4 +40,10 @@ pnpm test:visual
 Before a release, check Chrome side-panel widths 320, 360, 420, 480, and 600;
 dark, light, system, and high contrast themes; reduced motion; keyboard-only
 navigation; offline mode; no-key mode; invalid key; quota/rate limits; Sleeper
-outage; completed drafts; and all fifteen demo fixtures.
+outage; completed drafts; and all seventeen demo fixtures.
+
+Authenticated Big Bucks validation is complementary rather than a replacement
+for deterministic E2E. Live validation must record which picks were made
+manually, which were Sleeper auto-picks/timeouts, the draft IDs, and whether the
+extension-originated Sleeper boundary remained GET-only. Never describe a live
+board as fully manual unless every Sleeper selection was entered that way.

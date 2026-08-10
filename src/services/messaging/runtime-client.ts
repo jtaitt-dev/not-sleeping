@@ -49,25 +49,12 @@ export async function requestRuntime<T>(
 
 export function safeRuntimeError(error: unknown): SafeRuntimeError {
   if (error instanceof RuntimeRequestError) return error.detail;
-  if (error && typeof error === "object") {
-    const detail = error as Partial<SafeRuntimeError>;
-    if (typeof detail.message === "string") {
-      return {
-        code: detail.code ?? "UNKNOWN",
-        message: detail.message,
-        safeDetail:
-          detail.safeDetail ?? "No additional safe diagnostic was returned.",
-        suggestedAction: detail.suggestedAction ?? "Retry the action.",
-        retryable: detail.retryable ?? true,
-        diagnosticCode: detail.diagnosticCode ?? "NS-UNKNOWN",
-      };
-    }
-  }
   return {
     code: "UNKNOWN",
-    message: error instanceof Error ? error.message : "The request failed.",
-    safeDetail: "The extension page could not complete the runtime request.",
-    suggestedAction: "Reload the extension and retry.",
+    message: "The request could not be completed.",
+    safeDetail:
+      "The extension kept internal provider and validation details out of the draft screen.",
+    suggestedAction: "Retry. If it continues, export redacted diagnostics.",
     retryable: true,
     diagnosticCode: "NS-UNKNOWN",
   };
