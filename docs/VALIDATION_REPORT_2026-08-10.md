@@ -81,7 +81,7 @@ manager display-name list is included in these release captures.
 | `pnpm screenshots:phase2`          | PASS — 2/2 capture workflows                                       |
 | Authenticated account audit        | PASS — live account/league read-only audit                         |
 | `pnpm audit:prod`                  | PASS — no known vulnerabilities                                    |
-| `pnpm zip`                         | PASS                                                               |
+| `pnpm zip`                         | PASS — two consecutive builds produced identical bytes             |
 
 The E2E traffic audit separately identifies requests from the extension service
 worker and the Sleeper page. Every extension-originated Sleeper request was GET;
@@ -106,7 +106,7 @@ from real board, context/research, AI start, AI ready, and clock events.
 - ZIP: `artifacts/not-sleeping-0.8.0.zip`
 - SHA-256 file: `artifacts/not-sleeping-0.8.0.sha256`
 - SHA-256:
-  `b1eec2226a73beb49a3676748d58162d2352ba8ba0454000cd4e8b8a34e22a7a`
+  `5da9b7cf2d98bf6bebe0b919067b02f97b1cae9f64cd615d284390118034bb0f`
 
 The archive is a limited-beta/sideload package. It is not approved for Chrome
 Web Store submission without a new policy and legal review.
