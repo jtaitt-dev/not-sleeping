@@ -46,6 +46,8 @@ semantic versioning.
 - Rookie recommendations now reject veterans; injured/IR players receive
   explicit high-risk treatment; mock ownership follows season-filtered source
   trades even when the active draft reports none.
+- Release packaging now normalizes ZIP header and extra-field timestamps so
+  identical extension contents produce an identical archive checksum.
 
 ### Security
 

@@ -1,15 +1,10 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  copyFile,
-  mkdir,
-  readFile,
-  readdir,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { normalizeZipArchive } from "./deterministic-zip.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const output = resolve(root, ".output");
@@ -24,7 +19,7 @@ await runWxt(["zip"]);
 const generated = await newestGeneratedZip(before);
 const archiveName = `not-sleeping-${packageJson.version}.zip`;
 const archivePath = resolve(artifacts, archiveName);
-await copyFile(generated, archivePath);
+await writeFile(archivePath, normalizeZipArchive(await readFile(generated)));
 const checksum = createHash("sha256")
   .update(await readFile(archivePath))
   .digest("hex");
