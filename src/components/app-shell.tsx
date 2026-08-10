@@ -415,6 +415,12 @@ export function AppShell() {
                 Week {leagueContext.week} ·{" "}
                 {leagueContext.leagueType.replaceAll("_", " ")}
               </>
+            ) : liveUnavailable ? (
+              leagueStatus === "switching" ? (
+                "Switching draft"
+              ) : (
+                "Draft unavailable"
+              )
             ) : (
               <>
                 Pick {Math.ceil(currentPick / format.teams)}.

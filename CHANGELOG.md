@@ -5,6 +5,33 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-10
+
+### Changed
+
+- The selected league now scopes the Draft workspace and resolves its verified
+  current-season board, while an open Sleeper live/mock draft takes priority
+  only when its source league matches that selection.
+- The Windows Chrome reload helper falls back to an exact accessibility-bound
+  click when current Chrome omits `InvokePattern` from its Reload control.
+
+### Fixed
+
+- Cleared a previous league's live state as soon as switching begins and
+  rejected stale draft refreshes, errors, and in-flight responses after the
+  league or route identity changes.
+- Removed the demo-fixture fallback from live loading, unavailable, and
+  no-board states so Big Bucks picks or completion status cannot appear under
+  Beers BB $50 or any other league.
+- Rechecked the active Sleeper tab before falling back to the league's scheduled
+  board, preserving the exact matching open mock after switching away and back.
+
+### Security
+
+- Cross-league draft identity is validated before state is committed. Sleeper
+  access remains GET-only; the all-league audit simulated 1,224 legal picks
+  locally without submitting a pick or changing a roster.
+
 ## [0.8.0] - 2026-08-10
 
 ### Added
@@ -221,7 +248,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.6.0...v0.7.0

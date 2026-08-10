@@ -13,6 +13,7 @@ import type {
 } from "@/schemas/sleeper";
 import type { Player } from "@/types/domain";
 import type { LeagueCatalogItem } from "@/services/league/league-service";
+import { resolveLeagueDraftId } from "@/services/draft/league-draft-selection";
 import {
   requestRuntime,
   safeRuntimeError,
@@ -20,6 +21,7 @@ import {
 } from "@/services/messaging/runtime-client";
 import { getSettings } from "@/services/storage/settings";
 import type { LeagueContext, ManualLeagueOverrides } from "@/types/league";
+import { useAppStore } from "@/stores/app-store";
 
 export type LeagueSnapshot = {
   userId: string;
@@ -54,7 +56,10 @@ type LeagueState = {
   query: string;
   hydrate: () => Promise<void>;
   sync: () => Promise<void>;
-  selectLeague: (leagueId: string) => Promise<void>;
+  selectLeague: (
+    leagueId: string,
+    options?: { syncDraft?: boolean },
+  ) => Promise<void>;
   favoriteLeague: (leagueId: string, favorite: boolean) => Promise<void>;
   setOverrides: (overrides: ManualLeagueOverrides) => Promise<void>;
   setSwitcherOpen: (open: boolean) => void;
@@ -95,7 +100,7 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
         )
           ? response.activeLeagueId
           : response.catalog[0]?.leagueId;
-      if (selected) await get().selectLeague(selected);
+      if (selected) await get().selectLeague(selected, { syncDraft: false });
       else set({ status: "ready" });
     } catch (error) {
       set({ status: "error", error: safeRuntimeError(error) });
@@ -118,13 +123,15 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
       });
       set({ catalog, status: "ready" });
       if (!get().activeContext && catalog[0])
-        await get().selectLeague(catalog[0].leagueId);
+        await get().selectLeague(catalog[0].leagueId, { syncDraft: false });
     } catch (error) {
       set({ status: "error", error: safeRuntimeError(error) });
     }
   },
-  selectLeague: async (leagueId) => {
+  selectLeague: async (leagueId, options) => {
     const epoch = ++selectionEpoch;
+    const syncDraft = options?.syncDraft ?? true;
+    if (syncDraft) useAppStore.getState().beginLeagueDraftSwitch(leagueId);
     set({ status: "switching", error: null, switcherOpen: false });
     try {
       const settings = await getSettings();
@@ -165,6 +172,15 @@ export const useLeagueStore = create<LeagueState>((set, get) => ({
         status: "ready",
         error: null,
       });
+      if (syncDraft) {
+        void useAppStore.getState().selectLeagueDraft(
+          context.leagueId,
+          resolveLeagueDraftId({
+            league: snapshot.league,
+            drafts: snapshot.drafts,
+          }),
+        );
+      }
     } catch (error) {
       if (epoch !== selectionEpoch) return;
       set({ status: "error", error: safeRuntimeError(error) });

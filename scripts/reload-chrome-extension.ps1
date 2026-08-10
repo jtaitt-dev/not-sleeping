@@ -17,6 +17,78 @@ if ($env:OS -ne "Windows_NT") {
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class NotSleepingNativeInput
+{
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Point
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern bool GetCursorPos(out Point point);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(
+        uint flags,
+        uint dx,
+        uint dy,
+        uint data,
+        UIntPtr extraInfo
+    );
+}
+"@
+
+function Invoke-AutomationControl {
+    param(
+        [Parameter(Mandatory)]
+        [System.Windows.Automation.AutomationElement]$Element
+    )
+
+    $invoke = $null
+    if ($Element.TryGetCurrentPattern(
+        [System.Windows.Automation.InvokePattern]::Pattern,
+        [ref]$invoke
+    )) {
+        $invoke.Invoke()
+        return
+    }
+
+    # Chrome 151 exposes toolbar controls such as Reload without InvokePattern.
+    # A real click remains a user-equivalent, version-tolerant fallback and is
+    # scoped to the exact accessibility element already resolved above.
+    try {
+        $point = $Element.GetClickablePoint()
+        $clickX = [int][Math]::Round($point.X)
+        $clickY = [int][Math]::Round($point.Y)
+    }
+    catch {
+        $bounds = $Element.Current.BoundingRectangle
+        if ($bounds.IsEmpty -or $bounds.Width -le 0 -or $bounds.Height -le 0) {
+            throw
+        }
+        $clickX = [int][Math]::Round($bounds.Left + ($bounds.Width / 2))
+        $clickY = [int][Math]::Round($bounds.Top + ($bounds.Height / 2))
+    }
+    $prior = [NotSleepingNativeInput+Point]::new()
+    [NotSleepingNativeInput]::GetCursorPos([ref]$prior) | Out-Null
+    [NotSleepingNativeInput]::SetCursorPos(
+        $clickX,
+        $clickY
+    ) | Out-Null
+    [NotSleepingNativeInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+    [NotSleepingNativeInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 75
+    [NotSleepingNativeInput]::SetCursorPos($prior.X, $prior.Y) | Out-Null
+}
 
 function Get-ExtensionsWindow {
     $root = [System.Windows.Automation.AutomationElement]::RootElement
@@ -120,10 +192,7 @@ function Refresh-SleeperTabs {
             continue
         }
 
-        $reload = $reloadButton.GetCurrentPattern(
-            [System.Windows.Automation.InvokePattern]::Pattern
-        )
-        $reload.Invoke()
+        Invoke-AutomationControl -Element $reloadButton
         $refreshed += 1
         Start-Sleep -Milliseconds 250
     }
@@ -193,11 +262,7 @@ if ($null -eq $reloadButton) {
     throw "Could not find Reload for '$ExtensionName'. Is Developer mode enabled?"
 }
 
-$invokePattern = $reloadButton.GetCurrentPattern(
-    [System.Windows.Automation.InvokePattern]::Pattern
-)
-
-$invokePattern.Invoke()
+Invoke-AutomationControl -Element $reloadButton
 Write-Host "Reloaded Chrome extension: $ExtensionName"
 
 if ($RefreshSleeperTabs) {

@@ -28,11 +28,17 @@ type SimulationAction = {
   playerId?: string;
 };
 
+export type DraftScope =
+  | { kind: "tab"; draftId: string }
+  | { kind: "league"; leagueId: string; draftId: string | null };
+
 type AppState = {
   demoEnabled: boolean;
   fixtureId: string;
   hydrationStatus: "idle" | "loading" | "ready" | "error";
   liveState: LiveDraftState | null;
+  tabLiveState: LiveDraftState | null;
+  draftScope: DraftScope | null;
   keyStatus: KeyStatus;
   extensionVersion: string | null;
   runtimeError: SafeRuntimeError | null;
@@ -45,9 +51,17 @@ type AppState = {
   hiddenPlayers: string[];
   simulation: SimulationAction[];
   hydrate: (tabId?: number) => Promise<void>;
+  beginLeagueDraftSwitch: (leagueId: string) => void;
+  selectLeagueDraft: (
+    leagueId: string,
+    draftId: string | null,
+  ) => Promise<void>;
   refreshLiveDraft: () => Promise<void>;
   setLiveState: (liveState: LiveDraftState) => void;
-  setRuntimeError: (runtimeError: SafeRuntimeError | null) => void;
+  setRuntimeError: (
+    runtimeError: SafeRuntimeError | null,
+    draftId?: string,
+  ) => void;
   setDemoEnabled: (enabled: boolean) => void;
   setFixture: (fixtureId: string) => void;
   nextDemoPick: () => void;
@@ -63,11 +77,15 @@ type AppState = {
   resetSimulation: () => void;
 };
 
-export const useAppStore = create<AppState>((set) => ({
+let draftSelectionEpoch = 0;
+
+export const useAppStore = create<AppState>((set, get) => ({
   demoEnabled: true,
   fixtureId: "startup",
   hydrationStatus: "idle",
   liveState: null,
+  tabLiveState: null,
+  draftScope: null,
   keyStatus: { available: false, mode: null, masked: null },
   extensionVersion: null,
   runtimeError: null,
@@ -80,6 +98,7 @@ export const useAppStore = create<AppState>((set) => ({
   hiddenPlayers: [],
   simulation: [],
   hydrate: async (tabId) => {
+    const epoch = ++draftSelectionEpoch;
     set({ hydrationStatus: "loading", runtimeError: null });
     try {
       const status = await requestRuntime<RuntimeStatus>({
@@ -95,11 +114,19 @@ export const useAppStore = create<AppState>((set) => ({
       // fallback for non-draft pages; a previously persisted demo preference
       // must never mask a real league draft or Sleeper mock.
       if (supported && draftId) {
+        const draftScope: DraftScope = { kind: "tab", draftId };
+        set({ draftScope, liveState: null, demoEnabled: false });
         try {
           const liveState = await requestRuntime<LiveDraftState>({
             type: "GET_LIVE_DRAFT",
             payload: { draftId },
           });
+          set({ tabLiveState: liveState });
+          if (
+            epoch !== draftSelectionEpoch ||
+            !draftMatchesScope(liveState, draftScope)
+          )
+            return;
           set({
             demoEnabled: false,
             liveState,
@@ -108,6 +135,7 @@ export const useAppStore = create<AppState>((set) => ({
             extensionVersion: status.extensionVersion,
           });
         } catch (error) {
+          if (epoch !== draftSelectionEpoch) return;
           set({
             demoEnabled: false,
             liveState: null,
@@ -119,15 +147,19 @@ export const useAppStore = create<AppState>((set) => ({
         }
         return;
       }
+      if (epoch !== draftSelectionEpoch) return;
       set({
         demoEnabled: true,
         liveState: null,
+        tabLiveState: null,
+        draftScope: null,
         fixtureId: status.demo?.fixture ?? "startup",
         hydrationStatus: "ready",
         keyStatus: providerKeyStatus,
         extensionVersion: status.extensionVersion,
       });
     } catch (error) {
+      if (epoch !== draftSelectionEpoch) return;
       set({
         demoEnabled: true,
         liveState: null,
@@ -136,14 +168,93 @@ export const useAppStore = create<AppState>((set) => ({
       });
     }
   },
-  refreshLiveDraft: async () => {
-    const draftId = useAppStore.getState().liveState?.context.draftId;
+  beginLeagueDraftSwitch: (leagueId) => {
+    draftSelectionEpoch += 1;
+    set({
+      draftScope: { kind: "league", leagueId, draftId: null },
+      liveState: null,
+      demoEnabled: false,
+      hydrationStatus: "loading",
+      runtimeError: null,
+    });
+  },
+  selectLeagueDraft: async (leagueId, draftId) => {
+    const epoch = ++draftSelectionEpoch;
+    let tabLiveState = get().tabLiveState;
+    if (!tabLiveState || !draftBelongsToLeague(tabLiveState, leagueId)) {
+      tabLiveState = await loadActiveTabDraftForLeague(leagueId);
+      if (epoch !== draftSelectionEpoch) return;
+    }
+    if (tabLiveState && draftBelongsToLeague(tabLiveState, leagueId)) {
+      const tabDraftId = tabLiveState.context.draftId;
+      if (tabDraftId) {
+        set({
+          draftScope: { kind: "league", leagueId, draftId: tabDraftId },
+          liveState: tabLiveState,
+          tabLiveState,
+          demoEnabled: false,
+          hydrationStatus: "ready",
+          runtimeError: null,
+        });
+        return;
+      }
+    }
+    const draftScope: DraftScope = {
+      kind: "league",
+      leagueId,
+      draftId,
+    };
+    set({
+      draftScope,
+      liveState: null,
+      demoEnabled: false,
+      hydrationStatus: draftId ? "loading" : "ready",
+      runtimeError: null,
+    });
     if (!draftId) return;
     try {
       const liveState = await requestRuntime<LiveDraftState>({
         type: "GET_LIVE_DRAFT",
         payload: { draftId },
       });
+      if (
+        epoch !== draftSelectionEpoch ||
+        !draftMatchesScope(liveState, draftScope)
+      )
+        return;
+      set({
+        liveState,
+        demoEnabled: false,
+        hydrationStatus: "ready",
+        runtimeError: null,
+      });
+    } catch (error) {
+      if (epoch !== draftSelectionEpoch) return;
+      set({
+        liveState: null,
+        demoEnabled: false,
+        hydrationStatus: "error",
+        runtimeError: safeRuntimeError(error),
+      });
+    }
+  },
+  refreshLiveDraft: async () => {
+    const before = useAppStore.getState();
+    const draftId = before.liveState?.context.draftId;
+    if (!draftId) return;
+    const epoch = draftSelectionEpoch;
+    try {
+      const liveState = await requestRuntime<LiveDraftState>({
+        type: "GET_LIVE_DRAFT",
+        payload: { draftId },
+      });
+      const current = useAppStore.getState();
+      if (
+        epoch !== draftSelectionEpoch ||
+        current.liveState?.context.draftId !== draftId ||
+        !draftMatchesScope(liveState, current.draftScope)
+      )
+        return;
       set({
         liveState,
         demoEnabled: false,
@@ -166,24 +277,55 @@ export const useAppStore = create<AppState>((set) => ({
     }
   },
   setLiveState: (liveState) =>
-    set({
-      liveState,
-      demoEnabled: false,
-      hydrationStatus: "ready",
-      runtimeError: null,
+    set((state) => {
+      const draftId = liveState.context.draftId;
+      const tabOnly = { tabLiveState: liveState };
+      if (!draftId) return tabOnly;
+      if (state.draftScope?.kind === "league") {
+        if (!draftBelongsToLeague(liveState, state.draftScope.leagueId)) {
+          return tabOnly;
+        }
+        if (state.draftScope.draftId !== draftId) draftSelectionEpoch += 1;
+        return {
+          ...tabOnly,
+          draftScope: {
+            kind: "league",
+            leagueId: state.draftScope.leagueId,
+            draftId,
+          },
+          liveState,
+          demoEnabled: false,
+          hydrationStatus: "ready",
+          runtimeError: null,
+        };
+      }
+      if (state.draftScope?.draftId !== draftId) draftSelectionEpoch += 1;
+      return {
+        ...tabOnly,
+        draftScope: { kind: "tab", draftId },
+        liveState,
+        demoEnabled: false,
+        hydrationStatus: "ready",
+        runtimeError: null,
+      };
     }),
-  setRuntimeError: (runtimeError) =>
-    set((state) => ({
-      runtimeError,
-      ...(runtimeError && state.liveState
-        ? {
-            liveState: {
-              ...state.liveState,
-              context: { ...state.liveState.context, connected: false },
-            },
-          }
-        : {}),
-    })),
+  setRuntimeError: (runtimeError, draftId) =>
+    set((state) => {
+      if (draftId && !scopeAcceptsDraftId(state.draftScope, draftId)) {
+        return state;
+      }
+      return {
+        runtimeError,
+        ...(runtimeError && state.liveState
+          ? {
+              liveState: {
+                ...state.liveState,
+                context: { ...state.liveState.context, connected: false },
+              },
+            }
+          : {}),
+      };
+    }),
   setDemoEnabled: (demoEnabled) => set({ demoEnabled }),
   setFixture: (fixtureId) => set({ fixtureId, draftStep: 0 }),
   nextDemoPick: () => set((state) => ({ draftStep: state.draftStep + 1 })),
@@ -391,4 +533,69 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function draftMatchesScope(
+  liveState: LiveDraftState,
+  scope: DraftScope | null,
+): boolean {
+  const draftId = liveState.context.draftId;
+  if (!scope) return true;
+  if (!draftId || !scopeAcceptsDraftId(scope, draftId)) return false;
+  if (scope.kind === "tab") return true;
+  return (
+    (liveState.context.sourceLeagueId ?? liveState.context.leagueId) ===
+    scope.leagueId
+  );
+}
+
+function draftBelongsToLeague(
+  liveState: LiveDraftState,
+  leagueId: string,
+): boolean {
+  return (
+    (liveState.context.sourceLeagueId ?? liveState.context.leagueId) ===
+    leagueId
+  );
+}
+
+function scopeAcceptsDraftId(
+  scope: DraftScope | null,
+  draftId: string,
+): boolean {
+  if (!scope) return true;
+  return scope.draftId === draftId;
+}
+
+async function loadActiveTabDraftForLeague(
+  leagueId: string,
+): Promise<LiveDraftState | null> {
+  if (typeof chrome === "undefined") return null;
+  const tabsApi = (
+    chrome as unknown as { tabs?: Pick<typeof chrome.tabs, "query"> }
+  ).tabs;
+  if (typeof tabsApi?.query !== "function") return null;
+  try {
+    const [tab] = await tabsApi.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (tab?.id === undefined || !tab.url?.startsWith("https://sleeper.com/"))
+      return null;
+    const status = await requestRuntime<RuntimeStatus>({
+      type: "GET_STATUS",
+      payload: { tabId: tab.id },
+    });
+    const route = asRecord(status.context);
+    const routeDraftId =
+      typeof route["draftId"] === "string" ? route["draftId"] : null;
+    if (route["supported"] !== true || !routeDraftId) return null;
+    const liveState = await requestRuntime<LiveDraftState>({
+      type: "GET_LIVE_DRAFT",
+      payload: { draftId: routeDraftId },
+    });
+    return draftBelongsToLeague(liveState, leagueId) ? liveState : null;
+  } catch {
+    return null;
+  }
 }

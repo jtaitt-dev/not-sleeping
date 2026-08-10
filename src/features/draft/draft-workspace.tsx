@@ -30,6 +30,7 @@ import {
   getVisiblePicks,
   useAppStore,
 } from "@/stores/app-store";
+import { useLeagueStore } from "@/stores/league-store";
 import type {
   DraftContext,
   DraftSessionKind,
@@ -71,6 +72,8 @@ export function DraftWorkspace() {
     fixtureId,
     demoEnabled,
     liveState,
+    draftScope,
+    hydrationStatus,
     runtimeError,
     draftStep,
     demoPaused,
@@ -93,6 +96,7 @@ export function DraftWorkspace() {
     undoSimulation,
     resetSimulation,
   } = useAppStore();
+  const selectedLeague = useLeagueStore((state) => state.activeContext);
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
   const [position, setPosition] = useState<BoardPosition>("ALL");
   const [boardLimit, setBoardLimit] = useState(12);
@@ -168,6 +172,24 @@ export function DraftWorkspace() {
     return entry.player.position === position;
   });
   const safeError = runtimeError ? translateDraftError(runtimeError) : null;
+
+  if (!demoEnabled && !liveState) {
+    return (
+      <section className="draft-workspace">
+        <UnavailableState
+          demoEnabled={false}
+          hasError={Boolean(runtimeError)}
+          hasDraft={
+            draftScope?.kind !== "league" || draftScope.draftId !== null
+          }
+          leagueName={selectedLeague?.leagueName}
+          loading={hydrationStatus === "loading"}
+          onReset={resetDemo}
+          onRefresh={() => void refreshLiveDraft()}
+        />
+      </section>
+    );
+  }
 
   const saveSessionKind = async (sessionKind: DraftSessionKind) => {
     if (demoEnabled || !context.draftId) return;
@@ -819,33 +841,47 @@ function CompletedState({
 function UnavailableState({
   demoEnabled,
   hasError,
+  hasDraft = true,
+  leagueName,
+  loading = false,
   onReset,
   onRefresh,
 }: {
   demoEnabled: boolean;
   hasError: boolean;
+  hasDraft?: boolean;
+  leagueName?: string;
+  loading?: boolean;
   onReset: () => void;
   onRefresh: () => void;
 }) {
+  const title = loading
+    ? `Loading ${leagueName ? `${leagueName}'s` : "the selected"} draft`
+    : !hasDraft
+      ? `${leagueName ?? "This league"} has no Sleeper draft board`
+      : hasError && !demoEnabled
+        ? "Live draft unavailable"
+        : hasError
+          ? "Draft data needs a refresh"
+          : "No eligible players remain";
+  const detail = loading
+    ? "The previous league's board and picks have been cleared while this draft is verified."
+    : !hasDraft
+      ? "Create or assign a draft board in Sleeper, then sync this league again. No other league's draft data will be substituted."
+      : "The app will not invent candidates or expose an unsafe provider error.";
   return (
     <aside className="draft-state-card draft-state-card--warning">
       <AlertTriangle aria-hidden="true" />
       <div>
         <span className="section-label">Board unavailable</span>
-        <h2>
-          {hasError && !demoEnabled
-            ? "Live draft unavailable"
-            : hasError
-              ? "Draft data needs a refresh"
-              : "No eligible players remain"}
-        </h2>
-        <p>
-          The app will not invent candidates or expose an unsafe provider error.
-        </p>
+        <h2>{title}</h2>
+        <p>{detail}</p>
       </div>
-      <Button size="small" onClick={demoEnabled ? onReset : onRefresh}>
-        {demoEnabled ? "Reset demo" : "Retry"}
-      </Button>
+      {!loading && (demoEnabled || hasDraft) ? (
+        <Button size="small" onClick={demoEnabled ? onReset : onRefresh}>
+          {demoEnabled ? "Reset demo" : "Retry"}
+        </Button>
+      ) : null}
     </aside>
   );
 }
