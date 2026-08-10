@@ -92,7 +92,7 @@ export function LeagueMockDraftWorkspace() {
 
   const requiredPoolSize = plan
     ? Math.min(
-        1_000,
+        6_000,
         Math.max(420, plan.config.teams * plan.config.rounds + 120),
       )
     : 420;
@@ -111,6 +111,9 @@ export function LeagueMockDraftWorkspace() {
             limit: requiredPoolSize,
             rookiesOnly: plan.config.playerPool === "rookies_only",
             idpOnly: false,
+            playerPool: plan.config.playerPool,
+            rosterSlots: plan.config.rosterSlots,
+            excludePlayerIds: plan.config.unavailablePlayerIds ?? [],
           },
         });
       })

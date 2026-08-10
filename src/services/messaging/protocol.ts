@@ -275,9 +275,20 @@ export const messageSchema = z.discriminatedUnion("type", [
     ...messageBase,
     type: z.literal("GET_PLAYER_POOL"),
     payload: z.object({
-      limit: z.number().int().min(1).max(1_000).default(400),
+      limit: z.number().int().min(1).max(6_000).default(400),
       rookiesOnly: z.boolean().default(false),
       idpOnly: z.boolean().default(false),
+      playerPool: z
+        .enum([
+          "all_available",
+          "rookies_only",
+          "veterans_only",
+          "manual",
+          "unknown",
+        ])
+        .optional(),
+      rosterSlots: z.array(z.string().min(1).max(24)).max(160).optional(),
+      excludePlayerIds: z.array(id).max(6_000).optional(),
     }),
   }),
   z.object({

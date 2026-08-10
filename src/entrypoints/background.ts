@@ -14,6 +14,7 @@ import {
 import { mergeTeamDefenseFallback } from "@/services/context/team-defense-fallback";
 import { AppError, normalizeError } from "@/services/errors/app-error";
 import { resolveLiveDraftTradedPicks } from "@/services/draft/traded-pick-resolution";
+import { createPlayerPoolPredicate } from "@/services/draft/player-pool-query";
 import { DecisionPipeline } from "@/services/decision-pipeline/decision-pipeline";
 import { PlayerResearchService } from "@/services/intelligence/player-research-service";
 import {
@@ -402,27 +403,10 @@ async function routeMessage(
     }
     case "GET_PLAYER_POOL": {
       if ((await db.players.count()) === 0) await sleeper.refreshPlayers();
-      const idp = new Set([
-        "DL",
-        "DE",
-        "DT",
-        "EDGE",
-        "LB",
-        "ILB",
-        "OLB",
-        "DB",
-        "CB",
-        "S",
-        "FS",
-        "SS",
-      ]);
+      const matchesLeaguePool = createPlayerPoolPredicate(message.payload);
       return db.players
         .orderBy("searchRank")
-        .filter(
-          (player) =>
-            (!message.payload.rookiesOnly || player.yearsExperience === 0) &&
-            (!message.payload.idpOnly || idp.has(player.position)),
-        )
+        .filter(matchesLeaguePool)
         .limit(message.payload.limit)
         .toArray();
     }
