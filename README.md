@@ -27,10 +27,24 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.0](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.0)**.
+The current release is **[v0.8.1](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.1)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 ![Premium Draft Copilot on the clock](docs/screenshots/draft-premium-on-clock.png)
+
+## New in v0.8.1
+
+- Switching leagues immediately clears the previous draft and loads only the
+  selected league's verified board; delayed refreshes, errors, and completed
+  mocks from another league are rejected.
+- When the open Sleeper tab is a live or mock draft for the selected league,
+  that exact board takes priority over the league's separate scheduled draft.
+- The unavailable/loading state no longer falls back to Big Bucks demo context,
+  picks, or completion status.
+- Current-account validation covers all four 2026 leagues and 1,224 legal,
+  duplicate-free simulated picks without any Sleeper writes.
+- The Windows reload helper supports current Chrome builds that expose Reload
+  as a clickable accessibility control without `InvokePattern`.
 
 ## New in v0.8.0
 

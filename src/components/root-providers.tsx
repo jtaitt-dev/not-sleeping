@@ -68,7 +68,10 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
         record["type"] === "DRAFT_REFRESH_ERROR" &&
         record["tabId"] === boundTabId
       ) {
-        setRuntimeError(safeRuntimeError(record["error"]));
+        setRuntimeError(
+          safeRuntimeError(record["error"]),
+          typeof record["draftId"] === "string" ? record["draftId"] : undefined,
+        );
       }
     };
     void activeSleeperTabId().then(async (tabId) => {
