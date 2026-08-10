@@ -746,7 +746,7 @@ export function WaiverWireWorkspace() {
   return (
     <SeasonWorkspace
       title="Waiver Wire"
-      subtitle={`${context.waiverType.replaceAll("_", " ")} · recommendations adapt to league rules and live rosters.`}
+      subtitle={`${context.waiverType === "disabled" ? "Waivers disabled" : context.waiverType.replaceAll("_", " ")} · recommendations adapt to league rules and live rosters.`}
       action={
         <Button
           size="small"

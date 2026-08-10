@@ -4,6 +4,7 @@ import { OpenAIProvider } from "@/providers/openai/openai-provider";
 import { SleeperProvider } from "@/providers/sleeper/sleeper-provider";
 import { SleeperPlayerContextProvider } from "@/providers/sleeper/sleeper-player-context-provider";
 import { OpenMeteoProvider } from "@/providers/weather/open-meteo-provider";
+import { detectSleeperCapabilities } from "@/config/sleeper-capabilities";
 import { db } from "@/services/cache/database";
 import { showLocalAlert } from "@/services/alerts/alert-service";
 import { LiveDraftController } from "@/services/context/live-draft-controller";
@@ -601,29 +602,16 @@ async function loadLiveDraft(
   ]);
   const leagueId = resolveDraftLeagueId(draft);
   const playerLimit = liveDraftPlayerLimit(draft.settings);
-  const [
-    league,
-    leagueTradedPicks,
-    users,
-    rosters,
-    corePlayers,
-    kickers,
-    teamDefenses,
-    idpPlayers,
-    projections,
-  ] = await Promise.all([
-    leagueId ? optionalSleeper(() => sleeper.getLeague(leagueId)) : null,
-    leagueId
-      ? optionalSleeper(() => sleeper.getLeagueTradedPicks(leagueId))
-      : [],
-    leagueId ? optionalSleeper(() => sleeper.getLeagueUsers(leagueId)) : [],
-    leagueId ? optionalSleeper(() => sleeper.getRosters(leagueId)) : [],
-    sleeper.searchPlayers("", [], playerLimit),
-    sleeper.searchPlayers("", ["K"], 64),
-    sleeper.searchPlayers("", ["DEF"], 64),
-    sleeper.searchPlayers("", ["DL", "LB", "DB"], 300),
-    optionalSleeper(() => sleeper.getNflProjections(draft.season)),
-  ]);
+  const [league, leagueTradedPicks, users, rosters, projections] =
+    await Promise.all([
+      leagueId ? optionalSleeper(() => sleeper.getLeague(leagueId)) : null,
+      leagueId
+        ? optionalSleeper(() => sleeper.getLeagueTradedPicks(leagueId))
+        : [],
+      leagueId ? optionalSleeper(() => sleeper.getLeagueUsers(leagueId)) : [],
+      leagueId ? optionalSleeper(() => sleeper.getRosters(leagueId)) : [],
+      optionalSleeper(() => sleeper.getNflProjections(draft.season)),
+    ]);
   const rosterPlayerIds = [
     ...new Set(
       (rosters ?? []).flatMap((roster) => [
@@ -634,18 +622,33 @@ async function loadLiveDraft(
       ]),
     ),
   ];
-  const rosterPlayers = (await db.players.bulkGet(rosterPlayerIds)).filter(
-    (player): player is Player => player !== undefined,
+  const capabilities = league ? detectSleeperCapabilities(league, draft) : null;
+  const excludeRosteredPlayers = Boolean(
+    capabilities &&
+    (capabilities.leagueType === "dynasty" ||
+      capabilities.playerPool === "rookies_only" ||
+      capabilities.draftPurpose === "supplemental"),
   );
+  const matchesLeaguePool = createPlayerPoolPredicate({
+    playerPool: capabilities?.playerPool ?? "all_available",
+    rosterSlots: league?.roster_positions ?? [],
+    excludePlayerIds: excludeRosteredPlayers ? rosterPlayerIds : [],
+  });
+  const [corePlayers, rosterPlayers] = await Promise.all([
+    db.players
+      .orderBy("searchRank")
+      .filter(matchesLeaguePool)
+      .limit(playerLimit)
+      .toArray(),
+    db.players
+      .bulkGet(rosterPlayerIds)
+      .then((rows) =>
+        rows.filter((player): player is Player => player !== undefined),
+      ),
+  ]);
   const players = mergeTeamDefenseFallback([
     ...new Map(
-      [
-        ...corePlayers,
-        ...kickers,
-        ...teamDefenses,
-        ...idpPlayers,
-        ...rosterPlayers,
-      ].map((player) => [player.id, player]),
+      [...corePlayers, ...rosterPlayers].map((player) => [player.id, player]),
     ).values(),
   ]);
   const routeContext = asRecord(storedContext[contextStorageKey(tabId)]);
@@ -682,7 +685,7 @@ function liveDraftPlayerLimit(settings: Record<string, unknown>): number {
   const rounds =
     typeof settings["rounds"] === "number" ? settings["rounds"] : 20;
   return Math.min(
-    1_000,
+    6_000,
     Math.max(300, Math.ceil(teams) * Math.ceil(rounds) + 200),
   );
 }

@@ -77,7 +77,11 @@ import {
   getSettings,
   saveSettings,
 } from "@/services/storage/settings";
-import { getRecommendations, useAppStore } from "@/stores/app-store";
+import {
+  getLiveRecommendations,
+  getRecommendations,
+  useAppStore,
+} from "@/stores/app-store";
 import { useLeagueStore } from "@/stores/league-store";
 import type { PlayerResearchOutput } from "@/schemas/openai";
 import type { AppSettings, KeyStatus, Player, Strategy } from "@/types/domain";
@@ -851,17 +855,18 @@ export function CompareWorkspace() {
 
 export function RankingsWorkspace() {
   const fixtureId = useAppStore((state) => state.fixtureId);
+  const demoEnabled = useAppStore((state) => state.demoEnabled);
+  const liveState = useAppStore((state) => state.liveState);
   const draftStep = useAppStore((state) => state.draftStep);
   const strategy = useAppStore((state) => state.strategy);
   const risk = useAppStore((state) => state.riskTolerance);
   const hidden = useAppStore((state) => state.hiddenPlayers);
-  const rankings = getRecommendations(
-    fixtureId,
-    draftStep,
-    strategy,
-    risk,
-    hidden,
-  );
+  const rankings =
+    !demoEnabled && liveState
+      ? getLiveRecommendations(liveState, strategy, risk, hidden)
+      : demoEnabled
+        ? getRecommendations(fixtureId, draftStep, strategy, risk, hidden)
+        : [];
   const [filter, setFilter] = useState("ALL");
   const filtered = rankings.filter(
     (entry) => filter === "ALL" || entry.player.position === filter,
@@ -918,6 +923,20 @@ export function RankingsWorkspace() {
             </span>
           </div>
         ))}
+        {filtered.length === 0 ? (
+          <EmptyState
+            title={
+              liveState?.context.status === "complete"
+                ? "Draft complete"
+                : "No verified rankings"
+            }
+            detail={
+              liveState?.context.status === "complete"
+                ? "This board has no remaining draft recommendations."
+                : "Open or select this league's draft board to load its verified player pool."
+            }
+          />
+        ) : null}
       </div>
     </Workspace>
   );

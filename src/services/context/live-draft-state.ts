@@ -130,6 +130,18 @@ export function buildLiveDraftState(
     ...(userRoster?.reserve ?? []),
     ...(userRoster?.taxi ?? []),
   ]);
+  const allRosteredPlayerIds = new Set(
+    (input.rosters ?? []).flatMap((roster) => [
+      ...(roster.players ?? []),
+      ...(roster.starters ?? []),
+      ...(roster.reserve ?? []),
+      ...(roster.taxi ?? []),
+    ]),
+  );
+  const unavailableRosteredPlayerIds =
+    leagueType === 2 || playerPoolKind === "rookies_only"
+      ? allRosteredPlayerIds
+      : new Set<string>();
   const rosterPlayers = [...userRosterPlayerIds].flatMap((playerId) => {
     const player = playerById.get(playerId);
     return player ? [player] : [];
@@ -246,7 +258,11 @@ export function buildLiveDraftState(
     format,
     picks,
     players: filterPlayerPool(
-      input.players.filter((player) => !pickedIds.has(player.id)),
+      input.players.filter(
+        (player) =>
+          !pickedIds.has(player.id) &&
+          !unavailableRosteredPlayerIds.has(player.id),
+      ),
       playerPoolKind,
       Number(input.draft.season),
     ),

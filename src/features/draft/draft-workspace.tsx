@@ -405,7 +405,7 @@ function DraftContextRail({
     `${format.teams} teams`,
     context.draftStyle.replaceAll("_", " "),
     format.tightEndPremium ? "TE premium" : null,
-    format.bestBall ? "Best ball" : null,
+    format.bestBall && context.mode !== "best_ball" ? "Best ball" : null,
     format.idp ? "IDP" : null,
   ].filter(Boolean);
   return (

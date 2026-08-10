@@ -244,8 +244,8 @@ describe("buildLiveDraftState", () => {
           roster_id: 8,
           owner_id: "user_c",
           league_id: "big-bucks",
-          players: ["p3"],
-          starters: ["p3"],
+          players: ["p1", "p3"],
+          starters: ["p1", "p3"],
           settings: {},
           metadata: {},
         }),
@@ -262,8 +262,8 @@ describe("buildLiveDraftState", () => {
       picksUntilUser: 9,
       ownedPickNumbers: [10, 26, 42],
     });
-    expect(state.players.map((entry) => entry.id)).toEqual(["p1", "p2"]);
-    expect(state.rosterPlayers?.map((entry) => entry.id)).toEqual(["p3"]);
+    expect(state.players.map((entry) => entry.id)).toEqual(["p2"]);
+    expect(state.rosterPlayers?.map((entry) => entry.id)).toEqual(["p1", "p3"]);
   });
 
   it("maps picks, removes drafted players, and calculates the snake turn", () => {
