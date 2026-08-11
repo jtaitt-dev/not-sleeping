@@ -30,6 +30,8 @@ import { Button, IconButton } from "@/components/ui/button";
 import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import { PositionBadge } from "@/components/ui/badges";
 import { EmptyState, InlineError } from "@/components/ui/states";
+import { SleeperBottomSheet } from "@/components/ui/overlays";
+import { SleeperInput, SleeperSelect } from "@/components/ui/form-controls";
 import type { AiFeature, Player } from "@/types/domain";
 import type { DecisionCandidate } from "@/services/intelligence/types";
 import type { EvidenceItem, LeagueContext } from "@/types/league";
@@ -932,7 +934,7 @@ export function TradeCenterWorkspace() {
       <section className="surface trade-market-strip">
         <label>
           Trade partner
-          <select
+          <SleeperSelect
             value={selectedPartner?.roster_id ?? ""}
             onChange={(event) => {
               setPartnerRosterId(Number(event.target.value));
@@ -944,7 +946,7 @@ export function TradeCenterWorkspace() {
                 {teamName(snapshot, roster.roster_id)}
               </option>
             ))}
-          </select>
+          </SleeperSelect>
         </label>
         <span>
           <small>League market</small>
@@ -1205,7 +1207,7 @@ export function DynastyCenterWorkspace() {
           </div>
           <label>
             Roster
-            <select
+            <SleeperSelect
               value={selectedScenarioRoster?.roster_id ?? ""}
               onChange={(event) =>
                 setScenarioRosterId(Number(event.target.value))
@@ -1216,7 +1218,7 @@ export function DynastyCenterWorkspace() {
                   {teamName(snapshot, roster.roster_id)}
                 </option>
               ))}
-            </select>
+            </SleeperSelect>
           </label>
         </header>
         <div className="auction-values">
@@ -1400,7 +1402,7 @@ export function RookieCenterWorkspace() {
             <h3>Rookie-pick trade calculator</h3>
             <label>
               Pick number
-              <input
+              <SleeperInput
                 type="number"
                 min="1"
                 max="200"
@@ -1690,7 +1692,7 @@ export function AuctionWorkspace() {
       <section className="surface auction-controls">
         <label>
           Current nomination
-          <select
+          <SleeperSelect
             value={selectedPlayer?.id ?? ""}
             onChange={(event) => setSelectedPlayerId(event.target.value)}
           >
@@ -1699,11 +1701,11 @@ export function AuctionWorkspace() {
                 {player.fullName} · {player.position}
               </option>
             ))}
-          </select>
+          </SleeperSelect>
         </label>
         <label>
           Strategy
-          <select
+          <SleeperSelect
             value={strategy}
             onChange={(event) =>
               updateAuctionState({
@@ -1727,11 +1729,11 @@ export function AuctionWorkspace() {
                 {value.replaceAll("_", " ")}
               </option>
             ))}
-          </select>
+          </SleeperSelect>
         </label>
         <label>
           Remaining budget
-          <input
+          <SleeperInput
             type="number"
             min="0"
             value={remainingBudget}
@@ -1744,7 +1746,7 @@ export function AuctionWorkspace() {
         </label>
         <label>
           Keeper commitments
-          <input
+          <SleeperInput
             type="number"
             min="0"
             value={keeperCommitment}
@@ -1757,7 +1759,7 @@ export function AuctionWorkspace() {
         </label>
         <label>
           Current bid
-          <input
+          <SleeperInput
             type="number"
             min="0"
             value={currentBid}
@@ -1770,7 +1772,7 @@ export function AuctionWorkspace() {
         </label>
         <label>
           Filled spots
-          <input
+          <SleeperInput
             type="number"
             min="0"
             max={rosterSpots}
@@ -2163,29 +2165,23 @@ function EvidenceDrawer({
   const established = evidence.filter((item) => isSourcedFact(item.nature));
   const estimated = evidence.filter((item) => !isSourcedFact(item.nature));
   return (
-    <div className="evidence-sheet-layer">
-      <button
-        type="button"
-        className="evidence-scrim"
-        aria-label="Close evidence"
-        onClick={onClose}
-      />
-      <aside
-        className="surface evidence-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Evidence drawer"
-      >
-        <span className="sheet-grabber" aria-hidden="true" />
-        <header>
-          <div>
-            <small>Why we think this</small>
-            <h2>{decision.decision}</h2>
-          </div>
-          <IconButton label="Close evidence" onClick={onClose}>
-            <X />
-          </IconButton>
-        </header>
+    <SleeperBottomSheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      className="evidence-drawer"
+      label="Evidence drawer"
+      eyebrow="Why we think this"
+      title={decision.decision}
+      footer={
+        <>
+          <span>Conflicts: none detected in current evidence</span>
+          <span>Retrieved {decision.freshness}</span>
+        </>
+      }
+    >
+      <div className="evidence-drawer__content">
         <EvidenceGroup
           title="What we know"
           caption="Reported by a source we can link to."
@@ -2213,12 +2209,8 @@ function EvidenceDrawer({
             </p>
           </article>
         </EvidenceGroup>
-        <footer>
-          <span>Conflicts: none detected in current evidence</span>
-          <span>Retrieved {decision.freshness}</span>
-        </footer>
-      </aside>
-    </div>
+      </div>
+    </SleeperBottomSheet>
   );
 }
 

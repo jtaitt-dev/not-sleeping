@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ScoreBreakdown } from "@/components/intelligence/score-breakdown";
 import { PositionBadge, TierBadge } from "@/components/ui/badges";
+import { SleeperSelect } from "@/components/ui/form-controls";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
 import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import { translateDraftError } from "@/services/draft/draft-errors";
@@ -586,213 +587,264 @@ export function DraftCopilotCard({
         </div>
       </section>
 
-      {turnPair ? <TurnPair plan={turnPair} teams={format.teams} /> : null}
-
-      <dl className="draft-copilot__reasons">
-        <InsightRow icon={<Target />} label="Why now" value={top.rationale} />
-        <InsightRow
-          icon={<ShieldCheck />}
-          label="Roster impact"
-          value={`${capitalize(top.rosterFit)} fit for this build; ${format.superflex && top.player.position === "QB" ? "quarterback demand receives the superflex premium." : "the score respects required starters and flex eligibility."}`}
-        />
-        <InsightRow
-          icon={auction ? <BadgeDollarSign /> : <Users />}
-          label={auction ? "Budget pressure" : "Opponent pressure"}
-          value={
-            auction
-              ? `$${auction.remainingBudget} remains for ${auction.rosterSpotsLeft} roster spots; reserve $${auction.reserveRequired} for legal minimum bids.`
-              : (top.nextPickFactors[0] ??
-                "Opponent selections are included in the survival model.")
-          }
-        />
-        <InsightRow
-          icon={<BarChart3 />}
-          label={auction ? "Bid discipline" : "Board impact"}
-          value={
-            auction
-              ? `Modeled value is $${auction.valuePrice}; stop at $${auction.maximumRecommendedBid}, even though the legal maximum is $${auction.maximumLegalBid}.`
-              : `${top.components.find((part) => part.key === "scarcity")?.reason ?? "Tier depth is included."} Passing carries ${100 - top.nextPickAvailability}% point-estimate risk.`
-          }
-        />
+      <dl className="draft-copilot__glance" aria-label="Recommendation summary">
+        <div>
+          <dt>Position need</dt>
+          <dd>{capitalize(top.rosterFit)}</dd>
+          <small>{top.player.position} roster fit</small>
+        </div>
+        <div>
+          <dt>Tier risk</dt>
+          <dd>
+            {capitalize(top.risk)} · Tier {top.tier}
+          </dd>
+          <small>{100 - top.nextPickAvailability}% pass risk</small>
+        </div>
+        <div>
+          <dt>Next owned pick</dt>
+          <dd>
+            {context.nextUserPick === undefined
+              ? "Not linked"
+              : formatOwnedPick(context.nextUserPick, format.teams)}
+          </dd>
+          <small>
+            {context.isUserOnClock
+              ? "You are on the clock"
+              : `${context.picksUntilUser ?? "—"} picks away`}
+          </small>
+        </div>
       </dl>
 
-      <section className="draft-copilot__ai" aria-live="polite">
-        <div className="draft-copilot__ai-controls">
-          <label>
-            <span>Provider</span>
-            <select
-              value={config?.provider ?? "openai"}
-              disabled={!aiEnabled}
-              onChange={(event) =>
-                void updateConfig({
-                  provider: event.target.value as AiFeatureConfig["provider"],
-                })
-              }
-            >
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-            </select>
-          </label>
-          <label>
-            <span>Effort</span>
-            <select
-              value={config?.reasoningEffort ?? "medium"}
-              disabled={!aiEnabled}
-              onChange={(event) =>
-                void updateConfig({
-                  reasoningEffort: event.target
-                    .value as AiFeatureConfig["reasoningEffort"],
-                })
-              }
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="xhigh">X-high</option>
-            </select>
-          </label>
-          <span className="draft-copilot__model">
-            <small>Model</small>
-            <strong>{modelDisplayName(config?.model ?? "gpt-5.6-luna")}</strong>
-          </span>
-        </div>
-        <div className="draft-copilot__ai-result">
-          <header>
-            <span
-              className={aiStatusClass(
-                aiEnabled,
-                activeDecision?.aiStatus,
-                visiblePreparationStage,
-              )}
-            >
-              {aiStatusIcon(
-                aiEnabled,
-                activeDecision?.aiStatus,
-                visiblePreparationStage,
-              )}
-              {draftAiStatusLabel(
-                aiEnabled,
-                activeDecision?.aiStatus,
-                preparationStage,
-              )}
-            </span>
-            {aiEnabled && visibleError ? (
-              <button
-                type="button"
-                onClick={() => void run()}
-                disabled={activeDecision?.aiStatus === "queued"}
-              >
-                <RefreshCw aria-hidden="true" />
-                Retry
-              </button>
-            ) : null}
-          </header>
-          {overlay ? (
-            <>
-              <p>{overlay.summary}</p>
-              <small>
-                Bounded score adjustment {overlay.adjustment >= 0 ? "+" : ""}
-                {overlay.adjustment.toFixed(1)} · recommendation legality
-                unchanged
-              </small>
-              <details>
-                <summary>
-                  Sources & explainability · {overlay.evidenceUrls.length}{" "}
-                  source
-                  {overlay.evidenceUrls.length === 1 ? "" : "s"}
-                </summary>
-                <ul>
-                  {overlay.reasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                  {overlay.evidenceUrls.map((url) => (
-                    <li key={url}>
-                      <SafeExternalLink url={url}>
-                        {new URL(url).hostname}
-                      </SafeExternalLink>
-                    </li>
-                  ))}
-                  {overlay.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
-              </details>
-            </>
-          ) : aiWorking ? (
-            <DraftAiProgress
-              stage={visiblePreparationStage}
-              candidateCount={Math.min(8, candidates.length)}
-              playerContextStatus={visiblePlayerContextStatus}
+      <details className="draft-copilot__details">
+        <summary>
+          <span>More draft intelligence</span>
+          <small>
+            {draftAiStatusLabel(
+              aiEnabled,
+              activeDecision?.aiStatus,
+              visiblePreparationStage,
+            )}{" "}
+            · {top.components.length} factors
+          </small>
+        </summary>
+        <div className="draft-copilot__details-content">
+          {turnPair ? <TurnPair plan={turnPair} teams={format.teams} /> : null}
+
+          <dl className="draft-copilot__reasons">
+            <InsightRow
+              icon={<Target />}
+              label="Why now"
+              value={top.rationale}
             />
-          ) : aiEnabled ? (
-            <p>
-              Automatic analysis starts as your turn approaches. The local
-              answer is ready now.
-            </p>
-          ) : (
-            <p>
-              AI is off. Scores and recommendations remain fully local and
-              deterministic.
-            </p>
-          )}
-          {visibleError ? (
-            <div className="draft-copilot__safe-error" role="status">
-              <AlertTriangle aria-hidden="true" />
-              <span>
-                <strong>{visibleError.title}</strong>
-                <small>
-                  {visibleError.detail} {visibleError.action}
-                </small>
+            <InsightRow
+              icon={<ShieldCheck />}
+              label="Roster impact"
+              value={`${capitalize(top.rosterFit)} fit for this build; ${format.superflex && top.player.position === "QB" ? "quarterback demand receives the superflex premium." : "the score respects required starters and flex eligibility."}`}
+            />
+            <InsightRow
+              icon={auction ? <BadgeDollarSign /> : <Users />}
+              label={auction ? "Budget pressure" : "Opponent pressure"}
+              value={
+                auction
+                  ? `$${auction.remainingBudget} remains for ${auction.rosterSpotsLeft} roster spots; reserve $${auction.reserveRequired} for legal minimum bids.`
+                  : (top.nextPickFactors[0] ??
+                    "Opponent selections are included in the survival model.")
+              }
+            />
+            <InsightRow
+              icon={<BarChart3 />}
+              label={auction ? "Bid discipline" : "Board impact"}
+              value={
+                auction
+                  ? `Modeled value is $${auction.valuePrice}; stop at $${auction.maximumRecommendedBid}, even though the legal maximum is $${auction.maximumLegalBid}.`
+                  : `${top.components.find((part) => part.key === "scarcity")?.reason ?? "Tier depth is included."} Passing carries ${100 - top.nextPickAvailability}% point-estimate risk.`
+              }
+            />
+          </dl>
+
+          <section className="draft-copilot__ai" aria-live="polite">
+            <div className="draft-copilot__ai-controls">
+              <label>
+                <span>Provider</span>
+                <SleeperSelect
+                  value={config?.provider ?? "openai"}
+                  disabled={!aiEnabled}
+                  onChange={(event) =>
+                    void updateConfig({
+                      provider: event.target
+                        .value as AiFeatureConfig["provider"],
+                    })
+                  }
+                >
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                </SleeperSelect>
+              </label>
+              <label>
+                <span>Effort</span>
+                <SleeperSelect
+                  value={config?.reasoningEffort ?? "medium"}
+                  disabled={!aiEnabled}
+                  onChange={(event) =>
+                    void updateConfig({
+                      reasoningEffort: event.target
+                        .value as AiFeatureConfig["reasoningEffort"],
+                    })
+                  }
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="xhigh">X-high</option>
+                </SleeperSelect>
+              </label>
+              <span className="draft-copilot__model">
+                <small>Model</small>
+                <strong>
+                  {modelDisplayName(config?.model ?? "gpt-5.6-luna")}
+                </strong>
               </span>
             </div>
-          ) : null}
+            <div className="draft-copilot__ai-result">
+              <header>
+                <span
+                  className={aiStatusClass(
+                    aiEnabled,
+                    activeDecision?.aiStatus,
+                    visiblePreparationStage,
+                  )}
+                >
+                  {aiStatusIcon(
+                    aiEnabled,
+                    activeDecision?.aiStatus,
+                    visiblePreparationStage,
+                  )}
+                  {draftAiStatusLabel(
+                    aiEnabled,
+                    activeDecision?.aiStatus,
+                    preparationStage,
+                  )}
+                </span>
+                {aiEnabled && visibleError ? (
+                  <button
+                    type="button"
+                    onClick={() => void run()}
+                    disabled={activeDecision?.aiStatus === "queued"}
+                  >
+                    <RefreshCw aria-hidden="true" />
+                    Retry
+                  </button>
+                ) : null}
+              </header>
+              {overlay ? (
+                <>
+                  <p>{overlay.summary}</p>
+                  <small>
+                    Bounded score adjustment{" "}
+                    {overlay.adjustment >= 0 ? "+" : ""}
+                    {overlay.adjustment.toFixed(1)} · recommendation legality
+                    unchanged
+                  </small>
+                  <details>
+                    <summary>
+                      Sources & explainability · {overlay.evidenceUrls.length}{" "}
+                      source
+                      {overlay.evidenceUrls.length === 1 ? "" : "s"}
+                    </summary>
+                    <ul>
+                      {overlay.reasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                      {overlay.evidenceUrls.map((url) => (
+                        <li key={url}>
+                          <SafeExternalLink url={url}>
+                            {new URL(url).hostname}
+                          </SafeExternalLink>
+                        </li>
+                      ))}
+                      {overlay.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </details>
+                </>
+              ) : aiWorking ? (
+                <DraftAiProgress
+                  stage={visiblePreparationStage}
+                  candidateCount={Math.min(8, candidates.length)}
+                  playerContextStatus={visiblePlayerContextStatus}
+                />
+              ) : aiEnabled ? (
+                <p>
+                  Automatic analysis starts as your turn approaches. The local
+                  answer is ready now.
+                </p>
+              ) : (
+                <p>
+                  AI is off. Scores and recommendations remain fully local and
+                  deterministic.
+                </p>
+              )}
+              {visibleError ? (
+                <div className="draft-copilot__safe-error" role="status">
+                  <AlertTriangle aria-hidden="true" />
+                  <span>
+                    <strong>{visibleError.title}</strong>
+                    <small>
+                      {visibleError.detail} {visibleError.action}
+                    </small>
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <section
+            className="draft-copilot__alternatives"
+            aria-label="Alternative recommendations"
+          >
+            {safeAlternative ? (
+              <AlternativeCard
+                kind="safe"
+                recommendation={safeAlternative}
+                auction={Boolean(auction)}
+              />
+            ) : null}
+            {upsideAlternative ? (
+              <AlternativeCard
+                kind="upside"
+                recommendation={upsideAlternative}
+                auction={Boolean(auction)}
+              />
+            ) : null}
+          </section>
+
+          <p className="draft-copilot__risk">
+            <AlertTriangle aria-hidden="true" />
+            <span>
+              <strong>Risk:</strong>{" "}
+              {auction
+                ? (auction.warning ??
+                  `Do not exceed $${auction.maximumRecommendedBid}; preserve at least $${auction.reserveRequired} for the remaining roster.`)
+                : (top.nextPickWarning ??
+                  `Passing on ${top.player.fullName} leaves a ${100 - top.nextPickAvailability}% point-estimate chance that another manager selects them first.`)}
+            </span>
+          </p>
+
+          <ScoreBreakdown
+            localScore={top.normalizedScore}
+            factors={top.components.map((component) => ({
+              key: component.key,
+              label: component.label,
+              impact: component.value,
+              note: component.reason,
+            }))}
+            {...(top.researchAdjustment !== 0
+              ? { researchAdjustment: top.researchAdjustment, researchBound: 8 }
+              : {})}
+          />
         </div>
-      </section>
-
-      <section
-        className="draft-copilot__alternatives"
-        aria-label="Alternative recommendations"
-      >
-        {safeAlternative ? (
-          <AlternativeCard
-            kind="safe"
-            recommendation={safeAlternative}
-            auction={Boolean(auction)}
-          />
-        ) : null}
-        {upsideAlternative ? (
-          <AlternativeCard
-            kind="upside"
-            recommendation={upsideAlternative}
-            auction={Boolean(auction)}
-          />
-        ) : null}
-      </section>
-
-      <p className="draft-copilot__risk">
-        <AlertTriangle aria-hidden="true" />
-        <span>
-          <strong>Risk:</strong>{" "}
-          {auction
-            ? (auction.warning ??
-              `Do not exceed $${auction.maximumRecommendedBid}; preserve at least $${auction.reserveRequired} for the remaining roster.`)
-            : (top.nextPickWarning ??
-              `Passing on ${top.player.fullName} leaves a ${100 - top.nextPickAvailability}% point-estimate chance that another manager selects them first.`)}
-        </span>
-      </p>
-
-      <ScoreBreakdown
-        localScore={top.normalizedScore}
-        factors={top.components.map((component) => ({
-          key: component.key,
-          label: component.label,
-          impact: component.value,
-          note: component.reason,
-        }))}
-        {...(top.researchAdjustment !== 0
-          ? { researchAdjustment: top.researchAdjustment, researchBound: 8 }
-          : {})}
-      />
+      </details>
     </article>
   );
 }

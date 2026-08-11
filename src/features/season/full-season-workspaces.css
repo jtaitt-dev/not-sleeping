@@ -150,60 +150,9 @@
   padding-top: 7px;
 }
 
-/* A sheet rather than an inline aside, so opening it does not reflow the
-   decision it is explaining out from under the reader's thumb. */
-.evidence-sheet-layer {
-  position: fixed;
-  z-index: 40;
-  inset: 0;
+.evidence-drawer__content {
   display: grid;
-  align-items: end;
-}
-
-.evidence-scrim {
-  position: absolute;
-  border: 0;
-  inset: 0;
-  background: rgb(0 0 0 / 55%);
-  cursor: pointer;
-}
-
-.evidence-drawer {
-  position: relative;
-  display: grid;
-  max-height: 82vh;
-  overflow-y: auto;
-  border-color: color-mix(
-    in srgb,
-    var(--accent-primary) 28%,
-    var(--border-default)
-  );
-  border-bottom: 0;
-  border-radius: 16px 16px 0 0;
-  padding: 8px 12px 12px;
-  gap: 10px;
-  animation: evidence-sheet-in 180ms ease-out;
-}
-
-@keyframes evidence-sheet-in {
-  from {
-    transform: translateY(14px);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .evidence-drawer {
-    animation: none;
-  }
-}
-
-.sheet-grabber {
-  width: 34px;
-  height: 4px;
-  border-radius: 999px;
-  margin: 0 auto 2px;
-  background: var(--border-default);
+  gap: var(--space-3);
 }
 
 /* The split is the point of the sheet: sourced on one side, estimated on the
@@ -258,7 +207,6 @@
   font-size: 11px;
 }
 
-.evidence-drawer > header,
 .asset-picker > header,
 .trade-verdict > header,
 .mock-board > header,
@@ -273,14 +221,13 @@
   gap: 8px;
 }
 
-.evidence-drawer > header span,
 .trade-verdict > header span {
   display: flex;
   align-items: center;
   gap: 7px;
 }
 
-.evidence-drawer svg,
+.evidence-drawer .evidence-group svg,
 .trade-verdict svg,
 .warning-strip svg,
 .context-strip svg,
@@ -308,45 +255,13 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.evidence-summary > span,
-.evidence-drawer > article {
+.evidence-summary > span {
   display: grid;
   gap: 4px;
 }
 
 .evidence-summary > span:last-child {
   text-align: right;
-}
-
-.evidence-drawer > article {
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 10px;
-}
-
-.evidence-drawer > article > span {
-  align-items: center;
-  display: flex;
-  gap: 6px;
-}
-
-.evidence-drawer > article p,
-.evidence-drawer > article a {
-  margin: 0;
-}
-
-.evidence-drawer > article a {
-  align-items: center;
-  color: var(--accent-primary);
-  display: inline-flex;
-  gap: 4px;
-  width: fit-content;
-}
-
-.evidence-drawer > footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  justify-content: space-between;
 }
 
 .league-directory-row {

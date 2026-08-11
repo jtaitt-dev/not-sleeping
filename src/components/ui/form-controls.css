@@ -1,0 +1,106 @@
+.sleeper-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-label);
+}
+
+.sleeper-field__copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sleeper-field__copy strong {
+  color: var(--text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sleeper-field__copy small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.sleeper-input,
+.sleeper-select,
+.sleeper-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  font-family: var(--font-family-body);
+  font-size: var(--font-body);
+  transition:
+    background var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+
+.sleeper-input,
+.sleeper-select {
+  min-height: var(--input-height);
+  padding: 0 var(--space-2);
+}
+
+.sleeper-textarea {
+  min-height: 84px;
+  padding: var(--space-2);
+  resize: vertical;
+}
+
+.sleeper-input:hover,
+.sleeper-select:hover,
+.sleeper-textarea:hover,
+.sleeper-search:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+}
+
+.sleeper-input:disabled,
+.sleeper-select:disabled,
+.sleeper-textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.sleeper-input::placeholder,
+.sleeper-textarea::placeholder,
+.sleeper-search input::placeholder {
+  color: var(--text-disabled);
+}
+
+.sleeper-search {
+  display: grid;
+  min-width: 0;
+  min-height: var(--input-height);
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--surface-alt);
+  grid-template-columns: var(--icon-size-small) minmax(0, 1fr);
+  padding: 0 var(--space-2);
+  transition:
+    background var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+
+.sleeper-search > svg {
+  width: var(--icon-size-small);
+  height: var(--icon-size-small);
+  color: var(--text-muted);
+}
+
+.sleeper-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-family-body);
+  font-size: var(--font-body);
+}

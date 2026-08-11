@@ -28,6 +28,11 @@ import ReactDOM from "react-dom/client";
 
 import { StatusBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
+import {
+  SleeperField,
+  SleeperInput,
+  SleeperSelect,
+} from "@/components/ui/form-controls";
 import { InlineError } from "@/components/ui/states";
 import {
   requestRuntime,
@@ -612,7 +617,7 @@ function OptionsApp() {
                   label="Default draft mode"
                   detail="Automatic detection takes precedence when confidence is high."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.defaultMode}
                     onChange={(event) =>
                       update(
@@ -627,13 +632,13 @@ function OptionsApp() {
                     <option value="dynasty_startup">Dynasty startup</option>
                     <option value="dynasty_rookie">Dynasty rookie</option>
                     <option value="best_ball">Best ball</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
                 <Field
                   label="Default strategy"
                   detail="Changes age-curve and team-direction weighting."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.defaultStrategy}
                     onChange={(event) =>
                       update(
@@ -648,7 +653,7 @@ function OptionsApp() {
                       Productive struggle
                     </option>
                     <option value="rebuild">Rebuild</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
                 <Field
                   label={`Risk tolerance · ${Math.round(settings.riskTolerance * 100)}%`}
@@ -680,7 +685,7 @@ function OptionsApp() {
                   label="Sleeper username"
                   detail="Used to find leagues, rosters, and owned draft picks."
                 >
-                  <input
+                  <SleeperInput
                     type="text"
                     value={settings.sleeperUsername}
                     maxLength={64}
@@ -694,7 +699,7 @@ function OptionsApp() {
                   label="Resolved user ID"
                   detail="Populated after the public username is resolved."
                 >
-                  <input
+                  <SleeperInput
                     type="text"
                     value={settings.sleeperUserId}
                     readOnly
@@ -761,7 +766,7 @@ function OptionsApp() {
                   label="Provider"
                   detail="Keys are isolated and never reused across providers."
                 >
-                  <select
+                  <SleeperSelect
                     value={selectedProvider}
                     onChange={(event) =>
                       changeProvider(event.target.value as AiProviderId)
@@ -769,11 +774,11 @@ function OptionsApp() {
                   >
                     <option value="openai">OpenAI</option>
                     <option value="anthropic">Anthropic</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
                 <div className="key-field">
                   <LockKeyhole aria-hidden="true" />
-                  <input
+                  <SleeperInput
                     type={showKey ? "text" : "password"}
                     value={apiKey}
                     autoComplete="off"
@@ -960,7 +965,7 @@ function OptionsApp() {
                   label="Research depth"
                   detail="Applies to manually requested player research."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.researchDepth}
                     onChange={(event) =>
                       update(
@@ -972,7 +977,7 @@ function OptionsApp() {
                     <option value="quick">Quick</option>
                     <option value="standard">Standard</option>
                     <option value="deep">Deep</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
               </div>
               <SettingsToggle
@@ -995,7 +1000,7 @@ function OptionsApp() {
                   label="Routing preset"
                   detail="Economy, balanced, quality, or fully custom controls."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.aiPreset}
                     onChange={(event) =>
                       update(
@@ -1008,13 +1013,13 @@ function OptionsApp() {
                     <option value="balanced">Balanced</option>
                     <option value="quality">Quality</option>
                     <option value="custom">Custom</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
                 <Field
                   label="Default provider"
                   detail="Can be overridden per feature."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.aiDefaults.provider}
                     onChange={(event) =>
                       updateAiDefaults({
@@ -1024,13 +1029,13 @@ function OptionsApp() {
                   >
                     <option value="openai">OpenAI</option>
                     <option value="anthropic">Anthropic</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
                 <Field
                   label="Default routing mode"
                   detail="Consensus uses the two exact models configured below."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.aiDefaults.routingMode}
                     onChange={(event) =>
                       updateAiDefaults({
@@ -1044,13 +1049,13 @@ function OptionsApp() {
                     <option value="balanced">Balanced</option>
                     <option value="quality">Quality</option>
                     <option value="consensus">OpenAI + Anthropic</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
                 <Field
                   label="Default model"
                   detail="Used unless a feature override selects another model."
                 >
-                  <input
+                  <SleeperInput
                     list={`provider-models-${settings.aiDefaults.provider}`}
                     value={settings.aiDefaults.model}
                     onChange={(event) =>
@@ -1064,7 +1069,7 @@ function OptionsApp() {
                       label="Consensus OpenAI model"
                       detail="Exact model; never substituted automatically."
                     >
-                      <input
+                      <SleeperInput
                         list="provider-models-openai"
                         value={settings.aiDefaults.consensusModels.openai}
                         onChange={(event) =>
@@ -1081,7 +1086,7 @@ function OptionsApp() {
                       label="Consensus Anthropic model"
                       detail="Exact model; never substituted automatically."
                     >
-                      <input
+                      <SleeperInput
                         list="provider-models-anthropic"
                         value={settings.aiDefaults.consensusModels.anthropic}
                         onChange={(event) =>
@@ -1147,7 +1152,7 @@ function OptionsApp() {
                   label="Requests per minute"
                   detail="Local queue cap; maximum 12."
                 >
-                  <input
+                  <SleeperInput
                     type="number"
                     min="1"
                     max="12"
@@ -1163,7 +1168,7 @@ function OptionsApp() {
                   label="Maximum output tokens"
                   detail="Budget cap per response."
                 >
-                  <input
+                  <SleeperInput
                     type="number"
                     min="256"
                     max="16384"
@@ -1180,7 +1185,7 @@ function OptionsApp() {
                   label="Request timeout"
                   detail="Seconds before local cancellation."
                 >
-                  <input
+                  <SleeperInput
                     type="number"
                     min="10"
                     max="180"
@@ -1196,7 +1201,7 @@ function OptionsApp() {
                   label="Maximum concurrency"
                   detail="One is the privacy- and rate-limit-friendly default."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.aiBudgets.maxConcurrency}
                     onChange={(event) =>
                       updateAiBudgets({
@@ -1208,7 +1213,7 @@ function OptionsApp() {
                     <option value="2">2 requests</option>
                     <option value="3">3 requests</option>
                     <option value="4">4 requests</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
               </div>
               <section
@@ -1235,7 +1240,7 @@ function OptionsApp() {
                     return (
                       <article key={feature.id}>
                         <strong>{feature.label}</strong>
-                        <select
+                        <SleeperSelect
                           aria-label={`${feature.label} provider`}
                           value={config.provider}
                           onChange={(event) =>
@@ -1246,8 +1251,8 @@ function OptionsApp() {
                         >
                           <option value="openai">OpenAI</option>
                           <option value="anthropic">Anthropic</option>
-                        </select>
-                        <input
+                        </SleeperSelect>
+                        <SleeperInput
                           list={`provider-models-${config.provider}`}
                           aria-label={`${feature.label} model`}
                           value={config.model}
@@ -1257,7 +1262,7 @@ function OptionsApp() {
                             })
                           }
                         />
-                        <select
+                        <SleeperSelect
                           aria-label={`${feature.label} routing mode`}
                           value={config.routingMode}
                           onChange={(event) =>
@@ -1272,10 +1277,10 @@ function OptionsApp() {
                           <option value="balanced">Balanced</option>
                           <option value="quality">Quality</option>
                           <option value="consensus">OpenAI + Anthropic</option>
-                        </select>
+                        </SleeperSelect>
                         {config.routingMode === "consensus" ? (
                           <>
-                            <input
+                            <SleeperInput
                               list="provider-models-openai"
                               aria-label={`${feature.label} consensus OpenAI model`}
                               value={config.consensusModels.openai}
@@ -1288,7 +1293,7 @@ function OptionsApp() {
                                 })
                               }
                             />
-                            <input
+                            <SleeperInput
                               list="provider-models-anthropic"
                               aria-label={`${feature.label} consensus Anthropic model`}
                               value={config.consensusModels.anthropic}
@@ -1476,7 +1481,7 @@ function OptionsApp() {
                   label="Launcher position"
                   detail="Location on supported Sleeper pages."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.launcherPosition}
                     onChange={(event) =>
                       update(
@@ -1487,7 +1492,7 @@ function OptionsApp() {
                   >
                     <option value="bottom_right">Bottom right</option>
                     <option value="bottom_left">Bottom left</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
               </div>
             </>
@@ -1621,7 +1626,7 @@ function OptionsApp() {
                   label="Diagnostic log level"
                   detail="Production defaults to warnings and errors."
                 >
-                  <select
+                  <SleeperSelect
                     value={settings.logLevel}
                     onChange={(event) =>
                       update(
@@ -1634,7 +1639,7 @@ function OptionsApp() {
                     <option value="warning">Warnings and errors</option>
                     <option value="info">Info</option>
                     <option value="debug">Debug</option>
-                  </select>
+                  </SleeperSelect>
                 </Field>
               </div>
               <div className="security-callout">
@@ -1721,13 +1726,9 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="form-field">
-      <span>
-        <strong>{label}</strong>
-        <small>{detail}</small>
-      </span>
+    <SleeperField className="form-field" label={label} detail={detail}>
       {children}
-    </label>
+    </SleeperField>
   );
 }
 
@@ -1745,7 +1746,7 @@ function ReasoningEffortSelect({
   const options = capability?.reasoningEfforts ?? [];
   const selected = options.includes(value) ? value : "";
   return (
-    <select
+    <SleeperSelect
       aria-label={ariaLabel}
       value={selected}
       disabled={options.length === 0}
@@ -1761,7 +1762,7 @@ function ReasoningEffortSelect({
           {reasoningEffortLabel(effort)}
         </option>
       ))}
-    </select>
+    </SleeperSelect>
   );
 }
 
@@ -1779,7 +1780,7 @@ function ThinkingModeSelect({
   const options = capability?.thinkingModes ?? [];
   const selected = options.includes(value) ? value : "";
   return (
-    <select
+    <SleeperSelect
       aria-label={ariaLabel}
       value={selected}
       disabled={options.length === 0}
@@ -1795,7 +1796,7 @@ function ThinkingModeSelect({
           {thinkingModeLabel(mode)}
         </option>
       ))}
-    </select>
+    </SleeperSelect>
   );
 }
 

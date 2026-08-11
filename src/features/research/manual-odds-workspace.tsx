@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { StatusBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
+import { SleeperInput, SleeperSelect } from "@/components/ui/form-controls";
 import { useAppStore } from "@/stores/app-store";
 import { useLeagueStore } from "@/stores/league-store";
 import type { Player } from "@/types/domain";
@@ -273,7 +274,7 @@ export default function ManualOddsResearchWorkspace() {
         <div className="labs-context-grid">
           <label>
             Sleeper league
-            <select
+            <SleeperSelect
               value={activeContext.leagueId}
               disabled={catalog.length === 0}
               onChange={(event) => void selectLeague(event.target.value)}
@@ -284,11 +285,11 @@ export default function ManualOddsResearchWorkspace() {
                   {league.name} · {league.season}
                 </option>
               ))}
-            </select>
+            </SleeperSelect>
           </label>
           <label>
             Week
-            <input
+            <SleeperInput
               type="number"
               min="1"
               max="25"
@@ -427,7 +428,7 @@ function LegEditor({
     <div className="labs-leg">
       <label>
         Player or leg label
-        <input
+        <SleeperInput
           list="labs-player-pool"
           aria-label="Player or leg label"
           value={leg.label}
@@ -449,7 +450,7 @@ function LegEditor({
       </label>
       <label>
         Supplied market
-        <select
+        <SleeperSelect
           value={leg.market}
           onChange={(event) =>
             onChange({ market: event.target.value as PropMarket | "" })
@@ -461,7 +462,7 @@ function LegEditor({
               {market.label}
             </option>
           ))}
-        </select>
+        </SleeperSelect>
       </label>
       <label>
         Line
@@ -505,7 +506,7 @@ function LegEditor({
       </label>
       <label>
         Uncertainty (%)
-        <input
+        <SleeperInput
           type="number"
           min="0"
           max="50"
@@ -517,7 +518,7 @@ function LegEditor({
       </label>
       <label>
         Input source
-        <select
+        <SleeperSelect
           value={leg.sourceType}
           onChange={(event) =>
             onChange({ sourceType: event.target.value as OddsSourceKind })
@@ -526,11 +527,11 @@ function LegEditor({
           <option value="manual">Manual entry</option>
           <option value="user_import">User import</option>
           <option value="licensed_provider">Licensed provider</option>
-        </select>
+        </SleeperSelect>
       </label>
       <label>
         Source name
-        <input
+        <SleeperInput
           value={leg.sourceName}
           placeholder="Required source"
           onChange={(event) => onChange({ sourceName: event.target.value })}
@@ -538,7 +539,7 @@ function LegEditor({
       </label>
       <label>
         Book or consensus identifier
-        <input
+        <SleeperInput
           value={leg.bookOrConsensus}
           placeholder="Required identifier"
           onChange={(event) =>
@@ -548,7 +549,7 @@ function LegEditor({
       </label>
       <label>
         Price timestamp
-        <input
+        <SleeperInput
           type="datetime-local"
           value={leg.recordedAt}
           onChange={(event) => onChange({ recordedAt: event.target.value })}
@@ -556,7 +557,7 @@ function LegEditor({
       </label>
       <label>
         Current availability
-        <select
+        <SleeperSelect
           value={leg.availability}
           onChange={(event) =>
             onChange({ availability: event.target.value as LegAvailability })
@@ -567,7 +568,7 @@ function LegEditor({
           <option value="out">Out</option>
           <option value="inactive">Inactive</option>
           <option value="unknown">Unknown</option>
-        </select>
+        </SleeperSelect>
       </label>
       <Button
         variant="danger"
@@ -593,7 +594,7 @@ function NullableNumberInput({
   max?: number;
 }) {
   return (
-    <input
+    <SleeperInput
       type="number"
       value={value ?? ""}
       {...(min === undefined ? {} : { min })}

@@ -1,4 +1,10 @@
-import { AlertTriangle, ChevronRight, RefreshCw, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { StatusBadge } from "@/components/ui/badges";
@@ -144,109 +150,118 @@ export function RealtimeIntelligenceCard({
   const overlay = activeDecision?.overlay;
   return (
     <article className="realtime-intelligence" data-feature={feature}>
-      <header>
-        <div>
-          <Sparkles aria-hidden="true" />
-          <span>
-            <strong>Realtime intelligence</strong>
-            <small>Deterministic now · AI never blocks the decision</small>
-          </span>
-        </div>
-        <span className="realtime-statuses">
-          <StatusBadge tone="info">
-            {routingOff ? "AI off" : modelDisplayName(activeModel)}
-          </StatusBadge>
-          <StatusBadge tone={statusTone(activeDecision?.aiStatus)}>
-            {statusLabel(activeDecision?.aiStatus)}
-          </StatusBadge>
-        </span>
-      </header>
-      <div className="realtime-primary">
-        <span>
-          <small>Valid recommendation</small>
-          <strong>{top?.label ?? "No valid option"}</strong>
-        </span>
-        <strong className="tabular">
-          {Math.round(visibleBaseline.confidence * 100)}%
-        </strong>
-        <Button
-          icon={<RefreshCw />}
-          onClick={() => void run()}
-          disabled={
-            routingOff ||
-            candidates.length === 0 ||
-            activeDecision?.aiStatus === "queued"
-          }
-        >
-          {routingOff
-            ? "AI off in Settings"
-            : activeDecision
-              ? "Refresh AI analysis"
-              : `Run ${modelDisplayName(activeModel)} analysis`}
-        </Button>
-      </div>
-      {top ? (
-        <div className="realtime-rationale">
-          {top.reasons.slice(0, 3).map((reason) => (
-            <span key={reason}>
-              <ChevronRight aria-hidden="true" />
-              {reason}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {overlay ? (
-        <section className="realtime-overlay">
-          <header>
-            <strong>
-              {overlay.provider === "consensus"
-                ? "OpenAI + Anthropic"
-                : overlay.provider === "openai"
-                  ? "OpenAI"
-                  : "Anthropic"}{" "}
-              · {overlay.model}
-            </strong>
+      <details>
+        <summary>
+          <span className="realtime-summary__identity">
+            <Sparkles aria-hidden="true" />
             <span>
-              Bounded adjustment {overlay.adjustment >= 0 ? "+" : ""}
-              {overlay.adjustment.toFixed(1)}
+              <small>Realtime intelligence</small>
+              <strong>{top?.label ?? "No valid option"}</strong>
             </span>
-          </header>
-          <p>{overlay.summary}</p>
-          {overlay.risks.length > 0 ? (
-            <span className="realtime-risk">
-              <AlertTriangle aria-hidden="true" />
-              {overlay.risks[0]}
+          </span>
+          <span className="realtime-summary__score tabular">
+            {Math.round(visibleBaseline.confidence * 100)}%
+          </span>
+          <span className="realtime-statuses">
+            <StatusBadge tone="info">
+              {routingOff ? "AI off" : modelDisplayName(activeModel)}
+            </StatusBadge>
+            <StatusBadge tone={statusTone(activeDecision?.aiStatus)}>
+              {statusLabel(activeDecision?.aiStatus)}
+            </StatusBadge>
+          </span>
+          <ChevronDown
+            className="realtime-summary__chevron"
+            aria-hidden="true"
+          />
+        </summary>
+        <div className="realtime-intelligence__body">
+          <div className="realtime-primary">
+            <span>
+              <small>Valid local recommendation</small>
+              <strong>{top?.label ?? "No valid option"}</strong>
             </span>
+            <Button
+              icon={<RefreshCw />}
+              onClick={() => void run()}
+              disabled={
+                routingOff ||
+                candidates.length === 0 ||
+                activeDecision?.aiStatus === "queued"
+              }
+            >
+              {routingOff
+                ? "AI off in Settings"
+                : activeDecision
+                  ? "Refresh AI analysis"
+                  : `Run ${modelDisplayName(activeModel)} analysis`}
+            </Button>
+          </div>
+          {top ? (
+            <div className="realtime-rationale">
+              {top.reasons.slice(0, 3).map((reason) => (
+                <span key={reason}>
+                  <ChevronRight aria-hidden="true" />
+                  {reason}
+                </span>
+              ))}
+            </div>
           ) : null}
-          <details>
-            <summary>
-              Sources & explainability · {overlay.evidenceUrls.length} source
-              {overlay.evidenceUrls.length === 1 ? "" : "s"}
-            </summary>
-            <ul>
-              {overlay.reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-              {overlay.evidenceUrls.map((url) => (
-                <li key={url}>
-                  <SafeExternalLink url={url}>
-                    {new URL(url).hostname}
-                  </SafeExternalLink>
-                </li>
-              ))}
-              {overlay.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          </details>
-        </section>
-      ) : null}
-      {activeDecision?.aiStatus === "error" || visibleError ? (
-        <p className="realtime-error">
-          {activeDecision?.error ?? visibleError} The deterministic
-          recommendation remains available.
-        </p>
-      ) : null}
+          {overlay ? (
+            <section className="realtime-overlay">
+              <header>
+                <strong>
+                  {overlay.provider === "consensus"
+                    ? "OpenAI + Anthropic"
+                    : overlay.provider === "openai"
+                      ? "OpenAI"
+                      : "Anthropic"}{" "}
+                  · {overlay.model}
+                </strong>
+                <span>
+                  Bounded adjustment {overlay.adjustment >= 0 ? "+" : ""}
+                  {overlay.adjustment.toFixed(1)}
+                </span>
+              </header>
+              <p>{overlay.summary}</p>
+              {overlay.risks.length > 0 ? (
+                <span className="realtime-risk">
+                  <AlertTriangle aria-hidden="true" />
+                  {overlay.risks[0]}
+                </span>
+              ) : null}
+              <details>
+                <summary>
+                  Sources & explainability · {overlay.evidenceUrls.length}{" "}
+                  source
+                  {overlay.evidenceUrls.length === 1 ? "" : "s"}
+                </summary>
+                <ul>
+                  {overlay.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                  {overlay.evidenceUrls.map((url) => (
+                    <li key={url}>
+                      <SafeExternalLink url={url}>
+                        {new URL(url).hostname}
+                      </SafeExternalLink>
+                    </li>
+                  ))}
+                  {overlay.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </details>
+            </section>
+          ) : null}
+          {activeDecision?.aiStatus === "error" || visibleError ? (
+            <p className="realtime-error">
+              {activeDecision?.error ?? visibleError} The deterministic
+              recommendation remains available.
+            </p>
+          ) : null}
+        </div>
+      </details>
     </article>
   );
 }

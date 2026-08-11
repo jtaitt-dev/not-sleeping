@@ -18,3 +18,7 @@ Thumbs.db
 # Transient eval report; the durable reports in artifacts/ are checked in on
 # purpose (see docs/MODEL_VALIDATION.md) but this intermediate is not.
 artifacts/ai-eval-vitest.json
+
+# Authenticated browser-audit captures stay local because they may contain
+# signed-in league, manager, chat, or browser-session context.
+artifacts/devtools-ui-audit-*/

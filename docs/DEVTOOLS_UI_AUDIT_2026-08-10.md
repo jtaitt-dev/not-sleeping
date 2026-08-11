@@ -109,23 +109,35 @@ groups, so semantic parity was not copied where it would reduce usability.
 ## 17. Components created
 
 The migration established shared font, icon, row, navigation, button, input,
-draft-cell, modal, drawer, and bottom-sheet tokens. Existing reusable Button,
-IconButton, CompactTabs, PlayerAvatar, Badge, MetricCluster, State, and Radix
-overlay components remain the canonical primitives.
+draft-cell, modal, drawer, and bottom-sheet tokens. Canonical primitives now
+include Button, IconButton, CompactTabs, SleeperField, SleeperInput,
+SleeperSelect, SleeperSearch, SleeperModal, SleeperDrawer,
+SleeperBottomSheet, SleeperTooltip, SleeperMenu, PlayerAvatar,
+SleeperLeagueAvatar, SleeperTeamAvatar, SleeperPlayerIdentity,
+SleeperRosterSlot, SleeperDraftPick, SleeperSection, Badge, MetricCluster,
+EmptyState, InlineError, and SkeletonRow.
 
 ## 18. Components refactored
 
-App shell navigation/actions, buttons, icon buttons, compact tabs, search
-toolbars, player result rows, popup context/action, and options navigation/forms
-were moved to the measured shared geometry. Global body/display typography was
-replaced with the measured font split.
+App shell navigation/actions, buttons, icon buttons, compact tabs, league and
+player search, player result/detail rows, projected starters, draft
+recommendations, recent picks, mock-draft controls, evidence sheets, popup
+context/action, and options navigation/forms were moved to the measured shared
+geometry. Global body/display typography was replaced with the measured font
+split. Realtime intelligence now uses progressive disclosure instead of an
+always-expanded dashboard card. Draft Copilot uses the same pattern: pick
+essentials remain visible, while rationale, opponent modeling, AI controls,
+alternatives, multi-pick planning, and score factors are secondary.
 
 ## 19. Screens migrated
 
 Shared tokens apply to every side-panel route, popup, and options/onboarding.
-Installed captures directly cover Draft, Today, Team, Players, Trade, More,
-Start/Sit, Waivers, Matchup, Chopped, Research, Deadlines, Dynasty, Rankings,
-Compare, Watchlist, Rookie, Taxi, IDP, and Mock Draft.
+Shared structural primitives are directly used by Draft, Mock Draft, Players,
+Team, league switching, full-season evidence, and options; the remaining routes
+inherit the same canonical surface, type, state, badge, button, and navigation
+system. Sanitized packaged captures cover Draft, Today, Team, Players, Trade,
+More, Start/Sit, Waivers, Matchup, Chopped, Research, Deadlines, Dynasty,
+Rankings, Compare, Watchlist, Rookie, Taxi, IDP, and Mock Draft.
 
 ## 20. Remaining visual discrepancies
 
@@ -154,3 +166,21 @@ predraft context. `reference/02-sleeper-draft-room-1675.png` and
 The responsive reference set records every required width. The installed route
 captures record component consistency, and `implementation/24-beers-pool-fixed.png`
 shows the corrected Beers BB $50 player pool with an enabled local-mock action.
+
+The 2026-08-11 verification rerun refreshed authenticated Sleeper references
+and captured the installed v0.8.3 side panel beside the real predraft page. The
+local current-run set verifies selected-league binding for Beers BB $50, Big
+Bucks, NFL Last Man Standing, and testt; a return from those leagues to Beers
+without stale identity, format, or completion state; and both collapsed and
+expanded Draft Copilot disclosure states. Those signed-in captures remain
+ignored locally because the Chrome window contains private league, chat, and
+browser context; they are intentionally not published or committed. Automated
+focus/Escape/labeling tests, TypeScript, ESLint, the complete Vitest suite,
+production packaging, and the GET-only live all-league audit provide the
+complementary nonvisual evidence. Screenshot comparison supports the measured
+layout findings but does not by itself establish full WCAG conformance.
+
+Two new sanitized v0.8.3 captures are published in `docs/screenshots/` and
+shown together in the README. They record the same installed build's compact
+pick-essential default and its expanded intelligence state without Sleeper
+chat, manager names, browser tabs, usernames, account IDs, or provider secrets.

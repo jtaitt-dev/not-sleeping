@@ -15,7 +15,6 @@ import {
   ListFilter,
   Plus,
   RefreshCw,
-  Search,
   ShieldCheck,
   ShieldHalf,
   SlidersHorizontal,
@@ -32,6 +31,15 @@ import { Link } from "react-router";
 
 import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
 import { Button, IconButton } from "@/components/ui/button";
+import {
+  SleeperInput,
+  SleeperSearch,
+  SleeperSelect,
+  SleeperTextarea,
+} from "@/components/ui/form-controls";
+import { PlayerAvatar } from "@/components/ui/player-avatar";
+import { SleeperPlayerIdentity } from "@/components/ui/player-row";
+import { SleeperRosterSlot } from "@/components/ui/roster-slot";
 import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import {
   EmptyState,
@@ -194,19 +202,17 @@ export function PlayersWorkspace() {
       subtitle="Search the local player index and inspect current context."
     >
       <div className="search-toolbar surface">
-        <label className="search-field">
-          <Search aria-hidden="true" />
-          <span className="sr-only">Search players</span>
-          <input
-            type="search"
-            placeholder="Search name, team, or ID"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <SleeperSearch
+          className="search-field"
+          label="Search players"
+          placeholder="Search name, team, or ID"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
         <label>
           <span className="sr-only">Position</span>
-          <select
+          <SleeperSelect
+            aria-label="Position"
             value={position}
             onChange={(event) => setPosition(event.target.value)}
           >
@@ -215,7 +221,7 @@ export function PlayersWorkspace() {
                 {value === "ALL" ? "All positions" : value}
               </option>
             ))}
-          </select>
+          </SleeperSelect>
         </label>
         <StatusBadge tone="success">{results.length} indexed</StatusBadge>
       </div>
@@ -234,13 +240,10 @@ export function PlayersWorkspace() {
                   setResearchError(null);
                 }}
               >
-                <PositionBadge position={player.position} />
-                <span>
-                  <strong>{player.fullName}</strong>
-                  <small>
-                    {player.team ?? "FA"} · Sleeper {player.sleeperId}
-                  </small>
-                </span>
+                <SleeperPlayerIdentity
+                  player={player}
+                  meta={`${player.team ?? "FA"} · Sleeper ${player.sleeperId}`}
+                />
                 <ChevronRight aria-hidden="true" />
               </button>
             ))
@@ -255,10 +258,7 @@ export function PlayersWorkspace() {
         {selected ? (
           <article className="surface player-profile">
             <header>
-              <div className="profile-monogram">
-                {selected.firstName[0]}
-                {selected.lastName[0]}
-              </div>
+              <PlayerAvatar player={selected} size="large" priority />
               <div>
                 <span className="section-label">Verified local identity</span>
                 <h2>{selected.fullName}</h2>
@@ -471,28 +471,13 @@ export function TeamWorkspace() {
           </header>
           <div className="roster-list">
             {assignStarterSlots(roster).map(({ slot, entry }, index) => (
-              <div key={`${slot}-${index}`}>
-                <span className="slot-label">{slot}</span>
-                {entry ? (
-                  <>
-                    <PositionBadge position={entry.player.position} />
-                    <span>
-                      <strong>{entry.player.fullName}</strong>
-                      <small>{entry.player.team}</small>
-                    </span>
-                    <b>{entry.contextualScore}</b>
-                  </>
-                ) : (
-                  <>
-                    <PositionBadge position={slot as Player["position"]} />
-                    <span>
-                      <strong>Open</strong>
-                      <small>No eligible player rostered</small>
-                    </span>
-                    <b>—</b>
-                  </>
-                )}
-              </div>
+              <SleeperRosterSlot
+                key={`${slot}-${index}`}
+                slot={slot}
+                player={entry?.player}
+                meta={entry?.player.team}
+                value={entry?.contextualScore}
+              />
             ))}
           </div>
         </section>
@@ -740,7 +725,7 @@ export function WatchlistWorkspace() {
               </p>
               <label>
                 Target note
-                <textarea
+                <SleeperTextarea
                   defaultValue={
                     index === 0
                       ? "Prioritize if the WR tier thins before pick 4.08."
@@ -780,7 +765,8 @@ export function CompareWorkspace() {
       subtitle="Put player profiles and decision factors on the same scale."
     >
       <div className="compare-picker surface">
-        <select
+        <SleeperSelect
+          aria-label="Add a player to compare"
           onChange={(event) =>
             setIds((current) =>
               [...new Set([...current, event.target.value])].slice(-3),
@@ -796,7 +782,7 @@ export function CompareWorkspace() {
               {player.fullName}
             </option>
           ))}
-        </select>
+        </SleeperSelect>
         <span>{players.length}/3 comparison slots</span>
       </div>
       <div
@@ -1406,7 +1392,7 @@ export function SettingsWorkspace() {
           </p>
           <label className="capability-override-field">
             <span>Sleeper username</span>
-            <input
+            <SleeperInput
               type="text"
               value={settings.sleeperUsername}
               maxLength={64}
@@ -1479,7 +1465,7 @@ export function SettingsWorkspace() {
                 : [
                     <label key={domain}>
                       <span>{policy.description}</span>
-                      <input
+                      <SleeperInput
                         type="number"
                         min="1"
                         max="604800"
@@ -1531,7 +1517,7 @@ export function SettingsWorkspace() {
               />
               <label className="capability-override-field">
                 <span>Elimination tiebreaker</span>
-                <input
+                <SleeperInput
                   value={eliminationTiebreaker}
                   placeholder="Example: bench points, then season points"
                   onChange={(event) => {
@@ -1752,7 +1738,7 @@ function SourceListField({
   return (
     <label>
       <span>{label}</span>
-      <textarea
+      <SleeperTextarea
         rows={2}
         value={value.join("\n")}
         onChange={(event) => onChange(event.target.value)}

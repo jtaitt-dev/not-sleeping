@@ -1,0 +1,42 @@
+.sleeper-section {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-medium);
+  background: var(--surface-card);
+}
+
+.sleeper-section__header {
+  display: flex;
+  min-height: var(--navigation-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.sleeper-section__header > span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sleeper-section__header small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  text-transform: uppercase;
+}
+
+.sleeper-section__header h2 {
+  overflow: hidden;
+  font-size: var(--font-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleeper-section__action {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}

@@ -14,6 +14,7 @@ import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-int
 import { PositionBadge, StatusBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
 import { EmptyState, InlineError } from "@/components/ui/states";
+import { SleeperSearch, SleeperSelect } from "@/components/ui/form-controls";
 import {
   MockDraftSession,
   assertDraftInvariants,
@@ -419,7 +420,7 @@ export function LeagueMockDraftWorkspace() {
           {!plan.draftOrderAssigned ? (
             <label>
               Your local draft slot
-              <select
+              <SleeperSelect
                 value={plan.config.userSlot}
                 onChange={(event) => setLocalSlot(Number(event.target.value))}
               >
@@ -429,7 +430,7 @@ export function LeagueMockDraftWorkspace() {
                 ).map((slot) => (
                   <option key={slot}>{slot}</option>
                 ))}
-              </select>
+              </SleeperSelect>
             </label>
           ) : (
             <Fact
@@ -627,16 +628,13 @@ export function LeagueMockDraftWorkspace() {
                     {sessionState.availablePlayerIds.length} available
                   </span>
                 </header>
-                <label>
-                  <span className="sr-only">Search available players</span>
-                  <input
-                    type="search"
-                    value={search}
-                    placeholder="Search name, team, or position"
-                    onChange={(event) => setSearch(event.target.value)}
-                    disabled={sessionState.status !== "drafting"}
-                  />
-                </label>
+                <SleeperSearch
+                  label="Search available players"
+                  value={search}
+                  placeholder="Search name, team, or position"
+                  onChange={(event) => setSearch(event.target.value)}
+                  disabled={sessionState.status !== "drafting"}
+                />
                 <div className="mock-player-list">
                   {searchResults.map(({ player, recommendation }, index) => (
                     <article key={player.playerId}>

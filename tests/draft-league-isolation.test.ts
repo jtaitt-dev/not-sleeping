@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { reconcileHydratedLeagueDraft } from "@/components/root-providers";
 import { resolveLeagueDraftId } from "@/services/draft/league-draft-selection";
 import { useAppStore } from "@/stores/app-store";
+import { useLeagueStore } from "@/stores/league-store";
 import type { LiveDraftState } from "@/types/domain";
 
 describe("selected-league draft isolation", () => {
@@ -212,6 +214,56 @@ describe("league draft selection", () => {
         ],
       }),
     ).toBe("beers-pre");
+  });
+});
+
+describe("initial league draft reconciliation", () => {
+  it("replaces an unrelated demo fixture with the selected league draft", async () => {
+    const originalSelectLeagueDraft = useAppStore.getState().selectLeagueDraft;
+    const selectLeagueDraft = vi.fn(async () => undefined);
+    useAppStore.setState({ demoEnabled: true, selectLeagueDraft });
+    useLeagueStore.setState({
+      activeContext: { leagueId: "beers-league" } as never,
+      snapshot: {
+        league: {
+          league_id: "beers-league",
+          draft_id: "beers-authoritative",
+        },
+        drafts: [draft("beers-fallback", "beers-league", "pre_draft", 10)],
+      } as never,
+    });
+
+    try {
+      await reconcileHydratedLeagueDraft();
+      expect(selectLeagueDraft).toHaveBeenCalledWith(
+        "beers-league",
+        "beers-authoritative",
+      );
+    } finally {
+      useAppStore.setState({ selectLeagueDraft: originalSelectLeagueDraft });
+      useLeagueStore.setState({ activeContext: null, snapshot: null });
+    }
+  });
+
+  it("does not replace an authoritative tab draft", async () => {
+    const originalSelectLeagueDraft = useAppStore.getState().selectLeagueDraft;
+    const selectLeagueDraft = vi.fn(async () => undefined);
+    useAppStore.setState({ demoEnabled: false, selectLeagueDraft });
+    useLeagueStore.setState({
+      activeContext: { leagueId: "beers-league" } as never,
+      snapshot: {
+        league: { league_id: "beers-league", draft_id: "beers-draft" },
+        drafts: [],
+      } as never,
+    });
+
+    try {
+      await reconcileHydratedLeagueDraft();
+      expect(selectLeagueDraft).not.toHaveBeenCalled();
+    } finally {
+      useAppStore.setState({ selectLeagueDraft: originalSelectLeagueDraft });
+      useLeagueStore.setState({ activeContext: null, snapshot: null });
+    }
   });
 });
 

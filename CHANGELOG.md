@@ -5,6 +5,46 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-11
+
+### Added
+
+- Shared Sleeper-compatible form, avatar, player-identity, roster-slot,
+  section, draft-pick, modal, drawer, bottom-sheet, tooltip, and menu
+  primitives, with component tests for labeling, progressive disclosure,
+  focus, and Escape behavior.
+
+### Changed
+
+- Draft recommendations, recent picks, league search, player search, player
+  details, projected starters, mock-draft controls, options fields, and
+  evidence surfaces now compose the shared component system.
+- Realtime intelligence is collapsed by default so the local recommendation,
+  confidence, and state remain scannable without turning the draft surface into
+  a separate AI dashboard.
+- Draft Copilot now keeps recommendation, confidence, availability, position
+  need, tier risk, and next-owned-pick context visible while multi-pick plans,
+  rationale, opponent modeling, AI controls, alternatives, risk, and score
+  factors expand only when requested.
+
+### Fixed
+
+- Restored compatibility aliases for legacy draft typography and tertiary text
+  tokens so migrated and older route styles resolve to the same measured
+  design system.
+- Empty-state heading references are unique when multiple states render on the
+  same screen, and skeleton rows expose an explicit loading status.
+- Non-draft Sleeper routes now reconcile the selected league's authoritative
+  board after hydration instead of leaving an unrelated demo league or format
+  visible beside the real league header.
+
+### Security
+
+- The post-change authenticated audit completed all 1,224 configured picks in
+  testt, Beers BB $50, NFL Last Man Standing, and Big Bucks with exact
+  eligibility, ownership, pool, order, and duplicate validation after every
+  selection. Sleeper access remained GET-only.
+
 ## [0.8.2] - 2026-08-10
 
 ### Added
@@ -284,7 +324,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.7.1...v0.8.0

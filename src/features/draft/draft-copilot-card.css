@@ -210,6 +210,102 @@
   font-size: 9px;
 }
 
+.draft-copilot__glance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.draft-copilot__glance > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: rgb(7 12 22 / 28%);
+}
+
+.draft-copilot__glance dt {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.draft-copilot__glance dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-copilot__glance small {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-copilot__details {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.draft-copilot__details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.draft-copilot__details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.draft-copilot__details > summary small {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-copilot__details > summary::after {
+  flex: 0 0 auto;
+  color: var(--accent-primary);
+  font-size: 16px;
+  content: "+";
+}
+
+.draft-copilot__details[open] > summary::after {
+  content: "−";
+}
+
+.draft-copilot__details > summary:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.draft-copilot__details-content {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+}
+
 .draft-copilot__reasons {
   display: grid;
   gap: 8px;
@@ -644,6 +740,14 @@
 }
 
 @media (max-width: 360px) {
+  .draft-copilot__glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .draft-copilot__glance > div:last-child {
+    grid-column: 1 / -1;
+  }
+
   .draft-copilot__primary {
     grid-template-columns: minmax(0, 1fr);
   }

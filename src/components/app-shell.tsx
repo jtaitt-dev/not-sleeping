@@ -29,6 +29,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 import { IconButton } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badges";
+import { SleeperSearch } from "@/components/ui/form-controls";
 import { LeagueSwitcher } from "@/components/league-switcher";
 import { useAdvancedResearchAccess } from "@/features/research/advanced-research-access";
 import { getActiveFixture, useAppStore } from "@/stores/app-store";
@@ -590,16 +591,13 @@ export function MoreWorkspace() {
         <StatusBadge tone="success">All systems operational</StatusBadge>
       </header>
 
-      <label className="more-search">
-        <Search aria-hidden="true" />
-        <span className="sr-only">Search destinations</span>
-        <input
-          type="search"
-          value={query}
-          placeholder="Search tools"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
+      <SleeperSearch
+        className="more-search"
+        label="Search destinations"
+        value={query}
+        placeholder="Search tools"
+        onChange={(event) => setQuery(event.target.value)}
+      />
 
       {sections.map((section) => (
         <nav

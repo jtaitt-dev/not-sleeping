@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { DEFAULT_SETTINGS, getSettings } from "@/services/storage/settings";
+import { resolveLeagueDraftId } from "@/services/draft/league-draft-selection";
 import { safeRuntimeError } from "@/services/messaging/runtime-client";
 import { useAppStore } from "@/stores/app-store";
 import { useLeagueStore } from "@/stores/league-store";
@@ -79,6 +80,8 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
       boundTabId = tabId;
       await Promise.all([hydrate(tabId), hydrateLeagues()]);
       if (!isActive()) return;
+      await reconcileHydratedLeagueDraft();
+      if (!isActive()) return;
       port = chrome.runtime.connect({ name: "not-sleeping-live" });
       port.onMessage.addListener(onMessage);
       document.addEventListener("visibilitychange", sendVisibility);
@@ -107,6 +110,26 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
         </div>
       </Tooltip.Provider>
     </QueryClientProvider>
+  );
+}
+
+/**
+ * A non-draft Sleeper route has no tab draft to hydrate. Once the account and
+ * league catalog are ready, bind the draft workspace to that selected
+ * league's authoritative board instead of leaving an unrelated demo fixture
+ * visible beside a real league name.
+ */
+export async function reconcileHydratedLeagueDraft(): Promise<void> {
+  const app = useAppStore.getState();
+  if (!app.demoEnabled) return;
+  const league = useLeagueStore.getState();
+  if (!league.activeContext || !league.snapshot) return;
+  await app.selectLeagueDraft(
+    league.activeContext.leagueId,
+    resolveLeagueDraftId({
+      league: league.snapshot.league,
+      drafts: league.snapshot.drafts,
+    }),
   );
 }
 

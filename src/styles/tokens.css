@@ -166,6 +166,8 @@
   --background-surface-active: var(--surface-raised);
   --background-elevated: var(--surface-raised);
   --background-overlay: var(--surface-scrim);
+  --font-display: var(--font-family-display);
+  --text-tertiary: var(--text-muted);
 
   /* Borders step down to near-nothing: the ladder carries depth now. Keeping
      them defined rather than deleted avoids collapsing layouts that use a

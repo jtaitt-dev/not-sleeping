@@ -1,0 +1,35 @@
+.sleeper-player-identity {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.sleeper-player-identity__copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.sleeper-player-identity__copy strong,
+.sleeper-player-identity__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleeper-player-identity__copy strong {
+  color: var(--text-primary);
+  font-size: var(--font-body);
+}
+
+.sleeper-player-identity__copy small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.sleeper-player-identity__trailing {
+  display: inline-flex;
+  align-items: center;
+}

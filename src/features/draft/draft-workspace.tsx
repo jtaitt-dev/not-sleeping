@@ -18,9 +18,12 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { ScoreBreakdown } from "@/components/intelligence/score-breakdown";
-import { PositionBadge, StatusBadge, TierBadge } from "@/components/ui/badges";
+import { StatusBadge, TierBadge } from "@/components/ui/badges";
 import { Button, IconButton } from "@/components/ui/button";
-import { PlayerAvatar } from "@/components/ui/player-avatar";
+import { SleeperDraftPick } from "@/components/ui/draft-pick";
+import { SleeperSelect } from "@/components/ui/form-controls";
+import { SleeperPlayerIdentity } from "@/components/ui/player-row";
+import { SleeperSection } from "@/components/ui/section";
 import { translateDraftError } from "@/services/draft/draft-errors";
 import { requestRuntime } from "@/services/messaging/runtime-client";
 import {
@@ -267,21 +270,17 @@ export function DraftWorkspace() {
       )}
 
       {!draftComplete ? (
-        <section
+        <SleeperSection
           className="recommendation-board"
-          aria-labelledby="recommendation-board-heading"
-        >
-          <header className="board-heading">
-            <div>
-              <span className="section-label">Recommendation board</span>
-              <h2 id="recommendation-board-heading">
-                Available, eligible, and context-ranked
-              </h2>
-            </div>
+          headerClassName="board-heading"
+          eyebrow="Recommendation board"
+          title="Available, eligible, and context-ranked"
+          action={
             <span className="read-only-chip">
               <ShieldCheck aria-hidden="true" /> Read-only
             </span>
-          </header>
+          }
+        >
           <div className="board-toolbar">
             <div
               className="position-filters"
@@ -350,7 +349,7 @@ export function DraftWorkspace() {
               <ChevronDown aria-hidden="true" />
             </button>
           ) : null}
-        </section>
+        </SleeperSection>
       ) : null}
 
       <RecentPicks picks={picks} context={context} teams={format.teams} />
@@ -441,7 +440,7 @@ function DraftContextRail({
         <div>
           <label>
             <span>Session type</span>
-            <select
+            <SleeperSelect
               value={context.sessionKind}
               disabled={demoEnabled || sessionSaving || !context.draftId}
               onChange={(event) =>
@@ -453,7 +452,7 @@ function DraftContextRail({
                   {label}
                 </option>
               ))}
-            </select>
+            </SleeperSelect>
             <small>
               {context.sessionKindOverride
                 ? "Saved correction"
@@ -462,7 +461,7 @@ function DraftContextRail({
           </label>
           <label>
             <span>Strategy</span>
-            <select
+            <SleeperSelect
               value={strategy}
               onChange={(event) =>
                 onStrategyChange(event.target.value as Strategy)
@@ -473,7 +472,7 @@ function DraftContextRail({
                   {label}
                 </option>
               ))}
-            </select>
+            </SleeperSelect>
           </label>
           <label className="context-risk-control">
             <span>
@@ -499,7 +498,7 @@ function DraftContextRail({
               >
                 {demoPaused ? <Play /> : <Pause />}
               </IconButton>
-              <select
+              <SleeperSelect
                 aria-label="Demo speed"
                 value={demoSpeed}
                 onChange={(event) =>
@@ -509,7 +508,7 @@ function DraftContextRail({
                 <option value="0.5">0.5×</option>
                 <option value="1">1×</option>
                 <option value="2">2×</option>
-              </select>
+              </SleeperSelect>
               <IconButton label="Reset demo" onClick={onResetDemo}>
                 <RotateCcw />
               </IconButton>
@@ -551,17 +550,11 @@ function RecommendationRow({
           {recommendation.rank}
           <ChevronRight aria-hidden="true" />
         </span>
-        <span className="player-cell">
-          <PlayerAvatar player={player} size="small" />
-          <span>
-            <strong>{player.fullName}</strong>
-            <small>
-              {player.team ?? "FA"} · Tier {recommendation.tier} ·{" "}
-              {recommendation.rosterFit} fit
-            </small>
-          </span>
-          <PositionBadge position={player.position} />
-        </span>
+        <SleeperPlayerIdentity
+          className="player-cell"
+          player={player}
+          meta={`${player.team ?? "FA"} · Tier ${recommendation.tier} · ${recommendation.rosterFit} fit`}
+        />
         <span className="score-cell tabular">
           <b>{Math.round(recommendation.contextualScore)}</b>
           <small>raw {recommendation.rawScore}</small>
@@ -645,14 +638,12 @@ function RecentPicks({
   teams: number;
 }) {
   return (
-    <section className="recent-picks" aria-labelledby="recent-picks-heading">
-      <header>
-        <div>
-          <span className="section-label">Recent picks</span>
-          <h2 id="recent-picks-heading">Board movement</h2>
-        </div>
-        <span>{picks.length} recorded</span>
-      </header>
+    <SleeperSection
+      className="recent-picks"
+      eyebrow="Recent picks"
+      title="Board movement"
+      action={<span>{picks.length} recorded</span>}
+    >
       <div
         className="recent-picks-strip"
         role="region"
@@ -660,31 +651,33 @@ function RecentPicks({
         tabIndex={0}
       >
         {picks.slice(-7).map((pick) => (
-          <article key={`${pick.pickNumber}-${pick.playerId}`}>
-            <span className="tabular">
-              {pick.round}.{String(pick.pickInRound).padStart(2, "0")}
-            </span>
-            <strong>{pick.playerName}</strong>
-            <small>
-              {pick.position} · {pick.pickedBy ?? "Unknown manager"}
-            </small>
-            {pick.isUserPick ? (
-              <StatusBadge tone="info">You</StatusBadge>
-            ) : null}
-          </article>
+          <SleeperDraftPick
+            key={`${pick.pickNumber}-${pick.playerId}`}
+            pick={`${pick.round}.${String(pick.pickInRound).padStart(2, "0")}`}
+            playerName={pick.playerName}
+            position={pick.position}
+            meta={pick.pickedBy ?? "Unknown manager"}
+            status={
+              pick.isUserPick ? (
+                <StatusBadge tone="info">You</StatusBadge>
+              ) : null
+            }
+          />
         ))}
         {context.status !== "complete" ? (
-          <article className="recent-picks-strip__clock">
-            <span>{formatPick(context.currentPick, teams)}</span>
-            <strong>
-              {context.isUserOnClock
+          <SleeperDraftPick
+            className="recent-picks-strip__clock"
+            active
+            pick={formatPick(context.currentPick, teams)}
+            playerName={
+              context.isUserOnClock
                 ? "You're on the clock"
-                : (context.currentDrafter ?? "Waiting")}
-            </strong>
-          </article>
+                : (context.currentDrafter ?? "Waiting")
+            }
+          />
         ) : null}
       </div>
-    </section>
+    </SleeperSection>
   );
 }
 

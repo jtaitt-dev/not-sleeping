@@ -1,0 +1,31 @@
+.sleeper-roster-slot {
+  display: grid;
+  width: 100%;
+  min-height: var(--player-row-height);
+  align-items: center;
+  gap: var(--space-2);
+  grid-template-columns: 40px auto minmax(0, 1fr) auto;
+}
+
+.sleeper-roster-slot__label,
+.sleeper-roster-slot__copy small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.sleeper-roster-slot__copy {
+  display: grid;
+  min-width: 0;
+}
+
+.sleeper-roster-slot__copy strong,
+.sleeper-roster-slot__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleeper-roster-slot__value {
+  color: var(--accent-primary);
+  font-size: var(--font-body);
+}

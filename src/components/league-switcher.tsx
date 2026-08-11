@@ -1,7 +1,9 @@
-import { Check, ChevronDown, Search, Star, X } from "lucide-react";
+import { Check, ChevronDown, Star, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
 import { IconButton } from "@/components/ui/button";
+import { SleeperLeagueAvatar } from "@/components/ui/avatars";
+import { SleeperSearch } from "@/components/ui/form-controls";
 import { useLeagueStore } from "@/stores/league-store";
 import { getActiveFixture, useAppStore } from "@/stores/app-store";
 
@@ -74,9 +76,7 @@ export function LeagueSwitcher() {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <span className="league-avatar" aria-hidden="true">
-          {initials(displayName)}
-        </span>
+        <SleeperLeagueAvatar name={displayName} size="small" />
         <span className="league-switcher-copy">
           <strong>{displayName}</strong>
           <small>
@@ -109,16 +109,14 @@ export function LeagueSwitcher() {
               <X />
             </IconButton>
           </header>
-          <label className="league-search">
-            <Search aria-hidden="true" />
-            <span className="sr-only">Search leagues</span>
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search league, season, or ID"
-            />
-          </label>
+          <SleeperSearch
+            className="league-search"
+            label="Search leagues"
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search league, season, or ID"
+          />
           <div className="league-switcher-list">
             {grouped.map(([season, leagues]) => (
               <section key={season}>
@@ -181,13 +179,4 @@ export function LeagueSwitcher() {
       ) : null}
     </div>
   );
-}
-
-function initials(value: string): string {
-  return value
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0] ?? "")
-    .join("")
-    .toUpperCase();
 }

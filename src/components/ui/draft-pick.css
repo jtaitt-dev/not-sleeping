@@ -1,0 +1,52 @@
+.sleeper-draft-pick {
+  position: relative;
+  display: grid;
+  width: var(--draft-cell-width);
+  min-height: var(--draft-cell-height);
+  flex: 0 0 var(--draft-cell-width);
+  align-content: center;
+  gap: 2px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-small);
+  background: var(--surface-alt);
+  padding: var(--space-2);
+}
+
+.sleeper-draft-pick.is-active {
+  border-color: var(--onclock);
+  box-shadow: inset 0 0 0 1px var(--onclock);
+}
+
+.sleeper-draft-pick__number {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+}
+
+.sleeper-draft-pick > strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleeper-draft-pick__meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sleeper-draft-pick__meta small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sleeper-draft-pick__status {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+}

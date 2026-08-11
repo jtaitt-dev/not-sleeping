@@ -27,10 +27,32 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.2](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.2)**.
+The current release is **[v0.8.3](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.3)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
-![Premium Draft Copilot on the clock](docs/screenshots/draft-premium-on-clock.png)
+|                                Pick essentials by default                                 |                             Expanded intelligence on demand                              |
+| :---------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------: |
+| ![Draft Copilot progressive default](docs/screenshots/draft-copilot-v083-progressive.png) | ![Draft Copilot expanded intelligence](docs/screenshots/draft-copilot-v083-expanded.png) |
+
+## New in v0.8.3
+
+- League-scoped mock state remains isolated when moving between Big Bucks,
+  Beers BB $50, testt, and NFL Last Man Standing; the current authenticated
+  audit again completed all 1,224 configured picks with no illegal or duplicate
+  selection and no Sleeper writes. Non-draft Sleeper pages now bind to the
+  selected league's authoritative board after hydration instead of showing an
+  unrelated demo league or format.
+- Shared Sleeper-compatible search, input, select, field, avatar, player-row,
+  roster-slot, section, draft-pick, modal, drawer, bottom-sheet, tooltip, and
+  menu primitives now replace one-off controls in the highest-use draft,
+  player, team, league, evidence, and settings paths.
+- Realtime intelligence and Draft Copilot depth are collapsed by default. The
+  valid local recommendation, confidence, availability, position need, tier
+  risk, model, and status remain visible while rationale, opponent modeling,
+  alternatives, optional AI actions, and source detail expand only when
+  requested.
+- Evidence uses a focus-managed Radix bottom sheet with Escape and close-button
+  behavior; empty states now receive unique accessible heading IDs.
 
 ## New in v0.8.2
 
