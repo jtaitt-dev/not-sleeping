@@ -64,7 +64,20 @@ export function RootProviders({ children }: { children: React.ReactNode }) {
         record["type"] === "SLEEPER_ACCOUNT_DETECTED" &&
         record["tabId"] === boundTabId
       ) {
-        void hydrateLeagues();
+        void hydrateLeagues().then(() => {
+          if (!isActive() || !port || boundTabId === undefined) return;
+          // Account discovery can finish after the first route update. Ask
+          // the controller for that same tab context again once the catalog
+          // exists so the visible league cannot remain stuck on catalog[0].
+          port.postMessage({ type: "SUBSCRIBE", tabId: boundTabId });
+        });
+      } else if (
+        record["type"] === "SLEEPER_CONTEXT_UPDATE" &&
+        record["tabId"] === boundTabId
+      ) {
+        void selectSleeperRouteLeague(
+          typeof record["leagueId"] === "string" ? record["leagueId"] : null,
+        );
       } else if (
         record["type"] === "DRAFT_REFRESH_ERROR" &&
         record["tabId"] === boundTabId
@@ -131,6 +144,27 @@ export async function reconcileHydratedLeagueDraft(): Promise<void> {
       drafts: league.snapshot.drafts,
     }),
   );
+}
+
+/**
+ * Keep every connected workspace aligned with the league visible in the
+ * bound Sleeper tab. Route updates are authoritative only when that league is
+ * present in the detected account catalog; unknown IDs cannot replace the
+ * user's explicit selection.
+ */
+export async function selectSleeperRouteLeague(
+  leagueId: string | null,
+): Promise<void> {
+  if (!leagueId) return;
+  const league = useLeagueStore.getState();
+  if (
+    league.activeContext?.leagueId === leagueId ||
+    !league.catalog.some((entry) => entry.leagueId === leagueId)
+  ) {
+    return;
+  }
+  await league.selectLeague(leagueId, { syncDraft: false });
+  await reconcileHydratedLeagueDraft();
 }
 
 async function activeSleeperTabId(): Promise<number | undefined> {

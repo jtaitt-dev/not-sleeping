@@ -105,26 +105,56 @@ type DecisionView = {
   id: string;
   title: string;
   decision: string;
-  confidence: number;
+  provenance: string;
   deadline: string;
   freshness: string;
   factor: string;
   pending: string;
-  sources: number;
   action: string;
   tone: DecisionTone;
+  evidence: EvidenceItem[];
+  inference: string | null;
+  uncertainty: string | null;
 };
 
 export function TodayWorkspace() {
   const { context, snapshot, status } = useLeagueData();
   const [selected, setSelected] = useState<string | null>(null);
   if (!context) return <NoLeagueWorkspace title="Today" />;
-  const decisions = todayDecisions(context, snapshot);
+  const selectedSnapshot =
+    snapshot?.leagueId === context.leagueId &&
+    snapshot.league.league_id === context.leagueId
+      ? snapshot
+      : null;
+  if (!selectedSnapshot) {
+    return (
+      <SeasonWorkspace
+        title="Today"
+        subtitle="Current decisions backed by the selected Sleeper league snapshot."
+      >
+        <EmptyState
+          title={
+            status === "loading"
+              ? "Loading league decisions"
+              : status === "switching"
+                ? "Switching league"
+                : "League decisions unavailable"
+          }
+          detail={
+            status === "loading" || status === "switching"
+              ? `Waiting for the ${context.leagueName} snapshot before showing any recommendation.`
+              : `No current ${context.leagueName} snapshot is available. Refresh the selected league before acting.`
+          }
+        />
+      </SeasonWorkspace>
+    );
+  }
+  const decisions = todayDecisions(context, selectedSnapshot);
   const active = decisions.find((decision) => decision.id === selected) ?? null;
   return (
     <SeasonWorkspace
       title="Today"
-      subtitle="Urgent decisions across this league, ordered by deadline."
+      subtitle="Current decisions backed by the selected Sleeper league snapshot."
       action={
         status === "switching" ? (
           <StatusBadge tone="warning">Switching · cached view</StatusBadge>
@@ -152,24 +182,27 @@ export function TodayWorkspace() {
           <span>{context.lineupType.replace("_", " ")}</span>
         </div>
       </section>
-      <div className="decision-rail">
-        {decisions.map((decision) => (
-          <DecisionCard
-            key={decision.id}
-            decision={decision}
-            selected={selected === decision.id}
-            onSelect={() =>
-              setSelected(selected === decision.id ? null : decision.id)
-            }
-          />
-        ))}
-      </div>
-      {active ? (
-        <EvidenceDrawer
-          context={context}
-          decision={active}
-          onClose={() => setSelected(null)}
+      {decisions.length ? (
+        <div className="decision-rail">
+          {decisions.map((decision) => (
+            <DecisionCard
+              key={decision.id}
+              decision={decision}
+              selected={selected === decision.id}
+              onSelect={() =>
+                setSelected(selected === decision.id ? null : decision.id)
+              }
+            />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No current action"
+          detail="Sleeper reports no manual lineup, injury, pending waiver, or active draft action for this roster."
         />
+      )}
+      {active ? (
+        <EvidenceDrawer decision={active} onClose={() => setSelected(null)} />
       ) : null}
     </SeasonWorkspace>
   );
@@ -2560,14 +2593,17 @@ function DecisionCard({
         <span>{decision.factor}</span>
       </span>
       <span className="decision-meta">
-        <strong>{Math.round(decision.confidence * 100)}%</strong>
+        <strong>{decision.provenance}</strong>
         <small>{decision.deadline}</small>
         <small>{decision.freshness}</small>
       </span>
       <ChevronRight />
       <footer>
         <span>Pending: {decision.pending}</span>
-        <span>{decision.sources} sources</span>
+        <span>
+          {decision.evidence.length} source
+          {decision.evidence.length === 1 ? "" : "s"}
+        </span>
         <span>{decision.action}</span>
       </footer>
     </button>
@@ -2575,17 +2611,23 @@ function DecisionCard({
 }
 
 function EvidenceDrawer({
-  context,
   decision,
   onClose,
 }: {
-  context: LeagueContext;
   decision: DecisionView;
   onClose: () => void;
 }) {
-  const evidence = leagueEvidence(context, decision);
+  const evidence = decision.evidence;
   const established = evidence.filter((item) => isSourcedFact(item.nature));
   const estimated = evidence.filter((item) => !isSourcedFact(item.nature));
+  const conflictCount = evidence.reduce(
+    (total, item) => total + item.contradictions.length,
+    0,
+  );
+  const latestRetrieved = evidence
+    .map((item) => Date.parse(item.retrievedAt))
+    .filter(Number.isFinite)
+    .sort((left, right) => right - left)[0];
   return (
     <SleeperBottomSheet
       open
@@ -2598,8 +2640,17 @@ function EvidenceDrawer({
       title={decision.decision}
       footer={
         <>
-          <span>Conflicts: none detected in current evidence</span>
-          <span>Retrieved {decision.freshness}</span>
+          <span>
+            {conflictCount
+              ? `${conflictCount} attached source conflict${conflictCount === 1 ? "" : "s"}`
+              : "No source conflicts attached"}
+          </span>
+          <span>
+            Retrieved{" "}
+            {latestRetrieved === undefined
+              ? decision.freshness
+              : freshnessLabel(latestRetrieved)}
+          </span>
         </>
       }
     >
@@ -2618,18 +2669,19 @@ function EvidenceDrawer({
           items={estimated}
           emptyCopy="No estimate was needed for this call."
         >
-          <article className="evidence-inference">
-            <span>
-              <StatusBadge tone="warning">model</StatusBadge>
-              <small>inference</small>
-            </span>
-            <strong>{decision.factor}</strong>
-            <p>
-              Worth about ±
-              {Math.max(0.5, Math.round(decision.confidence * 4 * 10) / 10)}{" "}
-              points either way.
-            </p>
-          </article>
+          {decision.inference ? (
+            <article className="evidence-inference">
+              <span>
+                <StatusBadge tone="warning">local check</StatusBadge>
+                <small>inference</small>
+              </span>
+              <strong>{decision.inference}</strong>
+              <p>
+                {decision.uncertainty ??
+                  "No additional uncertainty was recorded for this check."}
+              </p>
+            </article>
+          ) : null}
         </EvidenceGroup>
       </div>
     </SleeperBottomSheet>
@@ -3070,141 +3122,245 @@ function usePlayerPool(options: {
   return { players, error };
 }
 
-function todayDecisions(
+export function todayDecisions(
   context: LeagueContext,
-  snapshot: LeagueSnapshot | null,
+  snapshot: LeagueSnapshot,
 ): DecisionView[] {
-  const roster = snapshot?.rosters.find(
+  const roster = snapshot.rosters.find(
     (candidate) => candidate.roster_id === context.rosterId,
   );
-  const injuries =
-    snapshot?.players.filter(
-      (player) =>
-        roster?.players?.includes(player.id) && player.status === "injured",
-    ).length ?? 0;
-  const draft = snapshot?.drafts.find((candidate) =>
+  const rosterPlayerIds = new Set(roster?.players ?? []);
+  const flaggedPlayers = snapshot.players.filter(
+    (player) =>
+      rosterPlayerIds.has(player.id) &&
+      (Boolean(player.injuryStatus) ||
+        ["inactive", "injured", "out", "doubtful"].includes(player.status)),
+  );
+  const starterIds = new Set(
+    (roster?.starters ?? []).filter((playerId) => playerId && playerId !== "0"),
+  );
+  const draft = snapshot.drafts.find((candidate) =>
     ["pre_draft", "drafting", "paused"].includes(candidate.status),
   );
-  return [
-    {
+  const decisions: DecisionView[] = [];
+
+  if (roster && context.lineupType === "classic") {
+    const startSlots = context.rosterPositions.filter(
+      (slot) => !["BN", "IR", "TAXI"].includes(slot.toUpperCase()),
+    ).length;
+    const assignedStarters = starterIds.size;
+    const openSlots = Math.max(0, startSlots - assignedStarters);
+    const flaggedStarters = flaggedPlayers.filter((player) =>
+      starterIds.has(player.id),
+    );
+    const claim = `Sleeper returned ${assignedStarters} assigned starter${assignedStarters === 1 ? "" : "s"} for ${startSlots} configured starting slot${startSlots === 1 ? "" : "s"}; ${flaggedStarters.length} assigned starter${flaggedStarters.length === 1 ? " is" : "s are"} currently flagged.`;
+    decisions.push({
       id: "lineup",
-      title:
-        context.lineupType === "best_ball"
-          ? "Best Ball roster"
-          : "Lineup decision",
+      title: "Lineup check",
       decision:
-        context.lineupType === "best_ball"
-          ? "Review ceiling and depth"
-          : "Optimize legal starters",
-      confidence: snapshot ? 0.78 : 0.4,
-      deadline: `Week ${context.week}`,
-      freshness: snapshot
-        ? freshnessLabel(snapshot.fetchedAt)
-        : "No live snapshot",
-      factor: context.rosterPositions.includes("SUPER_FLEX")
-        ? "Superflex eligibility changes replacement value"
-        : "Ordered roster slots drive exact assignment",
-      pending: injuries
-        ? `${injuries} injury designation${injuries === 1 ? "" : "s"}`
-        : "No roster injury flags",
-      sources: snapshot ? 2 : 0,
-      action:
-        context.lineupType === "best_ball"
-          ? "Review roster manually"
-          : "Set lineup in Sleeper",
-      tone: injuries ? "warning" : "success",
-    },
-    {
+        openSlots > 0
+          ? `${openSlots} starting slot${openSlots === 1 ? " needs" : "s need"} review`
+          : `${assignedStarters}/${startSlots} starters assigned`,
+      provenance: "Local check",
+      deadline: "Before lineup lock",
+      freshness: freshnessLabel(snapshot.fetchedAt),
+      factor: claim,
+      pending:
+        openSlots > 0 || flaggedStarters.length > 0
+          ? `${openSlots} open · ${flaggedStarters.length} flagged`
+          : "No current roster flag",
+      action: "Open Team",
+      tone: openSlots > 0 ? "warning" : "success",
+      evidence: [
+        sleeperSnapshotEvidence({
+          context,
+          snapshot,
+          id: "lineup-roster",
+          claim,
+          claimType: "roster_assignment",
+          path: `/league/${encodeURIComponent(context.leagueId)}/rosters`,
+          citation: `${context.leagueName} roster assignments and configured slots`,
+          playerIds: [...starterIds],
+        }),
+      ],
+      inference:
+        openSlots > 0
+          ? "Review the assigned starters in Sleeper before player lock."
+          : flaggedStarters.length > 0
+            ? `No assignment gap is present; the flagged player${flaggedStarters.length === 1 ? " is" : "s are"} tracked separately in roster status.`
+            : "No lineup change is suggested from assignment and status flags alone.",
+      uncertainty:
+        "This check does not invent kickoff times, inactive reports, or a projection edge that is absent from the snapshot.",
+    });
+  }
+
+  if (flaggedPlayers.length > 0) {
+    const flaggedSummary = flaggedPlayers
+      .slice(0, 3)
+      .map(
+        (player) =>
+          `${player.fullName} (${player.injuryStatus ?? player.status})`,
+      )
+      .join(", ");
+    const claim = `Sleeper currently flags ${flaggedPlayers.length} roster player${flaggedPlayers.length === 1 ? "" : "s"}: ${flaggedSummary}${flaggedPlayers.length > 3 ? ", and others" : ""}.`;
+    decisions.push({
       id: "news",
-      title: "Breaking news",
-      decision: injuries
-        ? `${injuries} roster injury alert${injuries === 1 ? "" : "s"}`
-        : "No current roster injury alert",
-      confidence: snapshot ? 0.82 : 0.3,
-      deadline: "Before kickoff",
-      freshness: snapshot ? freshnessLabel(snapshot.fetchedAt) : "Unknown",
-      factor: "Official Sleeper designation is the current baseline",
-      pending: "Practice and inactive reports",
-      sources: snapshot ? 1 : 0,
-      action: "Review evidence before acting",
-      tone: injuries ? "danger" : "neutral",
-    },
-    {
+      title: "Roster status",
+      decision: `${flaggedPlayers.length} player flag${flaggedPlayers.length === 1 ? "" : "s"} to review`,
+      provenance: "Sleeper",
+      deadline: "Before player lock",
+      freshness: freshnessLabel(snapshot.fetchedAt),
+      factor: flaggedSummary,
+      pending: "Practice and inactive updates",
+      action: "Open Players",
+      tone: flaggedPlayers.some(
+        (player) =>
+          starterIds.has(player.id) ||
+          ["inactive", "out"].includes(player.status),
+      )
+        ? "danger"
+        : "warning",
+      evidence: [
+        sleeperSnapshotEvidence({
+          context,
+          snapshot,
+          id: "roster-status",
+          claim,
+          claimType: "player_status",
+          path: "/players/nfl",
+          citation: "Sleeper NFL player status fields for the selected roster",
+          playerIds: flaggedPlayers.map((player) => player.id),
+        }),
+      ],
+      inference: "Review flagged players before making lineup or roster moves.",
+      uncertainty:
+        "Sleeper status fields can change after practice, injury, and inactive reports.",
+    });
+  }
+
+  const pendingWaivers = snapshot.transactions.filter(
+    (transaction) =>
+      transaction.type.toLowerCase() === "waiver" &&
+      transaction.status.toLowerCase() === "pending" &&
+      (transaction.creator === context.userId ||
+        (context.rosterId !== null &&
+          transaction.roster_ids.includes(context.rosterId))),
+  );
+  if (context.waiverType !== "disabled" && pendingWaivers.length > 0) {
+    const claim = `Sleeper reports ${pendingWaivers.length} pending waiver transaction${pendingWaivers.length === 1 ? "" : "s"} for this user or roster.`;
+    decisions.push({
       id: "waiver",
-      title: "Waiver deadline",
-      decision:
-        context.waiverType === "disabled"
-          ? "Waivers disabled"
-          : `Prepare ${context.waiverType.replaceAll("_", " ")} claims`,
-      confidence: 0.92,
+      title: "Pending waivers",
+      decision: `${pendingWaivers.length} claim${pendingWaivers.length === 1 ? "" : "s"} pending`,
+      provenance: "Sleeper",
       deadline: waiverDeadline(context),
-      freshness: snapshot ? freshnessLabel(snapshot.fetchedAt) : "Unknown",
-      factor: "Actual budget, priority, roster fit, and transaction history",
-      pending: "Next processing timestamp",
-      sources: snapshot ? 2 : 0,
-      action: "Submit claims manually in Sleeper",
-      tone: context.waiverType === "disabled" ? "neutral" : "info",
-    },
-    {
+      freshness: freshnessLabel(snapshot.fetchedAt),
+      factor: `${context.waiverType.replaceAll("_", " ")} processing is configured for this league`,
+      pending: `${pendingWaivers.length} submitted`,
+      action: "Open Waivers",
+      tone: "warning",
+      evidence: [
+        sleeperSnapshotEvidence({
+          context,
+          snapshot,
+          id: "pending-waivers",
+          claim,
+          claimType: "waiver_transaction",
+          path: `/league/${encodeURIComponent(context.leagueId)}/transactions/${context.week}`,
+          citation: `${context.leagueName} week ${context.week} transactions`,
+        }),
+      ],
+      inference: null,
+      uncertainty: null,
+    });
+  }
+
+  if (draft) {
+    const statusLabel = draft.status.replaceAll("_", " ");
+    const startLabel = draft.start_time
+      ? formatSleeperTimestamp(draft.start_time)
+      : "Start time not set";
+    const claim = `Sleeper reports draft ${draft.draft_id} as ${statusLabel} with ${draft.type} order${draft.start_time ? ` and start time ${startLabel}` : ""}.`;
+    decisions.push({
       id: "draft",
       title: "Draft status",
-      decision: draft
-        ? `${draft.status.replace("_", " ")} · ${draft.type}`
-        : "No active draft",
-      confidence: 0.98,
-      deadline: draft?.start_time
-        ? new Date(draft.start_time).toLocaleString()
-        : "No deadline",
-      freshness: snapshot ? freshnessLabel(snapshot.fetchedAt) : "Unknown",
-      factor: "Sleeper draft state and player pool",
-      pending: draft ? "Live picks and timer" : "No pending draft",
-      sources: snapshot ? 1 : 0,
-      action: draft ? "Make picks in Sleeper" : "No action",
-      tone: draft ? "warning" : "neutral",
-    },
-    {
-      id: "taxi",
-      title: "Taxi deadline",
-      decision:
-        numericSetting(context.settings, "taxi_slots", 0) > 0
-          ? `${roster?.taxi?.length ?? 0}/${numericSetting(context.settings, "taxi_slots", 0)} taxi slots used`
-          : "No taxi squad",
-      confidence: 0.9,
-      deadline: "Manual league rule if not represented",
-      freshness: snapshot ? freshnessLabel(snapshot.fetchedAt) : "Unknown",
-      factor: "Experience eligibility and irreversible promotion rules",
-      pending: "Commissioner-specific deadline",
-      sources: snapshot ? 1 : 0,
-      action: "Move players manually in Sleeper",
-      tone: "neutral",
-    },
-    {
-      id: "weather",
-      title: "Weather risk",
-      decision: "Stadium forecasts load by kickoff",
-      confidence: 0.7,
-      deadline: "Refresh near kickoff",
-      freshness: "30m default · 10m near kickoff",
-      factor: "Dome status, wind, precipitation, temperature, and uncertainty",
-      pending: "Official schedule and roof status",
-      sources: 1,
-      action: "Review close calls",
-      tone: "info",
-    },
-    {
-      id: "research",
-      title: "Research freshness",
-      decision: "Refresh only decision-relevant evidence",
-      confidence: 0.86,
-      deadline: "Cost-aware",
-      freshness: "2h news · 15m breaking",
-      factor: "Official sources outrank reports and social posts",
-      pending: "Conflicts reduce confidence",
-      sources: 1,
-      action: "Approve deep research manually",
-      tone: "neutral",
-    },
-  ];
+      decision: `${statusLabel} · ${draft.type}`,
+      provenance: "Sleeper",
+      deadline: startLabel,
+      freshness: freshnessLabel(snapshot.fetchedAt),
+      factor: "Sleeper draft state for the selected league",
+      pending:
+        draft.status === "drafting"
+          ? "Live picks and timer"
+          : draft.status === "paused"
+            ? "Commissioner resume"
+            : "Draft start",
+      action: "Open Draft",
+      tone: draft.status === "drafting" ? "danger" : "info",
+      evidence: [
+        sleeperSnapshotEvidence({
+          context,
+          snapshot,
+          id: "draft-status",
+          claim,
+          claimType: "draft_status",
+          path: `/draft/${encodeURIComponent(draft.draft_id)}`,
+          citation: `${context.leagueName} draft status`,
+        }),
+      ],
+      inference: null,
+      uncertainty: null,
+    });
+  }
+
+  return decisions;
+}
+
+function sleeperSnapshotEvidence(input: {
+  context: LeagueContext;
+  snapshot: LeagueSnapshot;
+  id: string;
+  claim: string;
+  claimType: string;
+  path: string;
+  citation: string;
+  playerIds?: string[];
+}): EvidenceItem {
+  const fetchedAt = Number.isFinite(input.snapshot.fetchedAt)
+    ? input.snapshot.fetchedAt
+    : Date.now();
+  return {
+    id: `league:${input.context.leagueId}:${input.id}`,
+    sourceClass: "official_league",
+    url: `https://api.sleeper.app/v1${input.path}`,
+    publisher: "Sleeper public API",
+    publishedAt: null,
+    retrievedAt: new Date(fetchedAt).toISOString(),
+    playerIds: input.playerIds ?? [],
+    teamIds: [],
+    claimType: input.claimType,
+    claim: input.claim,
+    confidence: 1,
+    freshness: snapshotFreshness(fetchedAt),
+    corroborationCount: 0,
+    contradictions: [],
+    citation: input.citation,
+    expiresAt: new Date(fetchedAt + 15 * 60_000).toISOString(),
+    rawSourceHash: `${input.context.leagueId}:${input.id}:${fetchedAt}`,
+    nature: "fact",
+  };
+}
+
+function snapshotFreshness(fetchedAt: number): EvidenceItem["freshness"] {
+  const age = Math.max(0, Date.now() - fetchedAt);
+  if (age <= 15 * 60_000) return "fresh";
+  if (age <= 60 * 60_000) return "aging";
+  return "stale";
+}
+
+function formatSleeperTimestamp(value: number): string {
+  const milliseconds = value < 1_000_000_000_000 ? value * 1_000 : value;
+  return new Date(milliseconds).toLocaleString();
 }
 
 function buildRosterDecisionPlayers(
@@ -3297,35 +3453,6 @@ function buildRosterDecisionPlayers(
       },
     ];
   });
-}
-
-function leagueEvidence(
-  context: LeagueContext,
-  decision: DecisionView,
-): EvidenceItem[] {
-  const now = Date.now();
-  return [
-    {
-      id: `league:${context.leagueId}:${decision.id}`,
-      sourceClass: "official_league",
-      url: "https://api.sleeper.app/",
-      publisher: "Sleeper public API",
-      publishedAt: null,
-      retrievedAt: new Date(now).toISOString(),
-      playerIds: [],
-      teamIds: [],
-      claimType: decision.id,
-      claim: decision.factor,
-      confidence: decision.confidence,
-      freshness: "fresh",
-      corroborationCount: 0,
-      contradictions: [],
-      citation: `${context.leagueName} settings and current state`,
-      expiresAt: new Date(now + 15 * 60_000).toISOString(),
-      rawSourceHash: `${context.leagueId}:${decision.id}`,
-      nature: "fact",
-    },
-  ];
 }
 
 function userRosterPlayers(

@@ -1,6 +1,6 @@
 # AI evaluation report
 
-- Generated: 2026-08-10T17:30:22.425Z
+- Generated: 2026-08-12T06:11:06.566Z
 - Mode: mocked-and-deterministic
 - Credentials required: no
 - Fixtures: 10

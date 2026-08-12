@@ -1,7 +1,7 @@
 # DevTools UI Audit — 2026-08-10
 
 Reference: the user's existing signed-in Chrome session on Sleeper. Extension:
-the installed unpacked Not Sleeping v0.8.12 build in the same browser, plus the
+the installed unpacked Not Sleeping v0.8.13 build in the same browser, plus the
 controlled production-bundle tests described below. Evidence is in
 `artifacts/devtools-ui-audit-2026-08-10/`; sanitized automated captures are
 attached to the Playwright report.
@@ -407,3 +407,33 @@ and enforces the 798 px cap, 112×88 px partner cards, 64+ px asset rows, equal
 columns/stacking, and zero accidental overflow. The README
 `docs/screenshots/trade-center.png` is generated from that fictional fixture;
 private signed-in Trade captures remain ignored and are not published.
+The v0.8.13 review found that the installed panel could retain Beers BB $50
+while the authenticated Sleeper route displayed Big Bucks. The route observer
+already captured the correct league ID; the missing link was a tab-scoped
+context notification after initial side-panel hydration. The controller now
+broadcasts every route context to only the bound panel, and account discovery
+replays that context after the detected league catalog hydrates. Unit coverage
+proves tab isolation, catalog membership, and unknown-route rejection.
+
+The same review found that Today rendered seven fixed cards and presented
+unsupported weather/research freshness, taxi and waiver deadlines, numeric
+confidence, and a generated point range as though they were observed evidence.
+The migrated screen now waits for a matching selected-league snapshot and
+shows only manual lineup assignment, current roster status, actually pending
+waivers, and an actually active/pre-draft board. `today-decisions.png` and the
+regenerated `evidence-drawer.png` use fictional data; the drawer separates the
+exact Sleeper public-API claim from a labeled local check and names missing
+inputs instead of inventing uncertainty. Lowercase fixture status data also
+exposed a case-sensitive player normalizer; its correction prevents false
+inactive alerts without weakening explicit injury designations.
+
+One installed-browser limitation remains in this slice: after Chrome accepted
+the launcher's `sidePanel.open()` request, the current Windows UI Automation
+and Chrome debug bridge exposed only the Sleeper document, not Chrome's side
+panel document. The authenticated Big Bucks route and current launcher were
+verified after a scripted extension/tab reload, but a new installed panel-header
+capture is therefore not claimed. This is an automation-surface visibility gap;
+the tab-scoped controller broadcast, detected-catalog selection, startup replay,
+unknown-league rejection, production bundle, and launcher protocol paths are
+covered independently. A future bridge that exposes extension side-panel
+documents can close the remaining visual proof without changing product code.

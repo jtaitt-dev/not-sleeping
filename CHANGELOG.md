@@ -5,6 +5,41 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.13] - 2026-08-12
+
+### Added
+
+- Runtime and store regressions prove that every Sleeper route update reaches
+  only the side panel bound to that tab and selects only a league present in
+  the detected account catalog.
+- Today provenance tests reject unsupported weather, research, taxi, waiver,
+  and draft cards and verify the exact Sleeper public endpoint behind every
+  rendered fact.
+- Sanitized Today and evidence-drawer screenshots now document the
+  snapshot-backed decision state without authenticated league or browser data.
+
+### Changed
+
+- Today now waits for a matching selected-league snapshot, renders only manual
+  lineup, roster-status, pending-waiver, and active-draft states that exist,
+  and labels direct Sleeper facts separately from local checks.
+- Evidence shows actual source counts and retrieved freshness. Local inference
+  states its missing inputs instead of displaying fabricated confidence or
+  point-uncertainty values.
+- The in-page launcher reports a retry state when Chrome rejects side-panel
+  opening instead of silently ignoring the failure.
+
+### Fixed
+
+- Navigating from Big Bucks to Beers BB $50 (or another detected league) can no
+  longer leave the side panel on the prior league's board, completion state, or
+  season workspace data.
+- Account discovery now re-requests the active tab context after hydrating the
+  league catalog, closing the startup race where the first route update could
+  arrive before any catalog entry existed.
+- Sleeper player status labels are normalized case-insensitively, so lowercase
+  `active` data cannot create false inactive and injury alerts.
+
 ## [0.8.12] - 2026-08-12
 
 ### Added
@@ -533,7 +568,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.12...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.13...HEAD
+[0.8.13]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.12...v0.8.13
 [0.8.12]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.11...v0.8.12
 [0.8.11]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.9...v0.8.10

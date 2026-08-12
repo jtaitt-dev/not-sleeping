@@ -139,6 +139,37 @@ describe("LiveDraftController", () => {
     );
   });
 
+  it("broadcasts every Sleeper route league change to the bound panel", async () => {
+    const first = testPort();
+    const second = testPort();
+    const controller = new LiveDraftController(
+      async () => liveState("x", "complete"),
+      async () => ({ leagueId: "initial-league" }),
+    );
+    controller.connect(first.port);
+    controller.connect(second.port);
+    first.receive({ type: "SUBSCRIBE", tabId: 7 });
+    second.receive({ type: "SUBSCRIBE", tabId: 8 });
+    await vi.waitFor(() => {
+      expect(first.postMessage).toHaveBeenCalledWith({
+        type: "SLEEPER_CONTEXT_UPDATE",
+        tabId: 7,
+        leagueId: "initial-league",
+      });
+    });
+
+    first.postMessage.mockClear();
+    second.postMessage.mockClear();
+    controller.updateContext(7, { leagueId: "big-bucks" });
+
+    expect(first.postMessage).toHaveBeenCalledWith({
+      type: "SLEEPER_CONTEXT_UPDATE",
+      tabId: 7,
+      leagueId: "big-bucks",
+    });
+    expect(second.postMessage).not.toHaveBeenCalled();
+  });
+
   it("does not let a stale side-panel port fail account detection", async () => {
     const stale = testPort();
     const healthy = testPort();

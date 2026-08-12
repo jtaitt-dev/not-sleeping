@@ -254,6 +254,32 @@ describe("Sleeper provider", () => {
     });
   });
 
+  it("normalizes Sleeper status labels without case-sensitive false inactives", () => {
+    const records = sleeperPlayersSchema.parse({
+      lower: {
+        player_id: "lower",
+        full_name: "Lowercase Active",
+        position: "WR",
+        fantasy_positions: ["WR"],
+        status: "active",
+      },
+      reserve: {
+        player_id: "reserve",
+        full_name: "Reserve Player",
+        position: "RB",
+        fantasy_positions: ["RB"],
+        status: "injured reserve",
+      },
+    });
+
+    expect(normalizeSleeperPlayer("lower", records.lower!)).toMatchObject({
+      status: "active",
+    });
+    expect(normalizeSleeperPlayer("reserve", records.reserve!)).toMatchObject({
+      status: "injured",
+    });
+  });
+
   it("rejects a player record whose embedded id does not match its index key", () => {
     const record = sleeperPlayersSchema.parse({
       "11604": {

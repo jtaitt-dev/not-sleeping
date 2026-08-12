@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { reconcileHydratedLeagueDraft } from "@/components/root-providers";
+import {
+  reconcileHydratedLeagueDraft,
+  selectSleeperRouteLeague,
+} from "@/components/root-providers";
 import { resolveLeagueDraftId } from "@/services/draft/league-draft-selection";
 import { useAppStore } from "@/stores/app-store";
 import { useLeagueStore } from "@/stores/league-store";
@@ -263,6 +266,59 @@ describe("initial league draft reconciliation", () => {
     } finally {
       useAppStore.setState({ selectLeagueDraft: originalSelectLeagueDraft });
       useLeagueStore.setState({ activeContext: null, snapshot: null });
+    }
+  });
+});
+
+describe("Sleeper route league binding", () => {
+  it("selects the league visible in the authenticated Sleeper tab", async () => {
+    const originalSelectLeague = useLeagueStore.getState().selectLeague;
+    const selectLeague = vi.fn(async () => undefined);
+    useLeagueStore.setState({
+      catalog: [
+        { leagueId: "beers-league" },
+        { leagueId: "big-bucks" },
+      ] as never,
+      activeContext: { leagueId: "beers-league" } as never,
+      selectLeague,
+    });
+
+    try {
+      await selectSleeperRouteLeague("big-bucks");
+      expect(selectLeague).toHaveBeenCalledWith("big-bucks", {
+        syncDraft: false,
+      });
+    } finally {
+      useLeagueStore.setState({
+        catalog: [],
+        activeContext: null,
+        snapshot: null,
+        selectLeague: originalSelectLeague,
+      });
+    }
+  });
+
+  it("ignores an unknown or already-selected route league", async () => {
+    const originalSelectLeague = useLeagueStore.getState().selectLeague;
+    const selectLeague = vi.fn(async () => undefined);
+    useLeagueStore.setState({
+      catalog: [{ leagueId: "beers-league" }] as never,
+      activeContext: { leagueId: "beers-league" } as never,
+      selectLeague,
+    });
+
+    try {
+      await selectSleeperRouteLeague("beers-league");
+      await selectSleeperRouteLeague("not-in-account");
+      await selectSleeperRouteLeague(null);
+      expect(selectLeague).not.toHaveBeenCalled();
+    } finally {
+      useLeagueStore.setState({
+        catalog: [],
+        activeContext: null,
+        snapshot: null,
+        selectLeague: originalSelectLeague,
+      });
     }
   });
 });
