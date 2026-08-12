@@ -9,8 +9,11 @@ code are redistributed.
 
 - Body and dense data use bundled Lato 400/700. Navigation, headings, tabs, and
   buttons use bundled Poppins 500/600/700. Both packages are OFL-1.1.
-- The type scale is 11, 13, 14, 16, 18, 22, and 40 px. Eleven pixels is the
-  minimum visible label size.
+- The shared type scale is 9, 10, 11, 12, 13, 14, 16, 18, 22, and 40 px.
+  Authenticated measurement found 9 px status metadata on Predraft, 10 px
+  position metadata in the draft room, 11 px pick labels, 12 px panel rows,
+  and 14 px player names. The 9 px token is reserved for non-actionable
+  predraft microcopy; draft surfaces use 10 px or larger.
 - The spacing scale is 4, 8, 12, 16, 20, 24, and 32 px.
 - Page, alternate, card, raised, hover, and draft-board surfaces are stepped by
   lightness. Borders are subordinate and never provide the only depth cue.

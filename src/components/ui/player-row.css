@@ -21,7 +21,7 @@
 
 .sleeper-player-identity__copy strong {
   color: var(--text-primary);
-  font-size: var(--font-body);
+  font-size: var(--font-name);
 }
 
 .sleeper-player-identity__copy small {

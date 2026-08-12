@@ -618,12 +618,63 @@ test("renders the Draft workspace across every required audit width", async () =
                 : null,
             };
           });
+          const typography = [
+            {
+              role: "recommendation player name",
+              selector:
+                ".recommendation-row__main .sleeper-player-identity__copy strong",
+              minimum: 14,
+            },
+            {
+              role: "recommendation player metadata",
+              selector:
+                ".recommendation-row__main .sleeper-player-identity__copy small",
+              minimum: 10,
+            },
+            {
+              role: "position filter",
+              selector: ".position-filters button",
+              minimum: 10,
+            },
+            {
+              role: "recommendation table heading",
+              selector: ".player-table-head",
+              minimum: 10,
+            },
+            {
+              role: "on-clock AI activity",
+              selector: ".draft-copilot__turn-ai-status small",
+              minimum: 10,
+            },
+            {
+              role: "on-clock AI step",
+              selector: ".draft-copilot__turn-ai-steps li",
+              minimum: 10,
+            },
+            {
+              role: "on-clock safety boundary",
+              selector: ".draft-copilot__turn-ai-boundary",
+              minimum: 10,
+            },
+          ].map(({ role, selector, minimum }) => {
+            const element = document.querySelector<HTMLElement>(selector);
+            return {
+              role,
+              selector,
+              minimum,
+              present: Boolean(element),
+              actual: element
+                ? Number.parseFloat(getComputedStyle(element).fontSize)
+                : null,
+            };
+          });
           return {
             viewport,
             documentScrollWidth: document.documentElement.scrollWidth,
             core,
             accidentalOverflow,
             criticalText,
+            typography,
           };
         });
 
@@ -643,6 +694,14 @@ test("renders the Draft workspace across every required audit width", async () =
         expect(layout.criticalText).toEqual(
           layout.criticalText.map((entry) => ({ ...entry, clipped: false })),
         );
+        expect(
+          layout.typography.filter(
+            (entry) =>
+              !entry.present ||
+              entry.actual === null ||
+              entry.actual < entry.minimum,
+          ),
+        ).toEqual([]);
 
         if (width === 390) {
           await page

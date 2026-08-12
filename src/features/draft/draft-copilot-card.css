@@ -144,7 +144,7 @@
 .draft-copilot__turn-ai-status small {
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -182,7 +182,7 @@
   align-items: center;
   min-width: 0;
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   font-weight: 700;
 }
 
@@ -212,7 +212,7 @@
 .draft-copilot__turn-ai-boundary {
   grid-column: 1 / -1;
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
 }
 
 .draft-copilot__primary {
@@ -292,7 +292,7 @@
 .draft-copilot__score span {
   margin-top: 3px;
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   text-transform: uppercase;
 }
 
@@ -318,7 +318,7 @@
 .draft-copilot__availability small {
   grid-column: 1 / -1;
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
 }
 
 .draft-copilot__glance {
@@ -340,7 +340,7 @@
 
 .draft-copilot__glance dt {
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   font-weight: 750;
   letter-spacing: 0.035em;
   text-transform: uppercase;
@@ -365,7 +365,7 @@
 .draft-copilot__glance small {
   overflow: hidden;
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -394,7 +394,7 @@
 .draft-copilot__details > summary small {
   overflow: hidden;
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -488,7 +488,7 @@
 .draft-copilot__ai-controls label span,
 .draft-copilot__model small {
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
 }
 
 .draft-copilot__ai-controls select {
@@ -561,7 +561,7 @@
   border: 0;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   cursor: pointer;
 }
 
@@ -576,7 +576,7 @@
 .draft-copilot__ai-result summary,
 .draft-copilot__ai-result li {
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
 }
 
 .draft-copilot__ai-result ul {
@@ -640,7 +640,7 @@
 
 .draft-copilot__safe-error strong,
 .draft-copilot__safe-error small {
-  font-size: 9px;
+  font-size: var(--font-dense);
 }
 
 .draft-copilot__safe-error small {
@@ -667,7 +667,7 @@
   gap: 5px;
   margin-bottom: 7px;
   color: var(--accent-primary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   font-weight: 800;
   letter-spacing: 0.045em;
   text-transform: uppercase;
@@ -698,7 +698,7 @@
 
 .draft-copilot__alternatives small {
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
 }
 
 .draft-copilot__alternatives b {
@@ -711,7 +711,7 @@
   overflow: hidden;
   margin: 7px 0 4px;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -755,7 +755,7 @@
 .draft-copilot__turn-pair > header small,
 .draft-copilot__turn-pair > small {
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
 }
 
 .draft-copilot__turn-pair > div {
@@ -775,7 +775,7 @@
 
 .draft-copilot__turn-pair article > span:first-child {
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   font-weight: 750;
 }
 
@@ -809,7 +809,7 @@
   border-radius: 8px;
   background: rgb(251 191 36 / 5%);
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: var(--font-dense);
   line-height: 1.35;
 }
 

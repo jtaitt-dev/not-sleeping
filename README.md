@@ -27,12 +27,23 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.6](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.6)**.
+The current release is **[v0.8.7](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.7)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.7
+
+- Draft typography now follows authenticated Sleeper measurements: 14 px
+  player names, 11–12 px labels and panel rows, and a 10 px floor for dense
+  draft metadata. The previous 8 px draft text has been removed.
+- Shared typography tokens now distinguish Predraft-only microcopy from draft
+  room metadata, correcting the earlier blanket 11 px documentation claim.
+- The seven-width production browser matrix now asserts computed player-name,
+  recommendation-metadata, position-filter, table-heading, and on-clock AI
+  activity sizes. The reviewed Draft visual baseline records the new hierarchy.
 
 ## New in v0.8.6
 
