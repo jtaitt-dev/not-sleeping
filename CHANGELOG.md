@@ -5,6 +5,25 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-08-11
+
+### Added
+
+- The seven-width Draft browser matrix now asserts computed font sizes for
+  recommendation identities, metadata, filters, headings, and on-clock AI
+  activity, with reviewed Windows and Linux visual baselines.
+
+### Changed
+
+- Shared typography tokens now distinguish 9 px Predraft microcopy, 10 px
+  dense Draft metadata, 11 px labels, 12 px panel rows, and 14 px player names
+  according to authenticated Sleeper measurements.
+
+### Fixed
+
+- Removed 8 px text from the Draft workspace and raised recommendation player
+  names and secondary Draft/AI context to the measured Sleeper hierarchy.
+
 ## [0.8.6] - 2026-08-11
 
 ### Added
@@ -377,7 +396,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.6...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.7...HEAD
+[0.8.7]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.3...v0.8.4
