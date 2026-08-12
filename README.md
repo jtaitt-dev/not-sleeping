@@ -27,12 +27,28 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.11](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.11)**.
+The current release is **[v0.8.12](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.12)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.12
+
+- Trade Center now evaluates the selected league's actual rosters, legal
+  starting lineup, configured roster capacity, scoring-aware/imported
+  projections, and supported traded-pick history instead of synthetic
+  baselines.
+- Draft-pick assets preserve exact current draft slots when Sleeper exposes the
+  order, include `via` ownership labels, reconstruct three future seasons, and
+  omit spent current-season picks after a completed draft.
+- The workspace follows the authenticated Trade surface's compact visual
+  language with an 798 px desktop cap, 112×88 px partner cards, 64+ px asset
+  rows, semantic selection controls, and an explicit read-only Sleeper handoff.
+- Pure, connected-store, and production-bundle tests reject cross-league data,
+  verify real before/after lineup values, and cover 320 through 1920 px without
+  accidental horizontal overflow. The Trade screenshot uses fictional data.
 
 ## New in v0.8.11
 

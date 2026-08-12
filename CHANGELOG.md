@@ -5,6 +5,39 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-08-12
+
+### Added
+
+- A selected-league Trade Center projector builds real parties, players,
+  projections, roster capacity, and three seasons of supported draft-pick
+  inventory with exact current slots and `via` ownership labels.
+- Pure and connected-store regression coverage verifies stale-snapshot
+  rejection, league changes, completed-draft pick handling, lineup deltas, and
+  projection provenance.
+- A production-extension browser matrix exercises the complete Trade workflow
+  at 320, 375, 390, 768, 1024, 1440, and 1920 px with sanitized fictional data.
+
+### Changed
+
+- Trade analysis now optimizes legal before/after starting lineups and reports
+  real weekly point movement, player depth, open or over-capacity roster spots,
+  market coverage, fairness, and negotiation conditions.
+- Trade Center now uses an authenticated 798 px content cap, compact partner
+  rail, 64+ px shared player/pick rows, selected-state semantics, and a safe
+  read-only handoff to Sleeper's Trade page.
+- Trade finder suggestions use real player assets and avoid meaningless
+  identical generic-pick swaps; pick assets remain available in the builder.
+
+### Fixed
+
+- Switching leagues cannot retain a prior league's trade partner or selected
+  assets, and embedded cross-user or cross-league snapshots are rejected.
+- Projection labels now distinguish league-scored, imported fallback, and rank
+  proxy values instead of presenting every estimate as equivalent evidence.
+- A completed draft no longer exposes already-spent current-season picks as
+  tradable future inventory.
+
 ## [0.8.11] - 2026-08-12
 
 ### Added
@@ -500,7 +533,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.11...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.12...HEAD
+[0.8.12]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.11...v0.8.12
 [0.8.11]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.8...v0.8.9
