@@ -5,6 +5,14 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-11
+
+### Fixed
+
+- Kept each Draft Copilot glance note inside its associated definition value,
+  restoring valid definition-list semantics and clearing the serious axe
+  accessibility violation in the browser test suite.
+
 ## [0.8.3] - 2026-08-11
 
 ### Added
@@ -324,7 +332,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.0...v0.8.1

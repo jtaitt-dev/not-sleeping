@@ -27,12 +27,18 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.3](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.3)**.
+The current release is **[v0.8.4](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.4)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                                Pick essentials by default                                 |                             Expanded intelligence on demand                              |
 | :---------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------: |
 | ![Draft Copilot progressive default](docs/screenshots/draft-copilot-v083-progressive.png) | ![Draft Copilot expanded intelligence](docs/screenshots/draft-copilot-v083-expanded.png) |
+
+## New in v0.8.4
+
+- Draft Copilot's visible recommendation summary now uses valid definition-list
+  structure, preserving the same compact layout while passing the serious and
+  critical automated accessibility gate.
 
 ## New in v0.8.3
 

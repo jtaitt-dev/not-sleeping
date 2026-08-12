@@ -138,7 +138,7 @@ describe("shared UI primitives", () => {
   it("keeps Draft Copilot depth collapsed while preserving pick essentials", async () => {
     const user = userEvent.setup();
     const fixture = getActiveFixture("startup");
-    render(
+    const { container } = render(
       <DraftCopilotCard
         context={fixture.context}
         format={fixture.format}
@@ -150,6 +150,12 @@ describe("shared UI primitives", () => {
 
     expect(screen.getByText("Position need")).toBeVisible();
     expect(screen.getByText("Tier risk")).toBeVisible();
+    const glance = container.querySelector("dl.draft-copilot__glance");
+    expect(glance).not.toBeNull();
+    expect(glance?.querySelectorAll(":scope > div > small")).toHaveLength(0);
+    expect(glance?.querySelectorAll(":scope > div > dd > small")).toHaveLength(
+      3,
+    );
     const summary = screen
       .getByText("More draft intelligence")
       .closest("summary");

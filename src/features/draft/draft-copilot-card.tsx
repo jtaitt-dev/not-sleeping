@@ -590,28 +590,34 @@ export function DraftCopilotCard({
       <dl className="draft-copilot__glance" aria-label="Recommendation summary">
         <div>
           <dt>Position need</dt>
-          <dd>{capitalize(top.rosterFit)}</dd>
-          <small>{top.player.position} roster fit</small>
+          <dd>
+            <span>{capitalize(top.rosterFit)}</span>
+            <small>{top.player.position} roster fit</small>
+          </dd>
         </div>
         <div>
           <dt>Tier risk</dt>
           <dd>
-            {capitalize(top.risk)} · Tier {top.tier}
+            <span>
+              {capitalize(top.risk)} · Tier {top.tier}
+            </span>
+            <small>{100 - top.nextPickAvailability}% pass risk</small>
           </dd>
-          <small>{100 - top.nextPickAvailability}% pass risk</small>
         </div>
         <div>
           <dt>Next owned pick</dt>
           <dd>
-            {context.nextUserPick === undefined
-              ? "Not linked"
-              : formatOwnedPick(context.nextUserPick, format.teams)}
+            <span>
+              {context.nextUserPick === undefined
+                ? "Not linked"
+                : formatOwnedPick(context.nextUserPick, format.teams)}
+            </span>
+            <small>
+              {context.isUserOnClock
+                ? "You are on the clock"
+                : `${context.picksUntilUser ?? "—"} picks away`}
+            </small>
           </dd>
-          <small>
-            {context.isUserOnClock
-              ? "You are on the clock"
-              : `${context.picksUntilUser ?? "—"} picks away`}
-          </small>
         </div>
       </dl>
 
