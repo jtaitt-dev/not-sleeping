@@ -27,12 +27,25 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.4](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.4)**.
+The current release is **[v0.8.5](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.5)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
-|                                Pick essentials by default                                 |                             Expanded intelligence on demand                              |
-| :---------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------: |
-| ![Draft Copilot progressive default](docs/screenshots/draft-copilot-v083-progressive.png) | ![Draft Copilot expanded intelligence](docs/screenshots/draft-copilot-v083-expanded.png) |
+|                              Local answer with AI off                              |                                          Visible AI activity                                           |
+| :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
+| ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.5
+
+- Active NFL players now use verified Sleeper player IDs for their headshots.
+  Invalid or mismatched player records fail safely to the player initials or
+  team/position fallback instead of displaying another player's photo.
+- When your roster is on the clock, Draft Copilot shows a compact live AI
+  activity strip with board, player-context, and Luna progress plus a one-click
+  on/off switch directly on the Draft screen.
+- The on-clock panel keeps the local recommendation available at all times and
+  states the safety boundary plainly: AI never submits a pick.
+- Sanitized release screenshots now cover AI-off, AI-working, 320px, auction,
+  and player-headshot states with deterministic fixture isolation.
 
 ## New in v0.8.4
 

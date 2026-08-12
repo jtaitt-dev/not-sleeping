@@ -1,6 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/services/intelligence/provider-permissions", () => ({
+  requestProviderHostPermission: vi.fn(async () => true),
+}));
 
 import { PositionBadge, StatusBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
@@ -12,7 +16,10 @@ import {
 } from "@/components/ui/form-controls";
 import { SleeperBottomSheet } from "@/components/ui/overlays";
 import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-intelligence-card";
-import { DraftCopilotCard } from "@/features/draft/draft-copilot-card";
+import {
+  DraftCopilotCard,
+  draftAiActivityLabel,
+} from "@/features/draft/draft-copilot-card";
 import { SleeperRosterSlot } from "@/components/ui/roster-slot";
 import { EmptyState } from "@/components/ui/states";
 import { DEMO_PLAYERS } from "@/services/demo/fixtures";
@@ -163,6 +170,59 @@ describe("shared UI primitives", () => {
     expect(screen.getByText("Why now")).not.toBeVisible();
     await user.click(summary!);
     expect(screen.getByText("Why now")).toBeVisible();
+  });
+
+  it("shows on-clock AI activity and toggles it without leaving Draft", async () => {
+    const user = userEvent.setup();
+    const fixture = getActiveFixture("big-bucks");
+    render(
+      <DraftCopilotCard
+        context={fixture.context}
+        format={fixture.format}
+        recommendations={getRecommendations(
+          "big-bucks",
+          0,
+          "balanced",
+          0.5,
+          [],
+        )}
+        strategy="balanced"
+        riskTolerance={0.5}
+      />,
+    );
+
+    const enable = await screen.findByRole("switch", { name: "Turn AI on" });
+    expect(enable).toHaveAttribute("aria-checked", "false");
+    expect(
+      screen.getByText(
+        "Local recommendation is ready. Turn AI on for optional context.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("list", { name: "On-clock AI activity" }),
+    ).toBeVisible();
+
+    await user.click(enable);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", { name: "Turn AI off" }),
+      ).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(
+      screen.getByText("AI never submits a pick", { exact: false }),
+    ).toBeVisible();
+  });
+
+  it("describes each visible on-clock AI stage in plain language", () => {
+    expect(
+      draftAiActivityLabel(true, true, undefined, "checking_context", 8),
+    ).toBe("Checking current Sleeper status for 8 legal players.");
+    expect(draftAiActivityLabel(true, true, "queued", "synthesizing", 8)).toBe(
+      "Luna is comparing 8 legal players now.",
+    );
+    expect(draftAiActivityLabel(true, true, "ready", "ready", 8)).toBe(
+      "Luna finished. Bounded context is included above.",
+    );
   });
 
   it("renders shared roster slots and unique empty-state relationships", () => {

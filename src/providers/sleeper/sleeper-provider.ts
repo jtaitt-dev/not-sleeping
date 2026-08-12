@@ -581,6 +581,7 @@ export function normalizeSleeperPlayer(
   id: string,
   record: SleeperPlayerRecord,
 ): Player | null {
+  if (record.player_id && record.player_id !== id) return null;
   const fullName =
     record.full_name ??
     [record.first_name, record.last_name].filter(Boolean).join(" ");
@@ -599,7 +600,7 @@ export function normalizeSleeperPlayer(
           : "unknown";
   return {
     id,
-    sleeperId: record.player_id ?? id,
+    sleeperId: id,
     firstName: record.first_name ?? "",
     lastName: record.last_name ?? "",
     fullName,

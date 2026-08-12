@@ -7,14 +7,24 @@ export function resolvePlayerHeadshot(
   player: Pick<Player, "sleeperId" | "id" | "position">,
   size: "thumb" | "full" = "thumb",
 ): string | null {
-  if (player.position === "DEF") return null;
-  const id = safeId(player.sleeperId ?? player.id);
-  if (!id) return null;
-  const url =
-    size === "full"
-      ? `${SLEEPER_CDN}/${id}.jpg`
-      : `${SLEEPER_CDN}/thumb/${id}.jpg`;
-  return failedUrls.has(url) ? null : url;
+  return resolvePlayerHeadshotCandidates(player, size)[0] ?? null;
+}
+
+export function resolvePlayerHeadshotCandidates(
+  player: Pick<Player, "sleeperId" | "id" | "position">,
+  size: "thumb" | "full" = "thumb",
+): string[] {
+  if (player.position === "DEF") return [];
+  // Never infer a photo from an arbitrary numeric internal/import ID. A
+  // Sleeper player ID must have been explicitly attached by the validated
+  // Sleeper player-index normalization path (or a verified local fixture).
+  const id = safeId(player.sleeperId);
+  if (!id) return [];
+  const thumb = `${SLEEPER_CDN}/thumb/${id}.jpg`;
+  const full = `${SLEEPER_CDN}/${id}.jpg`;
+  return (size === "full" ? [full, thumb] : [thumb, full]).filter(
+    (url) => !failedUrls.has(url),
+  );
 }
 
 export function markPlayerHeadshotFailed(url: string): void {

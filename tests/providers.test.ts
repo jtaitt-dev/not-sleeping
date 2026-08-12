@@ -253,6 +253,19 @@ describe("Sleeper provider", () => {
       fantasyPositions: ["DEF"],
     });
   });
+
+  it("rejects a player record whose embedded id does not match its index key", () => {
+    const record = sleeperPlayersSchema.parse({
+      "11604": {
+        player_id: "11565",
+        full_name: "Brock Bowers",
+        position: "TE",
+        fantasy_positions: ["TE"],
+      },
+    })["11604"]!;
+
+    expect(normalizeSleeperPlayer("11604", record)).toBeNull();
+  });
 });
 
 describe("OpenAI provider", () => {

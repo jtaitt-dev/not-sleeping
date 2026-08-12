@@ -339,6 +339,63 @@ test("recalculates strategy and supports draft decision interactions", async () 
   await expect(page.getByText("Recalculate next-pick survival")).toBeVisible();
 });
 
+test("uses canonical player photos and exposes the on-clock AI switch", async () => {
+  const { page, extensionId } = loaded;
+  const previousStorage = await page.evaluate(async () => {
+    const stored = await chrome.storage.local.get(["demoMode", "appSettings"]);
+    return {
+      demoMode: stored.demoMode ?? null,
+      appSettings: stored.appSettings ?? null,
+    };
+  });
+  await page.goto(`chrome-extension://${extensionId}/sidepanel.html#/draft`);
+  await expect(
+    page.locator(".draft-copilot__identity .player-avatar img"),
+  ).toHaveAttribute(
+    "src",
+    "https://sleepercdn.com/content/nfl/players/11604.jpg",
+  );
+
+  await page.evaluate(async () => {
+    await chrome.storage.local.set({
+      demoMode: { enabled: true, fixture: "big-bucks" },
+      appSettings: {
+        onboardingComplete: true,
+        automaticAnalysis: true,
+      },
+    });
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Draft Copilot", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "On-clock AI activity" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("AI never submits a pick", { exact: false }),
+  ).toBeVisible();
+
+  const disableAi = page.getByRole("switch", { name: "Turn AI off" });
+  await expect(disableAi).toHaveAttribute("aria-checked", "true");
+  await disableAi.click();
+  await expect(
+    page.getByRole("switch", { name: "Turn AI on" }),
+  ).toHaveAttribute("aria-checked", "false");
+  await expect(
+    page.getByText(
+      "Local recommendation is ready. Turn AI on for optional context.",
+    ),
+  ).toBeVisible();
+  await page.evaluate(async (previous) => {
+    for (const key of ["demoMode", "appSettings"] as const) {
+      const value = previous[key];
+      if (value === null) await chrome.storage.local.remove(key);
+      else await chrome.storage.local.set({ [key]: value });
+    }
+  }, previousStorage);
+});
+
 test("completes a full league-derived mock with every pick entered manually", async () => {
   test.setTimeout(90_000);
   const manualLoaded = await loadExtension();

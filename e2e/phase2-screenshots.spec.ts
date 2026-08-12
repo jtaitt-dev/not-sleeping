@@ -148,6 +148,15 @@ test("captures every required Phase 2 workspace from the shipped extension", asy
 test("captures premium Draft Copilot release states", async () => {
   test.setTimeout(90_000);
   const { page, extensionId } = loaded;
+  const previousAppSettings = await page.evaluate(async () => {
+    const { appSettings } = await chrome.storage.local.get("appSettings");
+    const settings =
+      appSettings && typeof appSettings === "object" ? appSettings : {};
+    await chrome.storage.local.set({
+      appSettings: { ...settings, sleeperUserId: "" },
+    });
+    return settings;
+  });
   await page.setViewportSize({ width: 520, height: 1000 });
   await captureDraftFixture(page, extensionId, "startup", "draft-copilot.png");
   await captureCurrentDraft(page, "draft-premium-waiting.png");
@@ -160,6 +169,41 @@ test("captures premium Draft Copilot release states", async () => {
   await captureCurrentDraft(page, "draft-premium-on-clock.png");
   await captureCurrentDraft(page, "draft-premium-rookie.png");
   await captureCurrentDraft(page, "draft-premium-ai-off.png");
+
+  await page.evaluate(async () => {
+    const { appSettings } = await chrome.storage.local.get("appSettings");
+    const settings =
+      appSettings && typeof appSettings === "object" ? appSettings : {};
+    await chrome.storage.session.set({
+      openaiApiKeySession: "sk-release_fixture_1234567890",
+    });
+    await chrome.storage.local.set({
+      appSettings: { ...settings, automaticAnalysis: true },
+    });
+  });
+  openAiResponseDelayMs = 2_000;
+  await page.reload();
+  await expect(
+    page.getByRole("switch", { name: "Turn AI off" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(
+    page.getByRole("list", { name: "On-clock AI activity" }),
+  ).toBeVisible();
+  await captureCurrentDraft(page, "draft-premium-on-clock-ai-working.png");
+  openAiResponseDelayMs = 0;
+  await page.evaluate(async () => {
+    const { appSettings } = await chrome.storage.local.get("appSettings");
+    const settings =
+      appSettings && typeof appSettings === "object" ? appSettings : {};
+    await chrome.storage.local.set({
+      appSettings: { ...settings, automaticAnalysis: false },
+    });
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("switch", { name: "Turn AI on" }),
+  ).toHaveAttribute("aria-checked", "false");
+
   await captureDraftFixture(
     page,
     extensionId,
@@ -261,6 +305,9 @@ test("captures premium Draft Copilot release states", async () => {
     "draft-premium-600.png",
   );
   await page.setViewportSize({ width: 520, height: 1000 });
+  await page.evaluate(async (appSettings) => {
+    await chrome.storage.local.set({ appSettings });
+  }, previousAppSettings);
 });
 
 async function captureLeagueSwitcher(page: Page) {

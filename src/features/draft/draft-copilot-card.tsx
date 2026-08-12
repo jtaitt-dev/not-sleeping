@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ScoreBreakdown } from "@/components/intelligence/score-breakdown";
 import { PositionBadge, TierBadge } from "@/components/ui/badges";
+import { Button } from "@/components/ui/button";
 import { SleeperSelect } from "@/components/ui/form-controls";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
 import { SafeExternalLink } from "@/components/ui/safe-external-link";
@@ -488,6 +489,24 @@ export function DraftCopilotCard({
   const aiPresentationStatus = !aiEnabled
     ? "off"
     : (activeDecision?.aiStatus ?? (aiWorking ? "queued" : "local"));
+  const playerContextStepState =
+    !settings || !aiEnabled
+      ? "off"
+      : visiblePreparationStage === "local_ready"
+        ? "pending"
+        : visiblePreparationStage === "checking_context"
+          ? "active"
+          : "complete";
+  const synthesisStepState =
+    !settings || !aiEnabled
+      ? "off"
+      : activeDecision?.aiStatus === "ready"
+        ? "complete"
+        : aiWorking
+          ? "active"
+          : visibleError
+            ? "error"
+            : "pending";
 
   return (
     <article
@@ -501,22 +520,98 @@ export function DraftCopilotCard({
           <Sparkles aria-hidden="true" />
           <span>
             <h2>{auction ? "Auction Copilot" : "Draft Copilot"}</h2>
-            <small>Local answer now · AI context is bounded and optional</small>
+            <small>
+              {context.isUserOnClock
+                ? "Your pick · Local answer stays available"
+                : "Local answer now · AI context is bounded and optional"}
+            </small>
           </span>
         </div>
-        <label className="ai-switch">
-          <span>AI analysis</span>
-          <input
-            id="draft-ai-analysis-toggle"
-            type="checkbox"
-            aria-label="Enable AI analysis"
-            checked={aiEnabled}
-            disabled={!settings}
-            onChange={(event) => void toggleAi(event.target.checked)}
-          />
-          <i aria-hidden="true" />
-        </label>
+        {!context.isUserOnClock ? (
+          <label className="ai-switch">
+            <span>AI analysis</span>
+            <input
+              id="draft-ai-analysis-toggle"
+              type="checkbox"
+              aria-label="Enable AI analysis"
+              checked={aiEnabled}
+              disabled={!settings}
+              onChange={(event) => void toggleAi(event.target.checked)}
+            />
+            <i aria-hidden="true" />
+          </label>
+        ) : null}
       </header>
+
+      {context.isUserOnClock ? (
+        <section
+          className="draft-copilot__turn-ai"
+          aria-labelledby="draft-copilot-turn-ai-title"
+        >
+          <div
+            className={`draft-copilot__turn-ai-status ${aiStatusClass(
+              aiEnabled,
+              activeDecision?.aiStatus,
+              visiblePreparationStage,
+            )}`}
+            role="status"
+            aria-live="polite"
+          >
+            {aiStatusIcon(
+              aiEnabled,
+              activeDecision?.aiStatus,
+              visiblePreparationStage,
+            )}
+            <span>
+              <strong id="draft-copilot-turn-ai-title">
+                {settings
+                  ? draftAiStatusLabel(
+                      aiEnabled,
+                      activeDecision?.aiStatus,
+                      visiblePreparationStage,
+                    )
+                  : "Loading AI preference"}
+              </strong>
+              <small>
+                {draftAiActivityLabel(
+                  Boolean(settings),
+                  aiEnabled,
+                  activeDecision?.aiStatus,
+                  visiblePreparationStage,
+                  Math.min(8, candidates.length),
+                  modelDisplayName(config?.model ?? "gpt-5.6-luna"),
+                )}
+              </small>
+            </span>
+          </div>
+          <Button
+            className="draft-copilot__turn-ai-toggle"
+            variant={aiEnabled ? "secondary" : "primary"}
+            size="small"
+            role="switch"
+            aria-checked={aiEnabled}
+            aria-label={aiEnabled ? "Turn AI off" : "Turn AI on"}
+            disabled={!settings}
+            icon={<Bot aria-hidden="true" />}
+            onClick={() => void toggleAi(!aiEnabled)}
+          >
+            {!settings ? "Loading AI" : aiEnabled ? "Turn off" : "Turn on"}
+          </Button>
+          <ol
+            className="draft-copilot__turn-ai-steps"
+            aria-label="On-clock AI activity"
+          >
+            <li data-state="complete">Board ready</li>
+            <li data-state={playerContextStepState}>Player context</li>
+            <li data-state={synthesisStepState}>
+              {modelDisplayName(config?.model ?? "gpt-5.6-luna")}
+            </li>
+          </ol>
+          <small className="draft-copilot__turn-ai-boundary">
+            Local ranking remains available · AI never submits a pick
+          </small>
+        </section>
+      ) : null}
 
       <section className="draft-copilot__primary">
         <div className="draft-copilot__identity">
@@ -728,7 +823,7 @@ export function DraftCopilotCard({
                   {draftAiStatusLabel(
                     aiEnabled,
                     activeDecision?.aiStatus,
-                    preparationStage,
+                    visiblePreparationStage,
                   )}
                 </span>
                 {aiEnabled && visibleError ? (
@@ -1057,6 +1152,32 @@ export function draftAiStatusLabel(
   if (status === "error") return "Local fallback";
   if (status === "stale") return "Board changed · refreshing";
   return "Local ready · AI standing by";
+}
+
+export function draftAiActivityLabel(
+  settingsReady: boolean,
+  enabled: boolean,
+  status: RealtimeDecision["aiStatus"] | undefined,
+  stage: DraftAiPreparationStage,
+  candidateCount: number,
+  modelName = "Luna",
+): string {
+  if (!settingsReady) return "Loading your saved AI preference…";
+  if (!enabled)
+    return "Local recommendation is ready. Turn AI on for optional context.";
+  if (status === "ready" || stage === "ready")
+    return `${modelName} finished. Bounded context is included above.`;
+  if (status === "error" || stage === "fallback")
+    return `${modelName} could not finish. The verified local recommendation remains active.`;
+  if (status === "stale")
+    return "The board changed. Local rankings refreshed and AI is restarting.";
+  if (stage === "checking_context")
+    return `Checking current Sleeper status for ${candidateCount} legal players.`;
+  if (stage === "starting_ai")
+    return `Starting ${modelName} with this league, roster, and draft board.`;
+  if (status === "queued" || stage === "synthesizing")
+    return `${modelName} is comparing ${candidateCount} legal players now.`;
+  return `Local recommendation is ready. ${modelName} will start automatically.`;
 }
 
 function DraftAiProgress({

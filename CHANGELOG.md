@@ -5,6 +5,30 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-08-11
+
+### Added
+
+- An on-clock Draft Copilot activity strip exposes board readiness, player
+  context, Luna progress, current plain-language work, and a direct accessible
+  AI on/off switch without leaving the Draft screen.
+- Browser coverage verifies canonical player-photo URLs, on-clock AI state,
+  the one-click off path, and the no-pick-submission boundary.
+
+### Changed
+
+- Release screenshots now isolate demo draft state from connected-league
+  hydration and include sanitized AI-off, AI-working, and 320px on-clock views.
+
+### Fixed
+
+- Corrected the verified Sleeper IDs for all bundled active players, including
+  current team metadata for Kenneth Walker, and made full/thumbnail headshots
+  fall back to each other before initials.
+- Player normalization now rejects an index record whose embedded Sleeper ID
+  disagrees with its authoritative key, and arbitrary internal numeric IDs can
+  no longer be treated as photo IDs.
+
 ## [0.8.4] - 2026-08-11
 
 ### Fixed
@@ -332,7 +356,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.1...v0.8.2

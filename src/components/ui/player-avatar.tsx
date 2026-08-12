@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 
 import {
+  hasPlayerHeadshotFailed,
   markPlayerHeadshotFailed,
-  resolvePlayerHeadshot,
+  resolvePlayerHeadshotCandidates,
 } from "@/services/players/player-headshots";
 import type { Player } from "@/types/domain";
 
@@ -17,12 +18,17 @@ export function PlayerAvatar({
   size?: "small" | "medium" | "large";
   priority?: boolean;
 }) {
-  const resolved = useMemo(
-    () => resolvePlayerHeadshot(player, size === "large" ? "full" : "thumb"),
+  const candidates = useMemo(
+    () =>
+      resolvePlayerHeadshotCandidates(
+        player,
+        size === "large" ? "full" : "thumb",
+      ),
     [player, size],
   );
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const imageUrl = resolved === failedUrl ? null : resolved;
+  const [, setFailureVersion] = useState(0);
+  const imageUrl =
+    candidates.find((url) => !hasPlayerHeadshotFailed(url)) ?? null;
   const initials = `${player.firstName.at(0) ?? ""}${player.lastName.at(0) ?? ""}`;
   return (
     <span
@@ -38,7 +44,7 @@ export function PlayerAvatar({
           fetchPriority={priority ? "high" : "auto"}
           onError={() => {
             markPlayerHeadshotFailed(imageUrl);
-            setFailedUrl(imageUrl);
+            setFailureVersion((current) => current + 1);
           }}
         />
       ) : player.position === "DEF" ? (
