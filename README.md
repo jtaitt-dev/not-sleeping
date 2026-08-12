@@ -27,12 +27,23 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.7](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.7)**.
+The current release is **[v0.8.8](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.8)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.8
+
+- Recommendation rows keep the player's position visible at 320 px even when
+  the separate position badge collapses; compact metadata now includes team,
+  position, tier, and roster fit.
+- Long recommendation names wrap instead of ellipsizing at narrow widths, so
+  the complete player identity remains readable without horizontal overflow.
+- The seven-width browser matrix now proves position visibility and full-name
+  clipping safety, with a dedicated sanitized 320 px recommendation-row
+  capture attached to the Playwright report.
 
 ## New in v0.8.7
 

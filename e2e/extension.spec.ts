@@ -595,6 +595,7 @@ test("renders the Draft workspace across every required audit width", async () =
             ".draft-copilot__name h1",
             ".draft-copilot__turn-ai-status small",
             ".draft-copilot__turn-ai-boundary",
+            ".recommendation-row__main .sleeper-player-identity__copy strong",
           ].map((selector) => {
             const element = document.querySelector<HTMLElement>(selector);
             const computed = element ? getComputedStyle(element) : null;
@@ -668,6 +669,22 @@ test("renders the Draft workspace across every required audit width", async () =
                 : null,
             };
           });
+          const firstRecommendation = document.querySelector<HTMLElement>(
+            ".recommendation-row__main",
+          );
+          const recommendationMeta = firstRecommendation?.querySelector(
+            ".sleeper-player-identity__copy small",
+          );
+          const recommendationPosition =
+            firstRecommendation?.querySelector(".position-badge");
+          const metaDisplay = recommendationMeta
+            ? getComputedStyle(recommendationMeta).display
+            : null;
+          const positionDisplay = recommendationPosition
+            ? getComputedStyle(recommendationPosition).display
+            : null;
+          const positionText = recommendationPosition?.textContent.trim() ?? "";
+          const metaText = recommendationMeta?.textContent.trim() ?? "";
           return {
             viewport,
             documentScrollWidth: document.documentElement.scrollWidth,
@@ -675,6 +692,21 @@ test("renders the Draft workspace across every required audit width", async () =
             accidentalOverflow,
             criticalText,
             typography,
+            firstRecommendationPosition: {
+              present: Boolean(firstRecommendation),
+              positionText,
+              positionDisplay,
+              metaText,
+              metaDisplay,
+              visible:
+                (positionDisplay !== "none" && positionText.length > 0) ||
+                (metaDisplay !== "none" &&
+                  positionText.length > 0 &&
+                  metaText
+                    .split("·")
+                    .map((part) => part.trim())
+                    .includes(positionText)),
+            },
           };
         });
 
@@ -702,6 +734,10 @@ test("renders the Draft workspace across every required audit width", async () =
               entry.actual < entry.minimum,
           ),
         ).toEqual([]);
+        expect(layout.firstRecommendationPosition).toMatchObject({
+          present: true,
+          visible: true,
+        });
 
         if (width === 390) {
           await page
@@ -716,6 +752,19 @@ test("renders the Draft workspace across every required audit width", async () =
           body: await page.screenshot({ animations: "disabled" }),
           contentType: "image/png",
         });
+
+        if (width === 320) {
+          const firstRecommendation = page
+            .locator(".recommendation-row__main")
+            .first();
+          await firstRecommendation.scrollIntoViewIfNeeded();
+          await testInfo.attach("draft-320-recommendation-position", {
+            body: await firstRecommendation.screenshot({
+              animations: "disabled",
+            }),
+            contentType: "image/png",
+          });
+        }
 
         if (width === 390) {
           await page

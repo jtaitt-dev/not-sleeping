@@ -1,7 +1,7 @@
 # DevTools UI Audit — 2026-08-10
 
 Reference: the user's existing signed-in Chrome session on Sleeper. Extension:
-the installed unpacked Not Sleeping v0.8.7 build in the same browser, plus the
+the installed unpacked Not Sleeping v0.8.8 build in the same browser, plus the
 controlled production-bundle tests described below. Evidence is in
 `artifacts/devtools-ui-audit-2026-08-10/`; sanitized automated captures are
 attached to the Playwright report.
@@ -79,6 +79,8 @@ before secondary metrics. The shared avatar, badge, row-height, and fallback
 components satisfy that hierarchy without guessed headshots. Draft Copilot
 player names now wrap instead of using a clipping ellipsis, preserving the full
 identity at every required width while leaving the position badge visible.
+At 320 px, recommendation rows also wrap the complete name and keep position in
+the visible team/position/tier metadata when the standalone badge collapses.
 
 ## 10. Draft-board findings
 
@@ -103,14 +105,16 @@ the exact document width, the absence of unintended horizontal overflow, and
 the in-viewport position of primary navigation, draft context, Draft Copilot,
 the recommendation board, and the on-clock AI switch at 320, 375, 390, 768,
 1024, 1440, and 1920 px. The 390 px run also opens the progressive-disclosure
-analysis before capture.
+analysis before capture. The matrix additionally proves that each first
+recommendation retains a visible position and that its player name is not
+clipped; the 320 px run attaches a focused row capture.
 
 ## 13. Interaction-state findings
 
 Hover, active, selected, focus-visible, disabled, paused, on-clock, complete,
 undo, redo, reset-confirmation, and league-switching states are represented.
 Focus rings use the selected teal and never rely on color alone for identity.
-After the v0.8.7 reload, the launcher was activated from the same authenticated
+After the v0.8.8 reload, the launcher was activated from the same authenticated
 Sleeper draft-room tab without opening another browser or making a draft write.
 
 ## 14. Loading-state findings
@@ -124,7 +128,7 @@ cleared before new data is requested.
 Runtime, provider, stale snapshot, saved-mock mismatch, and insufficient-player
 pool errors remain local and actionable. Local deterministic features remain
 available when optional AI fails.
-The installed v0.8.7 post-refresh console check recorded no extension warning
+The installed v0.8.8 post-refresh console check recorded no extension warning
 or error; the sole recent entry was Sleeper's own deprecated scrollbar-option
 warning.
 
@@ -166,7 +170,8 @@ and AI-status text boxes so clipping regressions fail the browser suite.
 The same matrix verifies the rendered role hierarchy: recommendation player
 names are at least 14 px, draft metadata and on-clock AI activity are at least
 10 px, and the relevant roles resolve to those minimums at every required
-width.
+width. It also verifies full-name clipping and visible-position invariants for
+the recommendation row at each width.
 
 ## 19. Screens migrated
 
@@ -246,3 +251,6 @@ typography correction. Two consecutive local Windows runs and all three Linux
 CI retries produced stable platform-specific images before those snapshots were
 accepted. The post-update local visual suite passes both the Draft and
 secure-options baselines.
+The v0.8.8 browser report adds `draft-320-recommendation-position`, a sanitized
+278×63 px element capture showing the full two-line player name and visible
+`FA · QB` metadata without horizontal overflow.
