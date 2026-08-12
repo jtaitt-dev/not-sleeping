@@ -495,35 +495,186 @@ test("has no serious automated accessibility violations", async () => {
   ).toEqual([]);
 });
 
-test("renders at the 320px minimum without horizontal overflow", async () => {
+test("renders the Draft workspace across every required audit width", async () => {
   const { page } = loaded;
-  await page.setViewportSize({ width: 320, height: 800 });
-  await page.goto(
-    `chrome-extension://${loaded.extensionId}/sidepanel.html#/draft`,
-  );
-  const overflow = await page.evaluate(() => {
-    const viewport = document.documentElement.clientWidth;
-    return [...document.querySelectorAll<HTMLElement>("body *")]
-      .filter((element) => {
-        const rect = element.getBoundingClientRect();
-        if (!(rect.right > viewport + 0.5 || rect.left < -0.5)) return false;
-        let parent = element.parentElement;
-        while (parent) {
-          const overflowX = getComputedStyle(parent).overflowX;
-          if (overflowX === "auto" || overflowX === "scroll") return false;
-          parent = parent.parentElement;
-        }
-        return true;
-      })
-      .map((element) => ({
-        element: `${element.tagName.toLowerCase()}.${element.className}`,
-        left: Math.round(element.getBoundingClientRect().left),
-        right: Math.round(element.getBoundingClientRect().right),
-        scrollWidth: element.scrollWidth,
-      }))
-      .slice(0, 20);
+  const testInfo = test.info();
+  const previousStorage = await page.evaluate(async () => {
+    const stored = await chrome.storage.local.get(["demoMode", "appSettings"]);
+    const settings =
+      stored.appSettings && typeof stored.appSettings === "object"
+        ? stored.appSettings
+        : {};
+    await chrome.storage.local.set({
+      demoMode: { enabled: true, fixture: "big-bucks" },
+      appSettings: {
+        ...settings,
+        onboardingComplete: true,
+        automaticAnalysis: false,
+      },
+    });
+    return {
+      demoMode: stored.demoMode ?? null,
+      appSettings: stored.appSettings ?? null,
+    };
   });
-  expect(overflow).toEqual([]);
+
+  try {
+    await page.goto(
+      `chrome-extension://${loaded.extensionId}/sidepanel.html#/draft`,
+    );
+    await page.reload();
+
+    for (const width of [320, 375, 390, 768, 1024, 1440, 1920]) {
+      await test.step(`${width}px Draft workspace`, async () => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.evaluate(async () => {
+          await chrome.storage.local.set({
+            demoMode: { enabled: true, fixture: "big-bucks" },
+          });
+        });
+        await page.reload();
+        await expect(
+          page.getByRole("button", { name: /Demo · Big Bucks Mock/ }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("heading", { name: "Draft Copilot", exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("switch", { name: "Turn AI on" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("list", { name: "On-clock AI activity" }),
+        ).toBeVisible();
+        await expect(page.locator(".recommendation-board")).toBeVisible();
+
+        const layout = await page.evaluate(() => {
+          const viewport = document.documentElement.clientWidth;
+          const coreSelectors = [
+            ".primary-navigation",
+            ".draft-context-rail",
+            ".draft-copilot",
+            ".recommendation-board",
+            ".draft-copilot__turn-ai-toggle",
+          ];
+          const core = coreSelectors.map((selector) => {
+            const element = document.querySelector<HTMLElement>(selector);
+            const rect = element?.getBoundingClientRect();
+            return {
+              selector,
+              present: Boolean(element),
+              left: rect ? Math.round(rect.left) : null,
+              right: rect ? Math.round(rect.right) : null,
+              width: rect ? Math.round(rect.width) : null,
+              height: rect ? Math.round(rect.height) : null,
+            };
+          });
+          const accidentalOverflow = [
+            ...document.querySelectorAll<HTMLElement>("body *"),
+          ]
+            .filter((element) => {
+              const rect = element.getBoundingClientRect();
+              if (!(rect.right > viewport + 0.5 || rect.left < -0.5))
+                return false;
+              let parent = element.parentElement;
+              while (parent) {
+                const overflowX = getComputedStyle(parent).overflowX;
+                if (overflowX === "auto" || overflowX === "scroll")
+                  return false;
+                parent = parent.parentElement;
+              }
+              return true;
+            })
+            .map((element) => ({
+              element: `${element.tagName.toLowerCase()}.${element.className}`,
+              left: Math.round(element.getBoundingClientRect().left),
+              right: Math.round(element.getBoundingClientRect().right),
+              scrollWidth: element.scrollWidth,
+            }))
+            .slice(0, 20);
+          const criticalText = [
+            ".draft-copilot__name h1",
+            ".draft-copilot__turn-ai-status small",
+            ".draft-copilot__turn-ai-boundary",
+          ].map((selector) => {
+            const element = document.querySelector<HTMLElement>(selector);
+            const computed = element ? getComputedStyle(element) : null;
+            return {
+              selector,
+              text: element?.innerText ?? null,
+              clientWidth: element?.clientWidth ?? null,
+              scrollWidth: element?.scrollWidth ?? null,
+              clientHeight: element?.clientHeight ?? null,
+              scrollHeight: element?.scrollHeight ?? null,
+              overflow: computed?.overflow ?? null,
+              overflowX: computed?.overflowX ?? null,
+              overflowY: computed?.overflowY ?? null,
+              textOverflow: computed?.textOverflow ?? null,
+              whiteSpace: computed?.whiteSpace ?? null,
+              clipped: element
+                ? (element.scrollWidth > element.clientWidth + 1 &&
+                    computed?.overflowX !== "visible") ||
+                  (element.scrollHeight > element.clientHeight + 1 &&
+                    computed?.overflowY !== "visible")
+                : null,
+            };
+          });
+          return {
+            viewport,
+            documentScrollWidth: document.documentElement.scrollWidth,
+            core,
+            accidentalOverflow,
+            criticalText,
+          };
+        });
+
+        expect(layout.viewport).toBe(width);
+        expect(layout.documentScrollWidth).toBeLessThanOrEqual(width);
+        expect(layout.accidentalOverflow).toEqual([]);
+        expect(
+          layout.core.filter(
+            (entry) =>
+              !entry.present ||
+              entry.left === null ||
+              entry.right === null ||
+              entry.left < -0.5 ||
+              entry.right > width + 0.5,
+          ),
+        ).toEqual([]);
+        expect(layout.criticalText).toEqual(
+          layout.criticalText.map((entry) => ({ ...entry, clipped: false })),
+        );
+
+        if (width === 390) {
+          await page
+            .getByText("More draft intelligence", { exact: true })
+            .click();
+          await expect(
+            page.getByText("Why now", { exact: true }),
+          ).toBeVisible();
+        }
+
+        await testInfo.attach(`draft-${width}x900`, {
+          body: await page.screenshot({ animations: "disabled" }),
+          contentType: "image/png",
+        });
+
+        if (width === 390) {
+          await page
+            .getByText("More draft intelligence", { exact: true })
+            .click();
+        }
+      });
+    }
+  } finally {
+    await page.evaluate(async (previous) => {
+      for (const key of ["demoMode", "appSettings"] as const) {
+        const value = previous[key];
+        if (value === null) await chrome.storage.local.remove(key);
+        else await chrome.storage.local.set({ [key]: value });
+      }
+    }, previousStorage);
+    await page.setViewportSize({ width: 420, height: 900 });
+  }
 });
 
 test("propagates a Sleeper route and never disguises a live error as demo data", async () => {
