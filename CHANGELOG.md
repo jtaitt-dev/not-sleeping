@@ -5,6 +5,29 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-08-11
+
+### Added
+
+- A Players-workspace browser matrix now checks 320, 375, 390, 768, 1024,
+  1440, and 1920 px for measured row/control typography and geometry,
+  selected-state semantics, focus visibility, and unintended overflow.
+- Canonical player images now render over an immediate initials fallback so
+  slow or failed image requests never produce blank player identities.
+
+### Changed
+
+- The Players workspace now uses authenticated Sleeper table density: 52 px
+  zebra rows, 32 px search/filter controls and avatars, 12 px player names,
+  and 9 px team/position metadata.
+- Player-result rows expose their selected state with `aria-pressed` and no
+  longer display internal Sleeper IDs as identity metadata.
+
+### Fixed
+
+- Searching or filtering now clears a missing player or selects the first
+  visible result instead of leaving stale details from a filtered-out player.
+
 ## [0.8.8] - 2026-08-11
 
 ### Added
@@ -411,7 +434,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.8...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.9...HEAD
+[0.8.9]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.5...v0.8.6

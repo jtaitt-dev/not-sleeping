@@ -27,12 +27,23 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.8](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.8)**.
+The current release is **[v0.8.9](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.9)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.9
+
+- The Players workspace now follows Sleeper's authenticated player-table
+  density with 52 px zebra rows, 32 px search/filter controls and avatars,
+  12 px names, and 9 px team/position metadata.
+- Canonical Sleeper headshots keep an initials layer underneath the image, so
+  slow or failed CDN requests never leave a blank player identity.
+- Search and position filters cannot leave a filtered-out player's details on
+  screen. Selected rows expose `aria-pressed`, and the browser suite verifies
+  focus, clearing, geometry, and overflow at all seven required widths.
 
 ## New in v0.8.8
 

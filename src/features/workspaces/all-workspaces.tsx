@@ -138,12 +138,14 @@ export function PlayersWorkspace() {
     const timer = window.setTimeout(() => {
       if (!hasRuntimeApi()) {
         const normalized = query.trim().toLowerCase();
-        setResults(
-          DEMO_PLAYERS.filter(
-            (player) =>
-              (position === "ALL" || player.position === position) &&
-              player.fullName.toLowerCase().includes(normalized),
-          ),
+        const filteredPlayers = DEMO_PLAYERS.filter(
+          (player) =>
+            (position === "ALL" || player.position === position) &&
+            player.fullName.toLowerCase().includes(normalized),
+        );
+        setResults(filteredPlayers);
+        setSelected((current) =>
+          resolvePlayerSelection(current, filteredPlayers),
         );
         return;
       }
@@ -158,10 +160,13 @@ export function PlayersWorkspace() {
         .then((players) => {
           if (!active) return;
           setResults(players);
-          setSelected((current) => current ?? players[0] ?? null);
+          setSelected((current) => resolvePlayerSelection(current, players));
         })
         .catch(() => {
-          if (active) setResults([]);
+          if (active) {
+            setResults([]);
+            setSelected(null);
+          }
         });
     }, 140);
     return () => {
@@ -201,7 +206,7 @@ export function PlayersWorkspace() {
       title="Players"
       subtitle="Search the local player index and inspect current context."
     >
-      <div className="search-toolbar surface">
+      <div className="search-toolbar players-toolbar surface">
         <SleeperSearch
           className="search-field"
           label="Search players"
@@ -223,7 +228,9 @@ export function PlayersWorkspace() {
             ))}
           </SleeperSelect>
         </label>
-        <StatusBadge tone="success">{results.length} indexed</StatusBadge>
+        <output className="players-result-count" aria-live="polite">
+          {results.length} indexed
+        </output>
       </div>
 
       <div className="player-explorer">
@@ -234,6 +241,7 @@ export function PlayersWorkspace() {
                 type="button"
                 key={player.id}
                 className={selected?.id === player.id ? "selected" : ""}
+                aria-pressed={selected?.id === player.id}
                 onClick={() => {
                   setSelected(player);
                   setResearch(null);
@@ -242,7 +250,7 @@ export function PlayersWorkspace() {
               >
                 <SleeperPlayerIdentity
                   player={player}
-                  meta={`${player.team ?? "FA"} · Sleeper ${player.sleeperId}`}
+                  meta={`${player.team ?? "FA"} · ${player.position}${player.injuryStatus ? ` · ${player.injuryStatus}` : ""}`}
                 />
                 <ChevronRight aria-hidden="true" />
               </button>
@@ -367,6 +375,17 @@ export function PlayersWorkspace() {
       </div>
     </Workspace>
   );
+}
+
+export function resolvePlayerSelection(
+  current: Player | null,
+  players: Player[],
+): Player | null {
+  if (current) {
+    const retained = players.find((player) => player.id === current.id);
+    if (retained) return retained;
+  }
+  return players[0] ?? null;
 }
 
 const STARTER_SLOTS = [
