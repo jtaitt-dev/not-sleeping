@@ -104,10 +104,16 @@
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  /* Type scale. 11px is a hard floor for labels — the shipped UI ran on 7, 8,
-     9 and 10px, which is the "text looks off" defect this redesign starts
-     from. Numeric columns use tabular-nums. */
+  /* Type scale measured from the authenticated Sleeper surfaces. Predraft
+     status metadata reaches 9px, while the draft room uses 10px for dense
+     position/team metadata, 11px for pick labels, 12px for panel rows, and
+     14px for player names. Keep 9px restricted to genuinely non-actionable
+     predraft microcopy; draft surfaces must use --font-dense or larger.
+     Numeric columns use tabular-nums. */
+  --font-micro: 9px;
+  --font-dense: 10px;
   --font-label: 11px;
+  --font-panel: 12px;
   --font-body: 13px;
   --font-name: 14px;
   --font-title: 16px;

@@ -1,7 +1,7 @@
 # DevTools UI Audit — 2026-08-10
 
 Reference: the user's existing signed-in Chrome session on Sleeper. Extension:
-the installed unpacked Not Sleeping v0.8.6 build in the same browser, plus the
+the installed unpacked Not Sleeping v0.8.7 build in the same browser, plus the
 controlled production-bundle tests described below. Evidence is in
 `artifacts/devtools-ui-audit-2026-08-10/`; sanitized automated captures are
 attached to the Playwright report.
@@ -43,10 +43,16 @@ reflows to remain usable.
 
 ## 5. Typography findings
 
-Sleeper renders Lato for dense body/data text and Poppins for navigation and
-display labels. The extension previously used Inter/Segoe UI fallbacks. It now
-bundles Fontsource Lato and Poppins under OFL-1.1 and applies them through shared
-tokens. Eleven pixels is the minimum label size.
+Sleeper's authenticated Predraft page renders dense status metadata at 9 px,
+team and description text at 10 px, selectors at 12 px, and primary content at
+14 px. Its authenticated Draft Room renders position metadata at 10 px, pick
+labels at 11 px, panel rows at 12 px, and player names/settings at 14 px; no
+8 px or 9 px draft-room text was observed in the rendered sample. Sleeper uses
+Inter/Lato-family dense text plus Poppins for much of the navigation and display
+hierarchy, with legacy Muli still present in draft pick labels. The extension
+bundles Fontsource Lato and Poppins under OFL-1.1 and now exposes measured 9,
+10, 11, 12, and 14 px role tokens. Nine pixels is restricted to Predraft-style
+non-actionable microcopy, and draft surfaces use 10 px or larger.
 
 ## 6. Spacing findings
 
@@ -104,6 +110,8 @@ analysis before capture.
 Hover, active, selected, focus-visible, disabled, paused, on-clock, complete,
 undo, redo, reset-confirmation, and league-switching states are represented.
 Focus rings use the selected teal and never rely on color alone for identity.
+After the v0.8.7 reload, the launcher was activated from the same authenticated
+Sleeper draft-room tab without opening another browser or making a draft write.
 
 ## 14. Loading-state findings
 
@@ -116,6 +124,9 @@ cleared before new data is requested.
 Runtime, provider, stale snapshot, saved-mock mismatch, and insufficient-player
 pool errors remain local and actionable. Local deterministic features remain
 available when optional AI fails.
+The installed v0.8.7 post-refresh console check recorded no extension warning
+or error; the sole recent entry was Sleeper's own deprecated scrollbar-option
+warning.
 
 ## 16. Accessibility findings
 
@@ -152,6 +163,10 @@ alternatives, multi-pick planning, and score factors are secondary.
 The responsive Draft verification was expanded from a single 320 px overflow
 check to the complete required-width matrix. It also measures critical player
 and AI-status text boxes so clipping regressions fail the browser suite.
+The same matrix verifies the rendered role hierarchy: recommendation player
+names are at least 14 px, draft metadata and on-clock AI activity are at least
+10 px, and the relevant roles resolve to those minimums at every required
+width.
 
 ## 19. Screens migrated
 
@@ -209,7 +224,7 @@ record broader component consistency, and `implementation/24-beers-pool-fixed.pn
 shows the corrected Beers BB $50 player pool with an enabled local-mock action.
 
 The 2026-08-11 authenticated verification set was first captured against
-v0.8.3 and was subsequently complemented by the installed v0.8.6 Draft
+v0.8.3 and was subsequently complemented by the installed v0.8.7 Draft
 captures and the exact production-bundle responsive matrix. The local
 current-run set verifies selected-league binding for Beers BB $50, Big
 Bucks, NFL Last Man Standing, and testt; a return from those leagues to Beers
@@ -226,3 +241,8 @@ Sanitized v0.8.6 captures are published in `docs/screenshots/` and shown in the
 README. They record on-clock AI-off and AI-working states, the 320 px layout,
 auction and rookie contexts, and the wider Draft workspace without Sleeper chat,
 manager names, browser tabs, usernames, account IDs, or provider secrets.
+The reviewed v0.8.7 Windows and Linux Draft visual baselines record the measured
+typography correction. Two consecutive local Windows runs and all three Linux
+CI retries produced stable platform-specific images before those snapshots were
+accepted. The post-update local visual suite passes both the Draft and
+secure-options baselines.
