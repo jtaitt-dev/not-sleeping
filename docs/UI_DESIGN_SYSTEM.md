@@ -57,4 +57,5 @@ At 600 px the full data hierarchy is available. At 480 px secondary columns
 collapse. At 360 px cards become single-column, five primary navigation items
 remain visible, and Players remains reachable from More. At 320 px the draft
 recommendation, on-clock state, player identity, position, and action controls
-remain readable and usable.
+remain readable and usable. Recommendation names wrap rather than ellipsize,
+and position remains in the compact metadata when the standalone badge hides.

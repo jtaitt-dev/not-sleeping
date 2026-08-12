@@ -5,6 +5,21 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-08-11
+
+### Added
+
+- The seven-width Draft browser matrix now proves that every recommendation
+  retains a visible position and that narrow player names are not clipped. A
+  dedicated 320 px row capture records the rendered identity hierarchy.
+
+### Fixed
+
+- Recommendation metadata now includes the player's position, and remains
+  visible at 320 px when the standalone badge collapses.
+- Long recommendation player names wrap at 400 px and below instead of
+  ellipsizing the identity to fit the compact row.
+
 ## [0.8.7] - 2026-08-11
 
 ### Added
@@ -396,7 +411,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.7...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.8...HEAD
+[0.8.8]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.4...v0.8.5

@@ -553,7 +553,7 @@ function RecommendationRow({
         <SleeperPlayerIdentity
           className="player-cell"
           player={player}
-          meta={`${player.team ?? "FA"} · Tier ${recommendation.tier} · ${recommendation.rosterFit} fit`}
+          meta={`${player.team ?? "FA"} · ${player.position} · Tier ${recommendation.tier} · ${recommendation.rosterFit} fit`}
         />
         <span className="score-cell tabular">
           <b>{Math.round(recommendation.contextualScore)}</b>

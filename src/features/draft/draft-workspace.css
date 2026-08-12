@@ -652,6 +652,13 @@
     gap: 4px;
   }
 
+  .player-cell .sleeper-player-identity__copy strong {
+    overflow: visible;
+    line-height: 1.15;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
   .recommendation-row__details {
     padding-left: 32px;
   }
@@ -686,10 +693,6 @@
   }
 
   .row-chevron {
-    display: none;
-  }
-
-  .player-cell .sleeper-player-identity__copy small {
     display: none;
   }
 }
