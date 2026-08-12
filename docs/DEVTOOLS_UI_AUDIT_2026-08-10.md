@@ -1,15 +1,16 @@
 # DevTools UI Audit — 2026-08-10
 
 Reference: the user's existing signed-in Chrome session on Sleeper. Extension:
-the installed unpacked Not Sleeping v0.8.11 build in the same browser, plus the
+the installed unpacked Not Sleeping v0.8.12 build in the same browser, plus the
 controlled production-bundle tests described below. Evidence is in
 `artifacts/devtools-ui-audit-2026-08-10/`; sanitized automated captures are
 attached to the Playwright report.
 
 ## 1. Every Sleeper page inspected
 
-The Big Bucks predraft and League pages, its authenticated Players and Team
-pages, an archived Matchup route, and the NFL draft room were inspected in the
+The Big Bucks predraft, League, Players, Team, and Trades pages; the Trades
+proposal dialog; an archived Matchup route; and the NFL draft room were
+inspected in the
 existing signed-in Chrome window. The current 2026 Matchup route redirected to
 Predraft and the archived route exposed no inspectable matchup content, so no
 unsupported Matchup measurements were invented.
@@ -26,7 +27,9 @@ League rail, league header, league tabs, draft card, 64 px roster rows, starter,
 bench, taxi and reserve sections, slot tiles, 92 px League team rows, 60 px
 standings, 116 px activity rows, 72 px settings rows, team list, chat, draft-room
 header, team columns, pick cells, player filters, 52 px statistical player
-rows, player search, queue, launcher,
+rows, player search, queue, launcher, the 538/260 px Trades split, active and
+empty Trade states, 104×64 px Trade Block cards, trade-party columns, current
+and future pick rows, and the full-screen proposal dialog,
 extension shell, league selector, navigation, cards, tables, controls, player
 rows, badges, alerts, skeletons, dialogs, popup, and options-page source were
 inspected.
@@ -37,17 +40,18 @@ Reference pages were inspected at desktop target widths and have exact 768 and
 1024 px captures plus the 1675 px side-by-side context captures. The larger
 responsive files were constrained by the authenticated Chrome window. The
 production extension bundle now has exact automated Draft-, Players-, Team-,
-and selected-League-workspace coverage at 768, 1024, 1440, and 1920 px, with sanitized
-screenshots attached.
+selected-League-, and Trade-workspace coverage at 768, 1024, 1440, and 1920 px,
+with sanitized screenshots attached. Trade remains centered and capped at the
+authenticated 798 px panel width.
 
 ## 4. Mobile viewport states tested
 
 Reference pages were inspected at 320, 375, and 390 px targets; exact output is
 available for draft at all three targets and for predraft at 320 and 390 (the
 predraft 375 target saved at 320). The production extension bundle now has
-exact automated Draft-, Players-, Team-, and selected-League-workspace coverage
-at 320, 375, and 390 px. Sleeper forces a wide desktop canvas at mobile widths; Not Sleeping
-intentionally reflows to remain usable.
+exact automated Draft-, Players-, Team-, selected-League-, and Trade-workspace
+coverage at 320, 375, and 390 px. Sleeper forces a wide desktop canvas at
+mobile widths; Not Sleeping intentionally reflows to remain usable.
 
 ## 5. Typography findings
 
@@ -70,6 +74,10 @@ The authenticated League reference uses 18 px Poppins panel titles, 16 px
 activity identity, 14 px team names, and 10–12 px owner, record, transaction,
 and setting metadata. The extension keeps those roles at 18/14/10/12 px in its
 narrow selected-League composition.
+The authenticated Trades title is 18 px Poppins at weight 500 with a 24 px
+line height. Trade Block player names are 12 px Inter at weight 700; owner,
+position, and team metadata are 10 px. The extension retains the shared
+18/12/10 px hierarchy while using its permitted bundled Poppins/Lato split.
 
 ## 6. Spacing findings
 
@@ -82,6 +90,11 @@ and 32 px circular player thumbnails.
 The League reference uses a 750 px content column, 16 px panel radius, 8–16 px
 panel padding, 92 px team rows, 60 px standing rows, 116 px activity rows, and
 72 px settings rows. These values are centralized as League geometry tokens.
+The authenticated Trades panel is 798 px wide with a 538/260 px content split.
+Trade Block entries are 104×64 px with 4×8 px padding and 8 px radius; proposal
+partner columns are 112 px and the 48 px primary action has a 32 px radius.
+The extension caps Trade Center at 798 px, uses 112×88 px partner targets, and
+keeps asset rows at least 64 px tall.
 
 ## 7. Color-system findings
 
@@ -142,6 +155,9 @@ analysis before capture. The matrix additionally proves that each first
 recommendation retains a visible position and that its player name is not
 clipped; the 320 px runs attach focused Draft recommendation and Players
 density captures.
+The Trade matrix separately asserts a centered 798 px maximum, equal asset
+columns above 480 px, stacked equal-width columns below it, 112×88 px partner
+cards, 64+ px asset rows, and zero unintended overflow at all seven widths.
 
 ## 13. Interaction-state findings
 
@@ -159,6 +175,11 @@ Sleeper draft-room tab without opening another browser or making a draft write.
 Team roster sections are labeled lists with list-item rows; each slot tile has
 an explicit accessible slot name. Occupied rows are informational and do not
 pretend to expose the lineup-write actions that remain in Sleeper.
+Sleeper's sampled Trade cards are cursor-addressable but mostly generic in the
+accessibility tree. The extension uses a named partner list, native buttons,
+`aria-pressed` asset selection, named asset lists, and a visible 2 px
+focus-visible ring. `Open Trades in Sleeper` is the only handoff and is labeled
+as an external read-only boundary before activation.
 
 ## 14. Loading-state findings
 
@@ -174,6 +195,8 @@ available when optional AI fails.
 The installed v0.8.9 post-refresh console check recorded no extension warning
 or error; the sole recent entry was Sleeper's own deprecated scrollbar-option
 warning.
+Trade Center also rejects stale league/user snapshots and renders projection
+provenance instead of silently substituting another league's values.
 
 ## 16. Accessibility findings
 
@@ -191,6 +214,10 @@ League exposes separately named Teams, Standings, Recent Activity, and League
 Settings regions. Teams, standings, and activity use named list/listitem
 relationships; settings use native `dl`/`dt`/`dd` semantics. This is stronger
 than the sampled reference's mostly generic accessibility groups.
+Trade exposes partner rosters and both asset sides as named lists, asset
+selection as pressed buttons, and the analysis as a labeled region. Sleeper's
+sampled Trade flow used a generic card tree and an alert dialog; the extension
+keeps the useful dialog-level naming without copying weaker generic semantics.
 
 ## 17. Components created
 
@@ -235,12 +262,17 @@ typography; semantic team, standings, activity, and settings structures; and
 viewport containment. Its pure projector and connected-store tests prove that
 canonical draft slots, standings decimals, waiver format, and visible activity
 belong to the selected league before any row renders.
+Trade Center now directly uses SleeperTeamAvatar, SleeperPlayerIdentity,
+SleeperSelect, StatusBadge, Button, EmptyState, and SafeExternalLink. Its pure
+projector derives selected-league parties, legal lineups, capacity, projection
+provenance, and traded-pick labels; connected-store coverage proves that
+partner and asset state cannot survive a league switch.
 
 ## 19. Screens migrated
 
 Shared tokens apply to every side-panel route, popup, and options/onboarding.
 Shared structural primitives are directly used by Draft, Mock Draft, Players,
-Team, the selected League overview, league switching, full-season evidence,
+Team, Trade, the selected League overview, league switching, full-season evidence,
 and options; the remaining routes
 inherit the same canonical surface, type, state, badge, button, and navigation
 system. Sanitized packaged captures cover Draft, Today, Team, Players, Trade,
@@ -262,8 +294,12 @@ controls.
 Sleeper's League activity surface can span league history; the extension labels
 and renders the documented public transaction payload for the selected NFL
 week only.
+Sleeper's trade proposal workflow is a full-screen mutation dialog. The
+extension is a responsive analysis side panel and deliberately does not submit,
+accept, or reject offers; it hands the user back to Sleeper for those actions.
 No unresolved Draft-workspace overflow or critical-text clipping was observed
-in either seven-width production-bundle matrix.
+in the required-width production-bundle matrices, and no Trade-workspace
+overflow or selected-state ambiguity was observed.
 
 ## 21. Technical reason for every remaining discrepancy
 
@@ -279,6 +315,10 @@ in either seven-width production-bundle matrix.
 - Selected-League activity is week-scoped because Sleeper's supported public
   transaction endpoint is week-addressed. The UI says which week it represents
   instead of implying an unbounded history.
+- Trade submission remains in Sleeper because the extension consumes supported
+  public read-only data and must not invent a write API or duplicate the
+  authenticated proposal dialog. Its explicit external handoff preserves that
+  boundary.
 - Legacy Muli is not bundled because the measured product-wide body/display
   split is Lato/Poppins and no Sleeper-owned font asset is redistributed.
 - Mobile reflow differs because Sleeper's forced desktop shrink makes controls
@@ -359,3 +399,11 @@ avatar dimensions, role typography, native semantic counts, and zero accidental
 horizontal overflow at every width. Separate pure and connected-store tests
 prove cross-league rejection and prevent a prior league's teams, standings, or
 completion context from appearing during a switch.
+The v0.8.12 browser report adds sanitized Trade captures at 320, 375, 390, 768,
+1024, 1440, and 1920 px. `renders selected-league trade truth at every audited
+width` selects one fictional player per side, verifies the real 30→24 and
+22→28 legal-lineup movement, checks semantic list and pressed-state counts,
+and enforces the 798 px cap, 112×88 px partner cards, 64+ px asset rows, equal
+columns/stacking, and zero accidental overflow. The README
+`docs/screenshots/trade-center.png` is generated from that fictional fixture;
+private signed-in Trade captures remain ignored and are not published.

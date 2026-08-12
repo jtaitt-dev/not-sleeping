@@ -36,6 +36,7 @@ import { PositionBadge } from "@/components/ui/badges";
 import { EmptyState, InlineError } from "@/components/ui/states";
 import { SleeperBottomSheet } from "@/components/ui/overlays";
 import { SleeperInput, SleeperSelect } from "@/components/ui/form-controls";
+import { SleeperPlayerIdentity } from "@/components/ui/player-row";
 import type { AiFeature, Player } from "@/types/domain";
 import type { DecisionCandidate } from "@/services/intelligence/types";
 import type { EvidenceItem, LeagueContext } from "@/types/league";
@@ -67,10 +68,8 @@ import {
 } from "@/services/start-sit/start-sit-service";
 import { recommendTaxi } from "@/services/taxi/taxi-service";
 import {
-  analyzeTrade,
   calibrateLeagueTradeMarket,
   findTradeTargets,
-  type TradeAsset,
 } from "@/services/trades/trade-service";
 import {
   buildAuctionRoomPlan,
@@ -91,6 +90,12 @@ import {
   buildLeagueOverview,
   type LeagueOverviewView,
 } from "./league-overview";
+import {
+  buildTradeCenterView,
+  buildTradeScenario,
+  type TradeCenterAsset,
+  type TradeCenterParty,
+} from "./trade-center";
 
 import "./full-season-workspaces.css";
 
@@ -1138,105 +1143,168 @@ export function WaiverWireWorkspace() {
 }
 
 export function TradeCenterWorkspace() {
-  const { context, snapshot } = useLeagueData();
-  const [sendIds, setSendIds] = useState<string[]>([]);
-  const [receiveIds, setReceiveIds] = useState<string[]>([]);
-  const [partnerRosterId, setPartnerRosterId] = useState<number | null>(null);
-  if (!context || !snapshot) return <NoLeagueWorkspace title="Trade Center" />;
-  const rosterPlayers = userRosterPlayers(context, snapshot);
-  const playerById = new Map(
-    snapshot.players.map((player) => [player.id, player]),
-  );
-  const opponentRosters = snapshot.rosters.filter(
-    (roster) => roster.roster_id !== context.rosterId,
-  );
-  const selectedPartner =
-    opponentRosters.find((roster) => roster.roster_id === partnerRosterId) ??
-    opponentRosters[0];
-  const opponentPlayers = (selectedPartner?.players ?? []).flatMap(
-    (playerId) => {
-      const player = playerById.get(playerId);
-      return player ? [player] : [];
-    },
-  );
-  const send = rosterPlayers
-    .filter((player) => sendIds.includes(player.id))
-    .map(toTradeAsset);
-  const receive = opponentPlayers
-    .filter((player) => receiveIds.includes(player.id))
-    .map(toTradeAsset);
-  const analysis = analyzeTrade({
-    context,
-    parties: [
-      {
-        rosterId: context.rosterId ?? 0,
-        teamName: "Your roster",
-        sends: send,
-        receives: receive,
-        beforeStarterPoints: 100,
-        afterStarterPoints:
-          100 + assetProduction(receive) - assetProduction(send),
-        beforeDepth: rosterPlayers.length,
-        afterDepth: rosterPlayers.length - send.length + receive.length,
-        rosterSpotsAfter: 1 + send.length - receive.length,
-      },
-      {
-        rosterId: selectedPartner?.roster_id ?? -1,
-        teamName: teamName(snapshot, selectedPartner?.roster_id ?? null),
-        sends: receive,
-        receives: send,
-        beforeStarterPoints: 100,
-        afterStarterPoints:
-          100 + assetProduction(send) - assetProduction(receive),
-        beforeDepth: opponentPlayers.length,
-        afterDepth: opponentPlayers.length - receive.length + send.length,
-        rosterSpotsAfter: 1 + receive.length - send.length,
-      },
-    ],
-    positionalScarcity: {
-      QB: context.rosterPositions.includes("SUPER_FLEX") ? 0.9 : 0.3,
-      TE: 0.45,
-    },
+  const { context, snapshot, status } = useLeagueData();
+  const [selection, setSelection] = useState<{
+    leagueId: string | null;
+    sendIds: string[];
+    receiveIds: string[];
+    partnerRosterId: number | null;
+  }>({
+    leagueId: null,
+    sendIds: [],
+    receiveIds: [],
+    partnerRosterId: null,
   });
+  if (!context) return <NoLeagueWorkspace title="Trade Center" />;
+  if (!snapshot) {
+    return (
+      <TradeCenterEmptyWorkspace
+        title="Refreshing trade data"
+        detail={`Waiting for ${context.leagueName}'s isolated roster and pick snapshot.`}
+      />
+    );
+  }
+  const activeSelection =
+    selection.leagueId === context.leagueId
+      ? selection
+      : {
+          leagueId: context.leagueId,
+          sendIds: [],
+          receiveIds: [],
+          partnerRosterId: null,
+        };
+  const { sendIds, receiveIds, partnerRosterId } = activeSelection;
+  const view = buildTradeCenterView(context, snapshot, partnerRosterId);
+  const scenario = buildTradeScenario(
+    context,
+    snapshot,
+    partnerRosterId,
+    sendIds,
+    receiveIds,
+  );
+  if (!view || !scenario) {
+    const isolatedSnapshot =
+      snapshot.userId === context.userId &&
+      snapshot.leagueId === context.leagueId &&
+      snapshot.league.league_id === context.leagueId;
+    const hasUserRoster = snapshot.rosters.some(
+      (roster) => roster.roster_id === context.rosterId,
+    );
+    const hasOwnedPartner = snapshot.rosters.some(
+      (roster) =>
+        roster.roster_id !== context.rosterId && Boolean(roster.owner_id),
+    );
+    if (isolatedSnapshot && hasUserRoster && !hasOwnedPartner) {
+      return (
+        <TradeCenterEmptyWorkspace
+          title="No trade partners available"
+          detail="Sleeper has not assigned another owned roster in this league. Trade analysis will appear when a partner roster is available."
+        />
+      );
+    }
+    return (
+      <TradeCenterEmptyWorkspace
+        title={
+          status === "loading" || status === "switching"
+            ? "Refreshing trade data"
+            : "Trade data unavailable"
+        }
+        detail={
+          status === "loading" || status === "switching"
+            ? `Waiting for ${context.leagueName}'s isolated roster and pick snapshot.`
+            : "The selected league snapshot is incomplete or does not match this account. Refresh the league before analyzing a trade."
+        }
+      />
+    );
+  }
+  const { analysis } = scenario;
   const tradeTargets = findTradeTargets({
     context,
     user: {
-      rosterId: context.rosterId ?? 0,
-      teamName: "Your roster",
-      assets: rosterPlayers.map(toTradeAsset),
+      rosterId: view.user.rosterId,
+      teamName: view.user.teamName,
+      assets: view.user.assets
+        .filter((asset) => asset.kind === "player")
+        .map((asset) => asset.tradeAsset),
     },
-    opponents: opponentRosters.map((roster) => ({
-      rosterId: roster.roster_id,
-      teamName: teamName(snapshot, roster.roster_id),
-      assets: (roster.players ?? []).flatMap((playerId) => {
-        const player = playerById.get(playerId);
-        return player ? [toTradeAsset(player)] : [];
-      }),
+    opponents: view.partners.map((party) => ({
+      rosterId: party.rosterId,
+      teamName: party.teamName,
+      assets: party.assets
+        .filter((asset) => asset.kind === "player")
+        .map((asset) => asset.tradeAsset),
     })),
   });
   const market = calibrateLeagueTradeMarket(snapshot.transactions);
+  const hasSelectedAssets =
+    scenario.sends.length + scenario.receives.length > 0;
   return (
     <SeasonWorkspace
       title="Trade Center"
       subtitle="League-, roster-, strategy-, and roster-space-aware analysis. No offer is sent."
+      className="trade-center-workspace"
     >
-      <section className="surface trade-market-strip">
-        <label>
-          Trade partner
-          <SleeperSelect
-            value={selectedPartner?.roster_id ?? ""}
-            onChange={(event) => {
-              setPartnerRosterId(Number(event.target.value));
-              setReceiveIds([]);
-            }}
-          >
-            {opponentRosters.map((roster) => (
-              <option key={roster.roster_id} value={roster.roster_id}>
-                {teamName(snapshot, roster.roster_id)}
-              </option>
-            ))}
-          </SleeperSelect>
-        </label>
+      <section
+        className="surface trade-partner-panel"
+        aria-labelledby="trade-partners-title"
+      >
+        <header>
+          <div>
+            <h2 id="trade-partners-title">Trade partners</h2>
+            <p>Select a roster column to compare assets.</p>
+          </div>
+          <label>
+            Partner
+            <SleeperSelect
+              value={view.selectedPartner.rosterId}
+              onChange={(event) => {
+                setSelection({
+                  ...activeSelection,
+                  partnerRosterId: Number(event.target.value),
+                  receiveIds: [],
+                });
+              }}
+            >
+              {view.partners.map((party) => (
+                <option key={party.rosterId} value={party.rosterId}>
+                  {party.teamName}
+                </option>
+              ))}
+            </SleeperSelect>
+          </label>
+        </header>
+        <ul className="trade-partner-rail" aria-label="Trade partner rosters">
+          {view.partners.map((party) => (
+            <li key={party.rosterId}>
+              <button
+                type="button"
+                aria-pressed={party.rosterId === view.selectedPartner.rosterId}
+                onClick={() => {
+                  setSelection({
+                    ...activeSelection,
+                    partnerRosterId: party.rosterId,
+                    receiveIds: [],
+                  });
+                }}
+              >
+                <SleeperTeamAvatar
+                  name={party.teamName}
+                  imageUrl={party.avatarUrl}
+                  size="medium"
+                />
+                <span>
+                  <strong>{party.teamName}</strong>
+                  <small>{party.ownerName}</small>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section
+        className="surface trade-market-strip"
+        aria-label="League trade market"
+      >
         <span>
           <small>League market</small>
           <strong>{market.activity.replace("_", " ")}</strong>
@@ -1253,58 +1321,103 @@ export function TradeCenterWorkspace() {
       <div className="season-trade-builder">
         <AssetPicker
           title="You send"
-          players={rosterPlayers}
+          party={view.user}
           selected={sendIds}
-          onToggle={(id) => setSendIds(toggleId(sendIds, id))}
+          onToggle={(id) =>
+            setSelection({
+              ...activeSelection,
+              sendIds: toggleId(sendIds, id),
+            })
+          }
         />
         <AssetPicker
           title="You receive"
-          players={opponentPlayers.slice(0, 40)}
+          party={view.selectedPartner}
           selected={receiveIds}
-          onToggle={(id) => setReceiveIds(toggleId(receiveIds, id))}
+          onToggle={(id) =>
+            setSelection({
+              ...activeSelection,
+              receiveIds: toggleId(receiveIds, id),
+            })
+          }
         />
       </div>
-      <section className="surface trade-verdict">
+      <section
+        className="surface trade-verdict"
+        aria-labelledby="trade-analysis-title"
+      >
         <header>
           <span>
             <GitCompareArrows />
-            <strong>{analysis.fairness}</strong>
+            <strong id="trade-analysis-title">Trade analysis</strong>
           </span>
           <StatusBadge
             tone={
-              analysis.fairness === "balanced"
-                ? "success"
-                : analysis.fairness === "negotiable"
-                  ? "warning"
-                  : "danger"
+              !hasSelectedAssets
+                ? "neutral"
+                : analysis.fairness === "balanced"
+                  ? "success"
+                  : analysis.fairness === "negotiable"
+                    ? "warning"
+                    : "danger"
             }
           >
-            {Math.round(analysis.fairnessGap * 100)}% gap
+            {hasSelectedAssets
+              ? `${analysis.fairness} · ${Math.round(analysis.fairnessGap * 100)}% gap`
+              : "Select assets"}
           </StatusBadge>
         </header>
-        <div>
-          {analysis.parties.map((party) => (
-            <div key={party.rosterId}>
-              <small>{party.teamName}</small>
-              <strong>
-                {party.netValue >= 0 ? "+" : ""}
-                {party.netValue.toFixed(1)}
-              </strong>
-              <span>
-                {party.weeklyPointsChange >= 0 ? "+" : ""}
-                {party.weeklyPointsChange.toFixed(1)} weekly pts
-              </span>
-            </div>
-          ))}
+        <p className="trade-projection-source">
+          {view.projectionCoverageLabel}
+        </p>
+        <div className="trade-party-results">
+          {analysis.parties.map((party, index) => {
+            const before =
+              index === 0 ? scenario.userBefore : scenario.partnerBefore;
+            const after =
+              index === 0 ? scenario.userAfter : scenario.partnerAfter;
+            const openSpots =
+              index === 0
+                ? scenario.userOpenSpotsAfter
+                : scenario.partnerOpenSpotsAfter;
+            return (
+              <article key={party.rosterId}>
+                <small>{party.teamName}</small>
+                <strong>
+                  {party.netValue >= 0 ? "+" : ""}
+                  {party.netValue.toFixed(1)} value
+                </strong>
+                <span>
+                  {before.toFixed(1)} → {after.toFixed(1)} projected starter
+                  pts/week
+                </span>
+                <span>
+                  {openSpots >= 0
+                    ? `${openSpots} open roster spots`
+                    : `${Math.abs(openSpots)} roster cuts required`}
+                </span>
+              </article>
+            );
+          })}
         </div>
-        <ul>
-          {analysis.conditions.map((condition) => (
-            <li key={condition}>{condition}</li>
-          ))}
-        </ul>
+        {analysis.conditions.length ? (
+          <ul aria-label="Trade conditions">
+            {analysis.conditions.map((condition) => (
+              <li key={condition}>{condition}</li>
+            ))}
+          </ul>
+        ) : null}
         <footer>
-          <ShieldCheck />
-          {analysis.noWriteBoundary}
+          <span>
+            <ShieldCheck />
+            {analysis.noWriteBoundary}
+          </span>
+          <SafeExternalLink
+            url={`https://sleeper.com/leagues/${encodeURIComponent(context.leagueId)}/trades`}
+            className="trade-open-sleeper"
+          >
+            Open Trades in Sleeper <ExternalLink />
+          </SafeExternalLink>
         </footer>
       </section>
       <section className="trade-finder">
@@ -2231,11 +2344,13 @@ function SeasonWorkspace({
   subtitle,
   action,
   children,
+  className = "",
 }: {
   title: string;
   subtitle: string;
   action?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
 }) {
   const context = useLeagueStore((state) => state.activeContext);
   const snapshot = useLeagueStore((state) => state.snapshot);
@@ -2243,7 +2358,7 @@ function SeasonWorkspace({
     ? workspaceIntelligenceFeature(title, context)
     : null;
   return (
-    <section className="workspace-page season-workspace">
+    <section className={`workspace-page season-workspace ${className}`.trim()}>
       <header className="workspace-heading">
         <div>
           <h1>{title}</h1>
@@ -2399,6 +2514,24 @@ function NoLeagueWorkspace({ title }: { title: string }) {
       <Button variant="primary" onClick={() => open(true)}>
         Choose league
       </Button>
+    </SeasonWorkspace>
+  );
+}
+
+function TradeCenterEmptyWorkspace({
+  title,
+  detail,
+}: {
+  title: string;
+  detail: string;
+}) {
+  return (
+    <SeasonWorkspace
+      title="Trade Center"
+      subtitle="League-, roster-, strategy-, and roster-space-aware analysis. No offer is sent."
+      className="trade-center-workspace"
+    >
+      <EmptyState title={title} detail={detail} />
     </SeasonWorkspace>
   );
 }
@@ -2743,42 +2876,84 @@ export function FaabBand({
 
 function AssetPicker({
   title,
-  players,
+  party,
   selected,
   onToggle,
 }: {
   title: string;
-  players: Player[];
+  party: TradeCenterParty;
   selected: string[];
   onToggle: (id: string) => void;
 }) {
   return (
     <section className="surface asset-picker">
       <header>
-        <h2>{title}</h2>
+        <span>
+          <SleeperTeamAvatar
+            name={party.teamName}
+            imageUrl={party.avatarUrl}
+            size="small"
+          />
+          <span>
+            <h2>{title}</h2>
+            <small>{party.teamName}</small>
+          </span>
+        </span>
         <StatusBadge tone="neutral">{selected.length} assets</StatusBadge>
       </header>
-      <div>
-        {players.slice(0, 24).map((player) => (
-          <button
-            type="button"
-            data-selected={selected.includes(player.id)}
-            key={player.id}
-            onClick={() => onToggle(player.id)}
-          >
-            <PositionBadge position={player.position} />
+      <ul aria-label={`${party.teamName} trade assets`}>
+        {party.assets.map((asset) => (
+          <TradeAssetRow
+            key={asset.id}
+            asset={asset}
+            selected={selected.includes(asset.id)}
+            onToggle={onToggle}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TradeAssetRow({
+  asset,
+  selected,
+  onToggle,
+}: {
+  asset: TradeCenterAsset;
+  selected: boolean;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        aria-pressed={selected}
+        data-selected={selected}
+        onClick={() => onToggle(asset.id)}
+      >
+        {asset.player ? (
+          <SleeperPlayerIdentity
+            player={asset.player}
+            meta={`${asset.detail} · ${asset.sourceLabel}`}
+            trailing={selected ? <CheckCircle2 /> : null}
+          />
+        ) : (
+          <span className="trade-pick-identity">
+            <span className="trade-pick-icon">
+              <WalletCards />
+            </span>
             <span>
-              <strong>{player.fullName}</strong>
+              <strong>{asset.label}</strong>
               <small>
-                {player.team ?? "FA"} · local value proxy{" "}
-                {proxyPlayerValue(player).toFixed(0)}
+                {asset.detail} · {asset.sourceLabel}
               </small>
             </span>
-            {selected.includes(player.id) ? <CheckCircle2 /> : null}
-          </button>
-        ))}
-      </div>
-    </section>
+            {selected ? <CheckCircle2 /> : null}
+          </span>
+        )}
+      </button>
+    </li>
   );
 }
 
@@ -3200,32 +3375,6 @@ function toDropCandidate(player: Player): DropCandidate {
   };
 }
 
-function toTradeAsset(player: Player): TradeAsset {
-  const value = proxyPlayerValue(player);
-  return {
-    id: player.id,
-    type: "player",
-    label: player.fullName,
-    position: player.position,
-    marketValue: value,
-    productionValue: value * 0.86,
-    dynastyValue: clamp(
-      value +
-        (player.age && player.age < 25
-          ? 8
-          : player.age && player.age > 29
-            ? -8
-            : 0),
-      0,
-      100,
-    ),
-    age: player.age,
-    injuryRisk: player.status === "injured" ? 0.55 : 0.15,
-    rosterSpaceCost: 1,
-    liquidity: value / 100,
-  };
-}
-
 function teamName(snapshot: LeagueSnapshot, rosterId: number | null): string {
   if (rosterId === null) return "No opponent";
   const roster = snapshot.rosters.find(
@@ -3424,10 +3573,6 @@ function nullableNumericSetting(
   const value = settings[key];
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : null;
-}
-
-function assetProduction(assets: TradeAsset[]): number {
-  return assets.reduce((sum, asset) => sum + asset.productionValue, 0) / 20;
 }
 
 function freshnessLabel(timestamp: number): string {
