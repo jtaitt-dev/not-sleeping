@@ -26,6 +26,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { StatusBadge } from "@/components/ui/badges";
 import { RealtimeIntelligenceCard } from "@/components/intelligence/realtime-intelligence-card";
+import {
+  SleeperLeagueAvatar,
+  SleeperTeamAvatar,
+} from "@/components/ui/avatars";
 import { Button, IconButton } from "@/components/ui/button";
 import { SafeExternalLink } from "@/components/ui/safe-external-link";
 import { PositionBadge } from "@/components/ui/badges";
@@ -82,6 +86,11 @@ import {
   safeRuntimeError,
 } from "@/services/messaging/runtime-client";
 import { useLeagueStore, type LeagueSnapshot } from "@/stores/league-store";
+
+import {
+  buildLeagueOverview,
+  type LeagueOverviewView,
+} from "./league-overview";
 
 import "./full-season-workspaces.css";
 
@@ -164,49 +173,329 @@ export function TodayWorkspace() {
 export function LeaguesWorkspace() {
   const catalog = useLeagueStore((state) => state.catalog);
   const active = useLeagueStore((state) => state.activeContext);
+  const snapshot = useLeagueStore((state) => state.snapshot);
+  const status = useLeagueStore((state) => state.status);
   const selectLeague = useLeagueStore((state) => state.selectLeague);
   const favoriteLeague = useLeagueStore((state) => state.favoriteLeague);
+  const selectedSnapshot =
+    active &&
+    snapshot?.leagueId === active.leagueId &&
+    snapshot.league.league_id === active.leagueId
+      ? snapshot
+      : null;
+  const overview =
+    active && selectedSnapshot
+      ? buildLeagueOverview(active, selectedSnapshot)
+      : null;
   return (
     <SeasonWorkspace
       title="Leagues"
-      subtitle="All current Sleeper NFL leagues, grouped by season."
+      subtitle="Selected-league overview and every current Sleeper NFL league."
+      action={
+        status === "switching" ? (
+          <StatusBadge tone="warning">Switching league</StatusBadge>
+        ) : null
+      }
     >
-      <div className="league-directory">
-        {catalog.map((league) => (
-          <article
-            className="surface league-directory-row"
-            data-active={league.leagueId === active?.leagueId}
-            key={league.leagueId}
-          >
-            <button
-              type="button"
-              onClick={() => void selectLeague(league.leagueId)}
+      {active && selectedSnapshot && overview ? (
+        <LeagueOverview
+          context={active}
+          snapshot={selectedSnapshot}
+          view={overview}
+        />
+      ) : (
+        <EmptyState
+          title={
+            status === "loading"
+              ? "Loading league"
+              : status === "switching"
+                ? "Switching league"
+                : "No league selected"
+          }
+          detail={
+            status === "loading" || status === "switching"
+              ? "Reading the selected Sleeper league snapshot."
+              : "Connect or select a Sleeper league to view its teams, standings, activity, and settings."
+          }
+        />
+      )}
+      <section
+        className="league-directory-section"
+        aria-labelledby="league-directory-title"
+      >
+        <header>
+          <div>
+            <span className="section-kicker">League selector</span>
+            <h2 id="league-directory-title">Your leagues</h2>
+          </div>
+          <span>{catalog.length}</span>
+        </header>
+        {catalog.length ? (
+          <div className="league-directory">
+            {catalog.map((league) => (
+              <article
+                className="surface league-directory-row"
+                data-active={league.leagueId === active?.leagueId}
+                key={league.leagueId}
+              >
+                <button
+                  type="button"
+                  aria-current={
+                    league.leagueId === active?.leagueId ? "true" : undefined
+                  }
+                  onClick={() => void selectLeague(league.leagueId)}
+                >
+                  <span className="league-directory-avatar">
+                    {initials(league.name)}
+                  </span>
+                  <span>
+                    <strong>{league.name}</strong>
+                    <small>
+                      {league.season} · {league.leagueType} ·{" "}
+                      {league.lineupType.replace("_", " ")}
+                    </small>
+                  </span>
+                  <ChevronRight />
+                </button>
+                <IconButton
+                  label={`${league.favorite ? "Unfavorite" : "Favorite"} ${league.name}`}
+                  onClick={() =>
+                    void favoriteLeague(league.leagueId, !league.favorite)
+                  }
+                >
+                  <Star data-filled={league.favorite} />
+                </IconButton>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="league-directory-section__empty">
+            No current NFL leagues were found for this account.
+          </p>
+        )}
+      </section>
+    </SeasonWorkspace>
+  );
+}
+
+function LeagueOverview({
+  context,
+  snapshot,
+  view,
+}: {
+  context: LeagueContext;
+  snapshot: LeagueSnapshot;
+  view: LeagueOverviewView;
+}) {
+  return (
+    <div className="league-overview">
+      <header className="league-overview__identity">
+        <SleeperLeagueAvatar
+          name={context.leagueName}
+          imageUrl={leagueAvatarUrl(snapshot.league.avatar)}
+          size="medium"
+        />
+        <span>
+          <strong>{context.leagueName}</strong>
+          <small>
+            {context.season} · {view.members.length}-team · {context.leagueType}{" "}
+            · {context.lineupType.replaceAll("_", " ")}
+          </small>
+        </span>
+      </header>
+
+      <section
+        className="league-overview-panel league-members-panel"
+        aria-labelledby="league-members-title"
+      >
+        <header>
+          <div>
+            <h2 id="league-members-title">Teams</h2>
+            <span>{view.members.length} rostered teams</span>
+          </div>
+        </header>
+        <div
+          className="league-member-list"
+          role="list"
+          aria-label="League teams"
+        >
+          {view.members.map((member) => (
+            <article
+              className="league-member-row"
+              data-user={member.isUser}
+              role="listitem"
+              key={member.rosterId}
             >
-              <span className="league-directory-avatar">
-                {initials(league.name)}
+              <span className="league-member-row__rank tabular">
+                {member.rosterId}
               </span>
-              <span>
-                <strong>{league.name}</strong>
+              <SleeperTeamAvatar
+                name={member.teamName}
+                imageUrl={member.avatarUrl}
+                size="small"
+                className="league-member-row__avatar"
+              />
+              <span className="league-member-row__copy">
+                <span>
+                  <strong>{member.teamName}</strong>
+                  <small>{member.ownerName}</small>
+                </span>
                 <small>
-                  {league.season} · {league.leagueType} ·{" "}
-                  {league.lineupType.replace("_", " ")} · ID{" "}
-                  {league.leagueId.slice(-6)}
+                  {member.draftPosition
+                    ? `Draft position ${member.draftPosition}`
+                    : "No draft position"}
                 </small>
               </span>
-              <ChevronRight />
-            </button>
-            <IconButton
-              label={`${league.favorite ? "Unfavorite" : "Favorite"} ${league.name}`}
-              onClick={() =>
-                void favoriteLeague(league.leagueId, !league.favorite)
-              }
+              {member.isUser ? (
+                <StatusBadge tone="info">You</StatusBadge>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section
+        className="league-overview-panel league-standings-panel"
+        aria-labelledby="league-standings-title"
+      >
+        <header>
+          <h2 id="league-standings-title">Standings</h2>
+        </header>
+        <div
+          className="league-standing-list"
+          role="list"
+          aria-label="League standings"
+        >
+          {view.standings.map((standing) => (
+            <article
+              className="league-standing-row"
+              data-user={standing.isUser}
+              role="listitem"
+              key={standing.rosterId}
             >
-              <Star data-filled={league.favorite} />
-            </IconButton>
-          </article>
-        ))}
-      </div>
-    </SeasonWorkspace>
+              <span className="league-standing-row__rank tabular">
+                {standing.rank}
+              </span>
+              <span className="league-standing-row__body">
+                <span className="league-standing-row__identity">
+                  <SleeperTeamAvatar
+                    name={standing.teamName}
+                    imageUrl={standing.avatarUrl}
+                    size="small"
+                    className="league-standing-row__avatar"
+                  />
+                  <strong>{standing.teamName}</strong>
+                  <span className="tabular">
+                    {standing.wins}-{standing.losses}
+                    {standing.ties ? `-${standing.ties}` : ""}
+                  </span>
+                </span>
+                <span className="league-standing-row__metrics">
+                  <span>
+                    PF{" "}
+                    <b className="tabular">{formatScore(standing.pointsFor)}</b>
+                  </span>
+                  <span>
+                    PA{" "}
+                    <b className="tabular">
+                      {formatScore(standing.pointsAgainst)}
+                    </b>
+                  </span>
+                  <span>
+                    WAIVER <b className="tabular">{standing.waiverLabel}</b>
+                  </span>
+                </span>
+              </span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section
+        className="league-overview-panel league-activity-panel"
+        aria-labelledby="league-activity-title"
+      >
+        <header>
+          <div>
+            <h2 id="league-activity-title">Recent Activity</h2>
+            <span>Week {context.week} public transactions</span>
+          </div>
+        </header>
+        {view.activity.length ? (
+          <div
+            className="league-activity-list"
+            role="list"
+            aria-label="Recent league activity"
+          >
+            {view.activity.map((activity) => (
+              <article
+                className="league-activity-row"
+                role="listitem"
+                key={activity.id}
+              >
+                <SleeperTeamAvatar
+                  name={activity.teamName}
+                  imageUrl={activity.avatarUrl}
+                  size="medium"
+                />
+                <span className="league-activity-row__body">
+                  <span className="league-activity-row__identity">
+                    <strong>{activity.teamName}</strong>
+                    <small>{activity.actorName}</small>
+                    {activity.timestamp ? (
+                      <time
+                        dateTime={new Date(activity.timestamp).toISOString()}
+                      >
+                        {formatActivityTime(activity.timestamp)}
+                      </time>
+                    ) : null}
+                  </span>
+                  <span className="league-activity-row__label">
+                    {activity.label}
+                  </span>
+                  {activity.moves.map((move, index) => (
+                    <span
+                      className="league-activity-row__move"
+                      data-kind={move.kind}
+                      key={`${move.kind}-${move.playerName}-${index}`}
+                    >
+                      <b aria-hidden="true">
+                        {move.kind === "add" ? "+" : "−"}
+                      </b>
+                      <strong>{move.playerName}</strong>
+                      <small>
+                        {move.position} · {move.team}
+                      </small>
+                    </span>
+                  ))}
+                </span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="league-overview-panel__empty">
+            No recent league activity.
+          </p>
+        )}
+      </section>
+
+      <section
+        className="league-overview-panel league-settings-panel"
+        aria-labelledby="league-settings-title"
+      >
+        <header>
+          <h2 id="league-settings-title">League Settings</h2>
+        </header>
+        <dl className="league-settings-list">
+          {view.settings.map((setting) => (
+            <div className="league-setting-row" key={setting.label}>
+              <dt>{setting.label}</dt>
+              <dd>{setting.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    </div>
   );
 }
 
@@ -3173,6 +3462,31 @@ function initials(value: string): string {
     .map((part) => part[0] ?? "")
     .join("")
     .toUpperCase();
+}
+
+function leagueAvatarUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.startsWith("https://sleepercdn.com/")) return value;
+  if (/^[a-zA-Z0-9_-]+$/.test(value)) {
+    return `https://sleepercdn.com/avatars/${value}`;
+  }
+  return null;
+}
+
+function formatScore(value: number): string {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  });
+}
+
+function formatActivityTime(timestamp: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
 }
 
 function hasRuntime(): boolean {

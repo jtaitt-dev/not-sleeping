@@ -1,15 +1,18 @@
 # DevTools UI Audit — 2026-08-10
 
 Reference: the user's existing signed-in Chrome session on Sleeper. Extension:
-the installed unpacked Not Sleeping v0.8.10 build in the same browser, plus the
+the installed unpacked Not Sleeping v0.8.11 build in the same browser, plus the
 controlled production-bundle tests described below. Evidence is in
 `artifacts/devtools-ui-audit-2026-08-10/`; sanitized automated captures are
 attached to the Playwright report.
 
 ## 1. Every Sleeper page inspected
 
-The Big Bucks predraft league page, its authenticated Players and Team pages,
-and the NFL draft room were inspected in the existing signed-in Chrome window.
+The Big Bucks predraft and League pages, its authenticated Players and Team
+pages, an archived Matchup route, and the NFL draft room were inspected in the
+existing signed-in Chrome window. The current 2026 Matchup route redirected to
+Predraft and the archived route exposed no inspectable matchup content, so no
+unsupported Matchup measurements were invented.
 The responsive reference run targeted 320,
 375, 390, 768, 1024, 1440, and 1920 px widths. A post-capture pixel-dimension
 audit found that the authenticated Chrome window constrained several saved
@@ -20,7 +23,8 @@ of exact output width. The exact observed dimensions are recorded in section
 ## 2. Every major component inspected
 
 League rail, league header, league tabs, draft card, 64 px roster rows, starter,
-bench, taxi and reserve sections, slot tiles, team list, chat, draft-room
+bench, taxi and reserve sections, slot tiles, 92 px League team rows, 60 px
+standings, 116 px activity rows, 72 px settings rows, team list, chat, draft-room
 header, team columns, pick cells, player filters, 52 px statistical player
 rows, player search, queue, launcher,
 extension shell, league selector, navigation, cards, tables, controls, player
@@ -32,8 +36,8 @@ inspected.
 Reference pages were inspected at desktop target widths and have exact 768 and
 1024 px captures plus the 1675 px side-by-side context captures. The larger
 responsive files were constrained by the authenticated Chrome window. The
-production extension bundle now has exact automated Draft-, Players-, and
-Team-workspace coverage at 768, 1024, 1440, and 1920 px, with sanitized
+production extension bundle now has exact automated Draft-, Players-, Team-,
+and selected-League-workspace coverage at 768, 1024, 1440, and 1920 px, with sanitized
 screenshots attached.
 
 ## 4. Mobile viewport states tested
@@ -41,8 +45,8 @@ screenshots attached.
 Reference pages were inspected at 320, 375, and 390 px targets; exact output is
 available for draft at all three targets and for predraft at 320 and 390 (the
 predraft 375 target saved at 320). The production extension bundle now has
-exact automated Draft-, Players-, and Team-workspace coverage at 320, 375, and
-390 px. Sleeper forces a wide desktop canvas at mobile widths; Not Sleeping
+exact automated Draft-, Players-, Team-, and selected-League-workspace coverage
+at 320, 375, and 390 px. Sleeper forces a wide desktop canvas at mobile widths; Not Sleeping
 intentionally reflows to remain usable.
 
 ## 5. Typography findings
@@ -62,6 +66,10 @@ bold names, 9 px position metadata, 11 px schedule context, and 12 px
 statistical cells.
 The authenticated Team reference uses 14 px regular-weight player names, 11 px
 team/position/bye metadata, 10 px bold slot labels, and 12 px trailing values.
+The authenticated League reference uses 18 px Poppins panel titles, 16 px
+activity identity, 14 px team names, and 10–12 px owner, record, transaction,
+and setting metadata. The extension keeps those roles at 18/14/10/12 px in its
+narrow selected-League composition.
 
 ## 6. Spacing findings
 
@@ -71,6 +79,9 @@ search/filter controls, and 50 px draft cells. Shared spacing and geometry
 tokens now replace the main hard-coded control dimensions. Team roster rows are
 64 px with 8×16 px padding, 4 px vertical rhythm, 42×32 px rounded slot tiles,
 and 32 px circular player thumbnails.
+The League reference uses a 750 px content column, 16 px panel radius, 8–16 px
+panel padding, 92 px team rows, 60 px standing rows, 116 px activity rows, and
+72 px settings rows. These values are centralized as League geometry tokens.
 
 ## 7. Color-system findings
 
@@ -124,8 +135,8 @@ secondary columns, changes grids to one column, and preserves every core draft
 action. This is an intentional functional deviation. The current matrix proves
 the exact document width, the absence of unintended horizontal overflow, and
 the in-viewport position of primary navigation, draft context, Draft Copilot,
-the recommendation board, the Players toolbar/list, the Team roster, and the
-on-clock AI switch at 320, 375, 390, 768,
+the recommendation board, the Players toolbar/list, the Team roster, selected
+League overview panels, and the on-clock AI switch at 320, 375, 390, 768,
 1024, 1440, and 1920 px. The 390 px run also opens the progressive-disclosure
 analysis before capture. The matrix additionally proves that each first
 recommendation retains a visible position and that its player name is not
@@ -176,6 +187,10 @@ activity` list.
 Team exposes Starter, Bench, Taxi Squad, and Reserve as separately named lists.
 Configured empty special slots retain their list items and readable `Open`
 state instead of disappearing from the accessibility tree.
+League exposes separately named Teams, Standings, Recent Activity, and League
+Settings regions. Teams, standings, and activity use named list/listitem
+relationships; settings use native `dl`/`dt`/`dd` semantics. This is stronger
+than the sampled reference's mostly generic accessibility groups.
 
 ## 17. Components created
 
@@ -214,12 +229,19 @@ The Team verification covers the same widths and asserts shared roster-row,
 slot-tile, avatar, typography, section, and list semantics. The connected Team
 workspace now reconstructs sections from the isolated selected-league snapshot
 instead of draft recommendation candidates.
+The selected-League verification covers the same widths and asserts the 750 px
+desktop cap; 92/60/116+/72 px rows; 32/16 px avatars; 18/14/10/12 px role
+typography; semantic team, standings, activity, and settings structures; and
+viewport containment. Its pure projector and connected-store tests prove that
+canonical draft slots, standings decimals, waiver format, and visible activity
+belong to the selected league before any row renders.
 
 ## 19. Screens migrated
 
 Shared tokens apply to every side-panel route, popup, and options/onboarding.
 Shared structural primitives are directly used by Draft, Mock Draft, Players,
-Team, league switching, full-season evidence, and options; the remaining routes
+Team, the selected League overview, league switching, full-season evidence,
+and options; the remaining routes
 inherit the same canonical surface, type, state, badge, button, and navigation
 system. Sanitized packaged captures cover Draft, Today, Team, Players, Trade,
 More, Start/Sit, Waivers, Matchup, Chopped, Research, Deadlines, Dynasty,
@@ -237,6 +259,9 @@ Sleeper's Team rows also expose two ownership/start-percentage columns and
 lineup mutation controls. The extension deliberately keeps one narrow trailing
 value column and never invents ownership percentages or duplicates mutation
 controls.
+Sleeper's League activity surface can span league history; the extension labels
+and renders the documented public transaction payload for the selected NFL
+week only.
 No unresolved Draft-workspace overflow or critical-text clipping was observed
 in either seven-width production-bundle matrix.
 
@@ -251,6 +276,9 @@ in either seven-width production-bundle matrix.
 - Sleeper ownership/start percentages are omitted from Team because they are
   not supplied by the documented public roster payload. Lineup buttons are
   omitted because the extension's integration is intentionally read-only.
+- Selected-League activity is week-scoped because Sleeper's supported public
+  transaction endpoint is week-addressed. The UI says which week it represents
+  instead of implying an unbounded history.
 - Legacy Muli is not bundled because the measured product-wide body/display
   split is Lato/Poppins and no Sleeper-owned font asset is redistributed.
 - Mobile reflow differs because Sleeper's forced desktop shrink makes controls
@@ -324,3 +352,10 @@ capture of the explicitly labeled demo projection and measured roster anatomy.
 The same seven-width matrix passes without audited-region overflow. Separate
 connected-store coverage proves that a selected league renders its own starter,
 bench, taxi, and reserve players and never the demo recommendation candidates.
+The v0.8.11 browser report adds sanitized selected-League captures at 320, 375,
+390, 768, 1024, 1440, and 1920 px. `matches the authenticated Sleeper league
+geometry at every audit width` asserts the 750 px desktop cap, measured row and
+avatar dimensions, role typography, native semantic counts, and zero accidental
+horizontal overflow at every width. Separate pure and connected-store tests
+prove cross-league rejection and prevent a prior league's teams, standings, or
+completion context from appearing during a switch.
