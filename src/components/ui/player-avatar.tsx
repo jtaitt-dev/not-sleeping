@@ -15,7 +15,7 @@ export function PlayerAvatar({
   priority = false,
 }: {
   player: Player;
-  size?: "small" | "medium" | "large";
+  size?: "small" | "roster" | "medium" | "large";
   priority?: boolean;
 }) {
   const candidates = useMemo(

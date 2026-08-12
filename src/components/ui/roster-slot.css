@@ -1,21 +1,93 @@
 .sleeper-roster-slot {
   display: grid;
   width: 100%;
-  min-height: var(--player-row-height);
+  height: var(--roster-row-height);
   align-items: center;
   gap: var(--space-2);
-  grid-template-columns: 40px auto minmax(0, 1fr) auto;
+  grid-template-columns:
+    var(--roster-slot-width) var(--roster-avatar-size)
+    minmax(0, 1fr) auto;
+  overflow: hidden;
+  padding: var(--space-2) var(--space-4);
 }
 
-.sleeper-roster-slot__label,
-.sleeper-roster-slot__copy small {
-  color: var(--text-muted);
-  font-size: var(--font-label);
+.sleeper-roster-slot__label {
+  display: inline-flex;
+  width: var(--roster-slot-width);
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--position-flex);
+  color: var(--roster-slot-ink);
+  font-size: var(--font-dense);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--font-dense);
+}
+
+.sleeper-roster-slot__label[data-slot="QB"] {
+  background: var(--roster-slot-qb);
+}
+
+.sleeper-roster-slot__label[data-slot="RB"] {
+  background: var(--position-rb);
+}
+
+.sleeper-roster-slot__label[data-slot="WR"] {
+  background: var(--position-wr);
+}
+
+.sleeper-roster-slot__label[data-slot="TE"] {
+  background: var(--position-te);
+}
+
+.sleeper-roster-slot__label[data-slot="K"] {
+  background: var(--position-k);
+}
+
+.sleeper-roster-slot__label[data-slot="DEF"],
+.sleeper-roster-slot__label[data-slot="BN"],
+.sleeper-roster-slot__label[data-slot="TAXI"],
+.sleeper-roster-slot__label[data-slot="IR"] {
+  background: var(--position-def);
+}
+
+.sleeper-roster-slot__label[data-slot="DL"] {
+  background: var(--position-dl);
+}
+
+.sleeper-roster-slot__label[data-slot="LB"] {
+  background: var(--position-lb);
+}
+
+.sleeper-roster-slot__label[data-slot="DB"],
+.sleeper-roster-slot__label[data-slot="IDP"] {
+  background: var(--position-db);
+}
+
+.sleeper-roster-slot__avatar-placeholder {
+  width: var(--roster-avatar-size);
+  height: var(--roster-avatar-size);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 50%;
+  background: var(--background-elevated);
 }
 
 .sleeper-roster-slot__copy {
   display: grid;
   min-width: 0;
+}
+
+.sleeper-roster-slot__copy strong {
+  font-size: var(--font-name);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--font-name);
+}
+
+.sleeper-roster-slot__copy small {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  line-height: var(--font-label);
 }
 
 .sleeper-roster-slot__copy strong,
@@ -27,5 +99,11 @@
 
 .sleeper-roster-slot__value {
   color: var(--accent-primary);
-  font-size: var(--font-body);
+  font-size: var(--font-panel);
+}
+
+@media (max-width: 350px) {
+  .sleeper-roster-slot {
+    padding-inline: var(--space-2);
+  }
 }

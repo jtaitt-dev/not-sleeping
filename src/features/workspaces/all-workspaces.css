@@ -311,45 +311,35 @@
   margin-bottom: 9px;
 }
 
+.roster-sections {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.roster-section > header {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+}
+
+.roster-section > header h3,
+.roster-section > header span {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 14px;
+}
+
 .roster-list {
   display: grid;
-  gap: 3px;
+  gap: var(--space-1);
 }
 
-.roster-list > div {
-  display: grid;
-  min-height: 37px;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-small);
-  background: var(--background-sidebar);
-  grid-template-columns: 30px auto 1fr 34px;
-  padding: 4px 6px;
-}
-
-.slot-label {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.roster-list > div > span:nth-child(3) {
-  display: grid;
-}
-
-.roster-list strong {
-  font-size: 11px;
-}
-
-.roster-list small {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-
-.roster-list > div > b {
-  color: var(--accent-primary);
-  font-size: 12px;
+.roster-list > .sleeper-roster-slot:nth-child(odd) {
+  background: var(--roster-zebra);
 }
 
 .needs-card {

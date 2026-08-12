@@ -140,6 +140,12 @@
   --icon-size-large: 24px;
   --player-row-height: 44px;
   --player-table-row-height: 52px;
+  --roster-row-height: 64px;
+  --roster-slot-width: 42px;
+  --roster-avatar-size: 32px;
+  --roster-slot-ink: #022047;
+  --roster-slot-qb: #ff2a6d;
+  --roster-zebra: rgb(163 0 0 / 5%);
   --navigation-height: 40px;
   --button-height-small: 32px;
   --button-height-medium: 40px;

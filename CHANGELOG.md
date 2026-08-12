@@ -5,6 +5,38 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.10] - 2026-08-11
+
+### Added
+
+- A deterministic roster-section builder preserves the selected Sleeper
+  league's starter order and separates bench, taxi, and reserve players without
+  duplicate identities. Best Ball uses one ordered roster section.
+- Connected-store regression coverage proves that Team renders the selected
+  league roster rather than draft recommendation candidates.
+- A Team-workspace browser matrix now verifies measured roster geometry,
+  typography, list semantics, and viewport containment at 320, 375, 390, 768,
+  1024, 1440, and 1920 px, with a sanitized 320 px capture.
+
+### Changed
+
+- `SleeperRosterSlot` now uses authenticated Sleeper Team density: 64 px rows,
+  42×32 position tiles, 32 px resilient headshots, 14 px names, 11 px metadata,
+  and 12 px trailing values.
+- Team insights and the format badge are derived from the selected roster and
+  league instead of placeholder scores, needs, depth, and team format.
+
+### Fixed
+
+- Team no longer presents ranked draft candidates as a connected league's
+  current roster. The recommendation projection is retained only as an
+  explicitly labeled demo fallback.
+- Missing or repeated IDs cannot leak players between starter, bench, taxi, and
+  reserve sections; unresolved profiles remain explicit instead of appearing
+  as open roster spots.
+- Configured empty bench, taxi, and reserve positions remain visible instead of
+  disappearing from an underfilled roster.
+
 ## [0.8.9] - 2026-08-11
 
 ### Added
@@ -434,7 +466,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.9...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.10...HEAD
+[0.8.10]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.6...v0.8.7

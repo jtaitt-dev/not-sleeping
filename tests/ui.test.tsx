@@ -229,12 +229,14 @@ describe("shared UI primitives", () => {
     const player = DEMO_PLAYERS[0]!;
     const { container } = render(
       <>
-        <SleeperRosterSlot
-          slot="QB"
-          player={player}
-          meta={`${player.team ?? "FA"} starter`}
-          value="91"
-        />
+        <div role="list" aria-label="Starters">
+          <SleeperRosterSlot
+            slot="QB"
+            player={player}
+            meta={`${player.team ?? "FA"} starter`}
+            value="91"
+          />
+        </div>
         <EmptyState title="No waivers" detail="No claims are pending." />
         <EmptyState title="No trades" detail="No offers are pending." />
       </>,
@@ -242,6 +244,9 @@ describe("shared UI primitives", () => {
 
     expect(screen.getByText(player.fullName)).toBeVisible();
     expect(screen.getByText("91")).toBeVisible();
+    expect(screen.getByRole("listitem")).toBeVisible();
+    expect(screen.getByLabelText("Slot qb")).toHaveAttribute("data-slot", "QB");
+    expect(container.querySelector(".player-avatar--roster")).toBeTruthy();
     const labels = [...container.querySelectorAll(".empty-state")].map((node) =>
       node.getAttribute("aria-labelledby"),
     );
