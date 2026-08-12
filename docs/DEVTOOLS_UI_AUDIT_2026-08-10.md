@@ -241,7 +241,8 @@ Sanitized v0.8.6 captures are published in `docs/screenshots/` and shown in the
 README. They record on-clock AI-off and AI-working states, the 320 px layout,
 auction and rookie contexts, and the wider Draft workspace without Sleeper chat,
 manager names, browser tabs, usernames, account IDs, or provider secrets.
-The reviewed v0.8.7 Windows Draft visual baseline records the measured
-typography correction, and two consecutive visual runs produced the same image
-before the snapshot was accepted. The post-update visual suite passes both the
-Draft and secure-options baselines.
+The reviewed v0.8.7 Windows and Linux Draft visual baselines record the measured
+typography correction. Two consecutive local Windows runs and all three Linux
+CI retries produced stable platform-specific images before those snapshots were
+accepted. The post-update local visual suite passes both the Draft and
+secure-options baselines.
