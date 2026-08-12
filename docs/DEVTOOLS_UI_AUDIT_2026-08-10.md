@@ -1,15 +1,16 @@
 # DevTools UI Audit — 2026-08-10
 
 Reference: the user's existing signed-in Chrome session on Sleeper. Extension:
-the installed unpacked Not Sleeping v0.8.8 build in the same browser, plus the
+the installed unpacked Not Sleeping v0.8.9 build in the same browser, plus the
 controlled production-bundle tests described below. Evidence is in
 `artifacts/devtools-ui-audit-2026-08-10/`; sanitized automated captures are
 attached to the Playwright report.
 
 ## 1. Every Sleeper page inspected
 
-The Big Bucks predraft league page and the NFL draft room were inspected in the
-existing signed-in Chrome window. The responsive reference run targeted 320,
+The Big Bucks predraft league page, its authenticated Players page, and the NFL
+draft room were inspected in the existing signed-in Chrome window. The
+responsive reference run targeted 320,
 375, 390, 768, 1024, 1440, and 1920 px widths. A post-capture pixel-dimension
 audit found that the authenticated Chrome window constrained several saved
 images, so their filenames are treated as requested targets rather than proof
@@ -19,7 +20,8 @@ of exact output width. The exact observed dimensions are recorded in section
 ## 2. Every major component inspected
 
 League rail, league header, league tabs, draft card, team list, chat, draft-room
-header, team columns, pick cells, player filters, player table, queue, launcher,
+header, team columns, pick cells, player filters, 52 px statistical player
+rows, player search, queue, launcher,
 extension shell, league selector, navigation, cards, tables, controls, player
 rows, badges, alerts, skeletons, dialogs, popup, and options-page source were
 inspected.
@@ -29,15 +31,15 @@ inspected.
 Reference pages were inspected at desktop target widths and have exact 768 and
 1024 px captures plus the 1675 px side-by-side context captures. The larger
 responsive files were constrained by the authenticated Chrome window. The
-production extension bundle now has exact automated Draft-workspace coverage
-at 768, 1024, 1440, and 1920 px, with one screenshot attached per width.
+production extension bundle now has exact automated Draft- and Players-workspace
+coverage at 768, 1024, 1440, and 1920 px, with sanitized screenshots attached.
 
 ## 4. Mobile viewport states tested
 
 Reference pages were inspected at 320, 375, and 390 px targets; exact output is
 available for draft at all three targets and for predraft at 320 and 390 (the
 predraft 375 target saved at 320). The production extension bundle now has
-exact automated Draft-workspace coverage at 320, 375, and 390 px. Sleeper
+exact automated Draft- and Players-workspace coverage at 320, 375, and 390 px. Sleeper
 forces a wide desktop canvas at mobile widths; Not Sleeping intentionally
 reflows to remain usable.
 
@@ -52,13 +54,17 @@ Inter/Lato-family dense text plus Poppins for much of the navigation and display
 hierarchy, with legacy Muli still present in draft pick labels. The extension
 bundles Fontsource Lato and Poppins under OFL-1.1 and now exposes measured 9,
 10, 11, 12, and 14 px role tokens. Nine pixels is restricted to Predraft-style
-non-actionable microcopy, and draft surfaces use 10 px or larger.
+non-actionable microcopy and the authenticated Players table's position
+metadata; draft surfaces use 10 px or larger. The Players reference uses 12 px
+bold names, 9 px position metadata, 11 px schedule context, and 12 px
+statistical cells.
 
 ## 6. Spacing findings
 
-Sleeper uses compact 4–16 px internal spacing, 40 px controls/tabs, 44 px player
-rows, and 50 px draft cells. Shared spacing and geometry tokens now replace the
-main hard-coded control dimensions.
+Sleeper uses compact 4–16 px internal spacing, 40 px primary controls/tabs,
+44 px draft-player rows, 52 px league statistical player rows, 32 px Players
+search/filter controls, and 50 px draft cells. Shared spacing and geometry
+tokens now replace the main hard-coded control dimensions.
 
 ## 7. Color-system findings
 
@@ -75,8 +81,14 @@ primary destinations at 320 px and routing the rest through More.
 ## 9. Player-component findings
 
 Player rows must keep identity, team, position, status, and rank/score scannable
-before secondary metrics. The shared avatar, badge, row-height, and fallback
-components satisfy that hierarchy without guessed headshots. Draft Copilot
+before secondary metrics. The authenticated Players page alternates transparent
+and `#212635` 52 px rows, with a 32 px action cell, 12 px bold name, 9 px
+position metadata, and 12 px statistic cells. The extension counterpart now
+uses the same 52/32/12/9 density and zebra rhythm while retaining canonical
+headshots. Its initials remain beneath each image until the verified URL loads,
+so a slow or failed request cannot create an empty identity. The shared avatar,
+badge, row-height, and fallback components satisfy that hierarchy without
+guessed headshots. Draft Copilot
 player names now wrap instead of using a clipping ellipsis, preserving the full
 identity at every required width while leaving the position badge visible.
 At 320 px, recommendation rows also wrap the complete name and keep position in
@@ -103,18 +115,26 @@ secondary columns, changes grids to one column, and preserves every core draft
 action. This is an intentional functional deviation. The current matrix proves
 the exact document width, the absence of unintended horizontal overflow, and
 the in-viewport position of primary navigation, draft context, Draft Copilot,
-the recommendation board, and the on-clock AI switch at 320, 375, 390, 768,
+the recommendation board, the Players toolbar/list, and the on-clock AI switch
+at 320, 375, 390, 768,
 1024, 1440, and 1920 px. The 390 px run also opens the progressive-disclosure
 analysis before capture. The matrix additionally proves that each first
 recommendation retains a visible position and that its player name is not
-clipped; the 320 px run attaches a focused row capture.
+clipped; the 320 px runs attach focused Draft recommendation and Players
+density captures.
 
 ## 13. Interaction-state findings
 
 Hover, active, selected, focus-visible, disabled, paused, on-clock, complete,
 undo, redo, reset-confirmation, and league-switching states are represented.
 Focus rings use the selected teal and never rely on color alone for identity.
-After the v0.8.8 reload, the launcher was activated from the same authenticated
+The Sleeper Players reference exposes search through placeholder text but uses
+generic, non-focusable `div` rows and showed no visible focus treatment in the
+sampled input state. The extension deliberately improves those semantics:
+result rows are buttons, selection is exposed with `aria-pressed`, and the
+shared 2 px teal focus-visible ring remains keyboard-visible. Filtering moves
+selection to a visible row or clears the detail pane. After the v0.8.9 reload,
+the launcher was activated from the same authenticated
 Sleeper draft-room tab without opening another browser or making a draft write.
 
 ## 14. Loading-state findings
@@ -128,7 +148,7 @@ cleared before new data is requested.
 Runtime, provider, stale snapshot, saved-mock mismatch, and insufficient-player
 pool errors remain local and actionable. Local deterministic features remain
 available when optional AI fails.
-The installed v0.8.8 post-refresh console check recorded no extension warning
+The installed v0.8.9 post-refresh console check recorded no extension warning
 or error; the sole recent entry was Sleeper's own deprecated scrollbar-option
 warning.
 
@@ -156,7 +176,7 @@ EmptyState, InlineError, and SkeletonRow.
 ## 18. Components refactored
 
 App shell navigation/actions, buttons, icon buttons, compact tabs, league and
-player search, player result/detail rows, projected starters, draft
+player search, 52 px zebra player result/detail rows, projected starters, draft
 recommendations, recent picks, mock-draft controls, evidence sheets, popup
 context/action, and options navigation/forms were moved to the measured shared
 geometry. Global body/display typography was replaced with the measured font
@@ -172,6 +192,9 @@ names are at least 14 px, draft metadata and on-clock AI activity are at least
 10 px, and the relevant roles resolve to those minimums at every required
 width. It also verifies full-name clipping and visible-position invariants for
 the recommendation row at each width.
+The Players verification independently covers the same seven widths and asserts
+its 52 px rows, 32 px controls/avatars, 12 px names, 9 px metadata, selected
+state, keyboard focus, empty-result clearing, and viewport containment.
 
 ## 19. Screens migrated
 
@@ -188,14 +211,20 @@ Rankings, Compare, Watchlist, Rookie, Taxi, IDP, and Mock Draft.
 Sleeper's desktop reference has more horizontal space, a full chat column, and
 some legacy Muli text in the draft-room header. The extension uses responsive
 side-panel cards, has no chat surface, and standardizes display text on Poppins.
+Sleeper's league Players page is a wide weekly-stat table with add/drop action
+cells; the extension uses a narrow searchable identity list plus an
+intelligence detail pane because it is read-only and runs in a side panel.
 No unresolved Draft-workspace overflow or critical-text clipping was observed
-in the seven-width production-bundle matrix.
+in either seven-width production-bundle matrix.
 
 ## 21. Technical reason for every remaining discrepancy
 
 - Horizontal layout differs because a Chrome side panel is 320–600 px, not a
   1675 px application canvas.
 - Chat is omitted because Not Sleeping is read-only and has no messaging scope.
+- Weekly player-stat columns and add/drop actions are omitted from the Players
+  list because the side panel prioritizes search and intelligence detail and
+  has no roster-write scope.
 - Legacy Muli is not bundled because the measured product-wide body/display
   split is Lato/Poppins and no Sleeper-owned font asset is redistributed.
 - Mobile reflow differs because Sleeper's forced desktop shrink makes controls
@@ -224,7 +253,10 @@ sanitized 320×900, 375×900, 390×900, 768×900, 1024×900, 1440×900, and
 1920×900 screenshots and is uploaded with the CI Playwright report. The matrix
 also asserts that the on-clock AI switch/activity and recommendation board are
 reachable, core regions stay inside the viewport, critical text is not clipped,
-and no unintended horizontal overflow exists. The installed route captures
+and no unintended horizontal overflow exists. The companion test `matches
+measured Sleeper Players density at every audit width` verifies the same exact
+widths for Players and attaches its sanitized 320 px density capture. The
+installed route captures
 record broader component consistency, and `implementation/24-beers-pool-fixed.png`
 shows the corrected Beers BB $50 player pool with an enabled local-mock action.
 
@@ -254,3 +286,7 @@ secure-options baselines.
 The v0.8.8 browser report adds `draft-320-recommendation-position`, a sanitized
 278×63 px element capture showing the full two-line player name and visible
 `FA · QB` metadata without horizontal overflow.
+The v0.8.9 browser report adds `players-320-density`, a sanitized full-viewport
+capture of the compact Players toolbar, 52 px zebra identities, selected state,
+and initials-under-image fallback. Its exact-width matrix passes at 320, 375,
+390, 768, 1024, 1440, and 1920 px without audited-region overflow.

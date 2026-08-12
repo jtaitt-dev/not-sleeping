@@ -226,6 +226,110 @@ test("renders every standard side-panel route and the popup without console erro
   expect(pageErrors).toEqual([]);
 });
 
+test("matches measured Sleeper Players density at every audit width", async ({
+  browserName,
+}, testInfo) => {
+  expect(browserName).toBe("chromium");
+  const { page, extensionId } = loaded;
+  await page.goto(`chrome-extension://${extensionId}/sidepanel.html#/players`);
+  await expect(
+    page.getByRole("heading", { name: "Players", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".result-list > button").first()).toBeVisible();
+
+  try {
+    for (const width of [320, 375, 390, 768, 1024, 1440, 1920]) {
+      await test.step(`${width}px Players workspace`, async () => {
+        await page.setViewportSize({ width, height: 900 });
+        const layout = await page.evaluate(() => {
+          const row = document.querySelector<HTMLElement>(
+            ".result-list > button",
+          );
+          const avatar = row?.querySelector<HTMLElement>(".player-avatar");
+          const fallback = row?.querySelector<HTMLElement>(
+            ".player-avatar__fallback",
+          );
+          const name = row?.querySelector<HTMLElement>(
+            ".sleeper-player-identity__copy strong",
+          );
+          const meta = row?.querySelector<HTMLElement>(
+            ".sleeper-player-identity__copy small",
+          );
+          const search = document.querySelector<HTMLElement>(
+            ".players-toolbar .sleeper-search",
+          );
+          const select = document.querySelector<HTMLElement>(
+            ".players-toolbar .sleeper-select",
+          );
+          const rect = (element: HTMLElement | null | undefined) =>
+            element?.getBoundingClientRect();
+          const viewport = document.documentElement.clientWidth;
+          const audited = [
+            document.querySelector<HTMLElement>(".players-toolbar"),
+            document.querySelector<HTMLElement>(".result-list"),
+            row,
+          ].filter((element): element is HTMLElement => Boolean(element));
+          return {
+            viewport,
+            rowHeight: rect(row)?.height ?? 0,
+            avatar: [rect(avatar)?.width ?? 0, rect(avatar)?.height ?? 0],
+            avatarFallback: fallback?.textContent.trim() ?? "",
+            nameFont: name ? getComputedStyle(name).fontSize : "",
+            metaFont: meta ? getComputedStyle(meta).fontSize : "",
+            searchHeight: rect(search)?.height ?? 0,
+            selectHeight: rect(select)?.height ?? 0,
+            selectedState:
+              document
+                .querySelector<HTMLElement>(".result-list > button.selected")
+                ?.getAttribute("aria-pressed") ?? null,
+            clipsViewport: audited.some((element) => {
+              const box = element.getBoundingClientRect();
+              return box.left < -0.5 || box.right > viewport + 0.5;
+            }),
+          };
+        });
+
+        expect(layout.viewport).toBe(width);
+        expect(layout.rowHeight).toBe(52);
+        expect(layout.avatar).toEqual([32, 32]);
+        expect(layout.avatarFallback.length).toBeGreaterThan(0);
+        expect(layout.nameFont).toBe("12px");
+        expect(layout.metaFont).toBe("9px");
+        expect(layout.searchHeight).toBe(32);
+        expect(layout.selectHeight).toBe(32);
+        expect(layout.selectedState).toBe("true");
+        expect(layout.clipsViewport).toBe(false);
+
+        if (width === 320) {
+          await testInfo.attach("players-320-density", {
+            body: await page.screenshot({ animations: "disabled" }),
+            contentType: "image/png",
+          });
+        }
+      });
+    }
+
+    const search = page.getByRole("searchbox", { name: "Search players" });
+    await search.focus();
+    await expect(search).toBeFocused();
+    expect(
+      await search.evaluate(
+        (element) => getComputedStyle(element).outlineWidth,
+      ),
+    ).toBe("2px");
+
+    await search.fill("zzzzzz-no-player");
+    await expect(
+      page.getByText("No player found", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".player-profile")).toHaveCount(0);
+    await search.fill("");
+    await expect(page.locator(".result-list > button").first()).toBeVisible();
+  } finally {
+    await page.setViewportSize({ width: 400, height: 900 });
+  }
+});
+
 test("groups More and never strands a sub-screen", async () => {
   const { page } = loaded;
   const primaryNav = page.getByRole("navigation", { name: "Primary" });

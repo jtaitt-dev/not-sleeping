@@ -139,9 +139,11 @@
   --icon-size-medium: 18px;
   --icon-size-large: 24px;
   --player-row-height: 44px;
+  --player-table-row-height: 52px;
   --navigation-height: 40px;
   --button-height-small: 32px;
   --button-height-medium: 40px;
+  --input-height-compact: 32px;
   --input-height: 40px;
   --draft-cell-width: 132px;
   --draft-cell-height: 50px;

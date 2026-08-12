@@ -10,6 +10,33 @@
   padding: 6px 8px;
 }
 
+.players-toolbar {
+  min-height: calc(var(--input-height-compact) + var(--space-3));
+}
+
+.players-toolbar .sleeper-search,
+.players-toolbar .sleeper-select {
+  height: var(--input-height-compact);
+  min-height: var(--input-height-compact);
+}
+
+.players-toolbar .sleeper-search input {
+  height: calc(var(--input-height-compact) - 2px);
+  min-height: 0;
+}
+
+.players-toolbar .sleeper-search {
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+}
+
+.players-result-count {
+  color: var(--text-muted);
+  font-size: var(--font-label);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .search-toolbar > svg {
   width: 15px;
   color: var(--text-muted);
@@ -85,7 +112,7 @@
 .result-list > button {
   display: grid;
   width: 100%;
-  min-height: var(--player-row-height);
+  min-height: var(--player-table-row-height);
   align-items: center;
   gap: 7px;
   border-bottom: 1px solid var(--border-subtle);
@@ -93,8 +120,12 @@
   color: inherit;
   cursor: pointer;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 6px 8px;
+  padding: 4px 8px;
   text-align: left;
+}
+
+.result-list > button:nth-child(odd) {
+  background: var(--surface-zebra);
 }
 
 .result-list > button:hover,
@@ -104,6 +135,12 @@
 
 .result-list > button.selected {
   box-shadow: inset 2px 0 var(--accent-primary);
+}
+
+.result-list .player-avatar--small {
+  width: var(--input-height-compact);
+  height: var(--input-height-compact);
+  border-color: transparent;
 }
 
 .result-list > button > span:nth-child(2),
@@ -127,6 +164,10 @@
 .player-profile header p {
   color: var(--text-muted);
   font-size: 11px;
+}
+
+.result-list .sleeper-player-identity__copy small {
+  font-size: var(--font-micro);
 }
 
 .result-list svg {
@@ -1229,6 +1270,14 @@
 }
 
 @media (max-width: 470px) {
+  .players-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .players-toolbar .search-field {
+    flex-basis: 160px;
+  }
+
   .player-explorer,
   .team-layout,
   .data-grid,
