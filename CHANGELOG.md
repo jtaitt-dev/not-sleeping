@@ -5,6 +5,27 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-08-11
+
+### Added
+
+- Browser coverage now renders the production Draft workspace at 320, 375,
+  390, 768, 1024, 1440, and 1920 px, attaches a sanitized screenshot at every
+  width, and verifies the on-clock AI controls, core regions, critical text,
+  and horizontal-overflow boundary.
+
+### Changed
+
+- The DevTools UI audit now records the actual pixel dimensions of constrained
+  authenticated Sleeper captures instead of treating requested filenames as
+  exact-width evidence.
+
+### Fixed
+
+- Draft Copilot player names wrap instead of clipping or ellipsizing, and the
+  on-clock AI activity sentence wraps below 480 px so the player identity and
+  complete AI status remain readable at compact side-panel widths.
+
 ## [0.8.5] - 2026-08-11
 
 ### Added
@@ -356,7 +377,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.2...v0.8.3

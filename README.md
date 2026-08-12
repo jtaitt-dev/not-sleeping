@@ -27,12 +27,23 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.5](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.5)**.
+The current release is **[v0.8.6](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.6)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.6
+
+- Draft Copilot keeps full player names and the complete on-clock AI status
+  readable instead of clipping them at compact side-panel widths.
+- The production Draft workspace is now exercised at 320, 375, 390, 768,
+  1024, 1440, and 1920 px with sanitized screenshot attachments, core-control
+  visibility checks, and unintended-overflow detection at every width.
+- The published 320 px Draft screenshot reflects the corrected wrapped layout,
+  and the DevTools audit distinguishes exact viewport evidence from older
+  authenticated captures constrained by the Chrome window.
 
 ## New in v0.8.5
 
