@@ -49,6 +49,11 @@
   height: 28px;
 }
 
+.player-avatar--roster {
+  width: var(--roster-avatar-size);
+  height: var(--roster-avatar-size);
+}
+
 .player-avatar--medium {
   width: 36px;
   height: 36px;

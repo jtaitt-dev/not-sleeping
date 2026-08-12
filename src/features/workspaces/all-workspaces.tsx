@@ -86,6 +86,7 @@ import {
   saveSettings,
 } from "@/services/storage/settings";
 import {
+  getActiveFixture,
   getLiveRecommendations,
   getRecommendations,
   useAppStore,
@@ -100,6 +101,8 @@ import {
   type UsageSummary,
 } from "@/services/usage/usage-service";
 import type { UsageEvent } from "@/types/domain";
+
+import { buildTeamRosterSections, type TeamRosterSection } from "./team-roster";
 
 import "./all-workspaces.css";
 
@@ -441,20 +444,109 @@ export function TeamWorkspace() {
   const strategy = useAppStore((state) => state.strategy);
   const risk = useAppStore((state) => state.riskTolerance);
   const hidden = useAppStore((state) => state.hiddenPlayers);
-  const roster = getRecommendations(
+  const activeContext = useLeagueStore((state) => state.activeContext);
+  const snapshot = useLeagueStore((state) => state.snapshot);
+  const projection = getRecommendations(
     fixtureId,
     draftStep,
     strategy,
     risk,
     hidden,
   ).slice(2, 11);
-  const positionCounts = roster.reduce<Record<string, number>>(
-    (counts, entry) => {
-      counts[entry.player.position] = (counts[entry.player.position] ?? 0) + 1;
+  const fixture = getActiveFixture(fixtureId);
+  const activeRosterId = activeContext?.rosterId;
+  const connectedSnapshot =
+    snapshot?.leagueId === activeContext?.leagueId ? snapshot : null;
+  const connectedRoster =
+    typeof activeRosterId === "number"
+      ? connectedSnapshot?.rosters.find(
+          (candidate) => candidate.roster_id === activeRosterId,
+        )
+      : undefined;
+  const connectedSections = connectedRoster
+    ? buildTeamRosterSections({
+        rosterPositions: activeContext?.rosterPositions ?? [],
+        playerIds: connectedRoster.players ?? [],
+        starterIds: connectedRoster.starters ?? [],
+        reserveIds: connectedRoster.reserve ?? [],
+        taxiIds: connectedRoster.taxi ?? [],
+        players: connectedSnapshot?.players ?? [],
+        rosterOnly: activeContext?.lineupType === "best_ball",
+      })
+    : null;
+  const fallbackSections: TeamRosterSection[] = [
+    {
+      key: "starters",
+      title: "Projected starters",
+      rows: assignStarterSlots(projection).map(({ slot, entry }) => ({
+        slot,
+        playerId: entry?.player.id ?? null,
+        player: entry?.player ?? null,
+      })),
+    },
+  ];
+  const sections = connectedSections ?? fallbackSections;
+  const renderedPlayers = sections.flatMap((section) =>
+    section.rows.flatMap((row) => (row.player ? [row.player] : [])),
+  );
+  const uniquePlayers = [
+    ...new Map(renderedPlayers.map((player) => [player.id, player])).values(),
+  ];
+  const positionCounts = uniquePlayers.reduce<Record<string, number>>(
+    (counts, player) => {
+      counts[player.position] = (counts[player.position] ?? 0) + 1;
       return counts;
     },
     {},
   );
+  const knownAges = uniquePlayers.flatMap((player) =>
+    player.age === undefined ? [] : [player.age],
+  );
+  const averageAge = knownAges.length
+    ? (
+        knownAges.reduce((total, age) => total + age, 0) / knownAges.length
+      ).toFixed(1)
+    : "—";
+  const openStarterCount =
+    sections
+      .find((section) => section.key === "starters")
+      ?.rows.filter((row) => !row.playerId).length ?? 0;
+  const injuredCount = uniquePlayers.filter(
+    (player) => player.status === "injured" || Boolean(player.injuryStatus),
+  ).length;
+  const rosteredCount = connectedRoster
+    ? new Set((connectedRoster.players ?? []).filter((id) => id && id !== "0"))
+        .size
+    : uniquePlayers.length;
+  const teamCount = connectedRoster
+    ? (connectedSnapshot?.league.total_rosters ??
+      connectedSnapshot?.rosters.length ??
+      0)
+    : fixture.format.teams;
+  const isSuperflex = connectedRoster
+    ? Boolean(
+        activeContext?.rosterPositions.some((slot) =>
+          ["SUPER_FLEX", "SF"].includes(slot),
+        ),
+      )
+    : fixture.format.superflex;
+  const formatLabel = `${teamCount}-team ${
+    activeContext?.lineupType === "best_ball"
+      ? "Best Ball"
+      : isSuperflex
+        ? "SF"
+        : "1QB"
+  }`;
+  const projectionScores = new Map(
+    projection.map((entry) => [entry.player.id, entry.contextualScore]),
+  );
+  const callout = connectedRoster
+    ? openStarterCount > 0
+      ? `${openStarterCount} starting ${openStarterCount === 1 ? "slot is" : "slots are"} still open.`
+      : injuredCount > 0
+        ? `${injuredCount} rostered ${injuredCount === 1 ? "player carries" : "players carry"} an injury designation.`
+        : `${rosteredCount} players are rostered in the selected Sleeper league.`
+    : "Demo projection only. Select a connected league to see its current roster.";
 
   return (
     <Workspace
@@ -463,41 +555,90 @@ export function TeamWorkspace() {
     >
       <div className="insight-strip">
         <Insight
-          label="Roster score"
-          value="82"
-          detail="Strong core"
+          label="Rostered"
+          value={String(rosteredCount)}
+          detail={connectedRoster ? "Current league" : "Demo projection"}
           tone="accent"
         />
-        <Insight label="Age profile" value="25.1" detail="Balanced window" />
         <Insight
-          label="Need"
-          value="RB2"
-          detail="Before round 7"
+          label="Average age"
+          value={averageAge}
+          detail={`${knownAges.length} known`}
+        />
+        <Insight
+          label="Open starters"
+          value={String(openStarterCount)}
+          detail={openStarterCount ? "Needs attention" : "Lineup filled"}
           tone="warning"
         />
         <Insight
-          label="Flex depth"
-          value="+12%"
-          detail="Above league"
-          tone="success"
+          label="Injuries"
+          value={String(injuredCount)}
+          detail={injuredCount ? "Designation found" : "No designations"}
+          tone={injuredCount ? "warning" : "success"}
         />
       </div>
       <div className="team-layout">
         <section className="surface roster-card">
           <header>
-            <h2>Projected starters</h2>
-            <StatusBadge tone="info">12-team SF</StatusBadge>
+            <h2>
+              {connectedRoster ? "Current roster" : "Demo roster projection"}
+            </h2>
+            <StatusBadge tone="info">{formatLabel}</StatusBadge>
           </header>
-          <div className="roster-list">
-            {assignStarterSlots(roster).map(({ slot, entry }, index) => (
-              <SleeperRosterSlot
-                key={`${slot}-${index}`}
-                slot={slot}
-                player={entry?.player}
-                meta={entry?.player.team}
-                value={entry?.contextualScore}
-              />
-            ))}
+          <div className="roster-sections">
+            {sections.map((section) => {
+              const headingId = `team-roster-${section.key}`;
+              return (
+                <section
+                  className="roster-section"
+                  aria-labelledby={headingId}
+                  key={section.key}
+                >
+                  <header>
+                    <h3 id={headingId}>{section.title}</h3>
+                    <span>{section.rows.length}</span>
+                  </header>
+                  <div
+                    className="roster-list"
+                    role="list"
+                    aria-label={section.title}
+                  >
+                    {section.rows.map((row, index) => (
+                      <SleeperRosterSlot
+                        key={`${section.key}-${row.slot}-${row.playerId ?? "open"}-${index}`}
+                        slot={row.slot}
+                        player={row.player}
+                        meta={
+                          row.player
+                            ? [
+                                row.player.team ?? "FA",
+                                row.player.position,
+                                row.player.injuryStatus,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
+                            : undefined
+                        }
+                        value={
+                          connectedRoster || !row.playerId
+                            ? undefined
+                            : projectionScores.get(row.playerId)
+                        }
+                        emptyTitle={
+                          row.playerId ? "Player data unavailable" : "Open"
+                        }
+                        emptyDetail={
+                          row.playerId
+                            ? "Refresh league data to resolve this player"
+                            : "No eligible player rostered"
+                        }
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         </section>
         <aside className="surface needs-card">
@@ -507,7 +648,9 @@ export function TeamWorkspace() {
           </header>
           {["QB", "RB", "WR", "TE"].map((positionName) => {
             const count = positionCounts[positionName] ?? 0;
-            const percentage = Math.min(100, count * 24 + 16);
+            const percentage = rosteredCount
+              ? Math.round((count / rosteredCount) * 100)
+              : 0;
             return (
               <div className="need-meter" key={positionName}>
                 <span>
@@ -523,10 +666,7 @@ export function TeamWorkspace() {
           })}
           <div className="callout">
             <Info aria-hidden="true" />
-            <p>
-              Wide receiver depth lets you prioritize scarce quarterback and
-              tight end value.
-            </p>
+            <p>{callout}</p>
           </div>
         </aside>
       </div>

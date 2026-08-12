@@ -27,12 +27,27 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.9](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.9)**.
+The current release is **[v0.8.10](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.10)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.10
+
+- Team now reads the selected league's actual starter, bench, taxi, and reserve
+  arrays. It preserves Sleeper slot order, isolates every section, and never
+  labels draft recommendation candidates as the current roster. Configured
+  empty bench, taxi, and reserve positions remain visible.
+- The shared roster primitive now matches the authenticated Sleeper Team view:
+  64 px zebra rows, 42×32 slot tiles, 32 px canonical headshots with immediate
+  initials fallbacks, 14 px player names, and 11 px metadata.
+- Roster count, average age, open starters, injuries, league size, and lineup
+  format are derived from the selected league instead of hard-coded examples.
+  Best Ball leagues receive one ordered Roster section.
+- A seven-width browser matrix checks Team geometry, semantic list structure,
+  and overflow; connected-store tests prevent cross-league/demo regressions.
 
 ## New in v0.8.9
 

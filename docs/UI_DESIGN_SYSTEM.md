@@ -29,6 +29,8 @@ and options-page stylesheet consumes the same tokens.
 - Navigation and standard controls: 40 px
 - Compact buttons: 32 px
 - Player rows: 44 px
+- Statistical player rows: 52 px with 32 px avatars
+- Team roster rows: 64 px with 42×32 px slot tiles and 32 px avatars
 - Draft cells: 132 × 50 px
 - Small, medium, and large icons: 14, 18, and 24 px
 - Modal width: at most 520 px with a 16 px viewport gutter

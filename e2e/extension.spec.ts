@@ -330,6 +330,102 @@ test("matches measured Sleeper Players density at every audit width", async ({
   }
 });
 
+test("matches measured Sleeper Team roster anatomy at every audit width", async ({
+  browserName,
+}, testInfo) => {
+  expect(browserName).toBe("chromium");
+  const { page, extensionId } = loaded;
+  await page.goto(`chrome-extension://${extensionId}/sidepanel.html#/team`);
+  await expect(
+    page.getByRole("heading", { name: "Team", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".roster-list").first()).toBeVisible();
+
+  try {
+    for (const width of [320, 375, 390, 768, 1024, 1440, 1920]) {
+      await test.step(`${width}px Team workspace`, async () => {
+        await page.setViewportSize({ width, height: 900 });
+        const layout = await page.evaluate(() => {
+          const avatar = document.querySelector<HTMLElement>(
+            ".roster-list .player-avatar",
+          );
+          const row = avatar?.closest<HTMLElement>(".sleeper-roster-slot");
+          const slot = row?.querySelector<HTMLElement>(
+            ".sleeper-roster-slot__label",
+          );
+          const name = row?.querySelector<HTMLElement>(
+            ".sleeper-roster-slot__copy strong",
+          );
+          const meta = row?.querySelector<HTMLElement>(
+            ".sleeper-roster-slot__copy small",
+          );
+          const rect = (element: HTMLElement | null | undefined) =>
+            element?.getBoundingClientRect();
+          const viewport = document.documentElement.clientWidth;
+          const lists = [
+            ...document.querySelectorAll<HTMLElement>(".roster-list"),
+          ];
+          const listItems = [
+            ...document.querySelectorAll<HTMLElement>(
+              '.roster-list > [role="listitem"]',
+            ),
+          ];
+          const audited = [
+            document.querySelector<HTMLElement>("main"),
+            document.querySelector<HTMLElement>(".team-layout"),
+            document.querySelector<HTMLElement>(".roster-card"),
+            ...lists,
+            row,
+          ].filter((element): element is HTMLElement => Boolean(element));
+          return {
+            viewport,
+            row: [rect(row)?.width ?? 0, rect(row)?.height ?? 0],
+            slot: [rect(slot)?.width ?? 0, rect(slot)?.height ?? 0],
+            avatar: [rect(avatar)?.width ?? 0, rect(avatar)?.height ?? 0],
+            nameFont: name ? getComputedStyle(name).fontSize : "",
+            metaFont: meta ? getComputedStyle(meta).fontSize : "",
+            listCount: lists.length,
+            listRolesValid: lists.every(
+              (list) =>
+                list.getAttribute("role") === "list" &&
+                Boolean(list.getAttribute("aria-label")),
+            ),
+            itemRolesValid:
+              listItems.length > 0 &&
+              listItems.every(
+                (item) => item.getAttribute("role") === "listitem",
+              ),
+            clipsViewport: audited.some((element) => {
+              const box = element.getBoundingClientRect();
+              return box.left < -0.5 || box.right > viewport + 0.5;
+            }),
+          };
+        });
+
+        expect(layout.viewport).toBe(width);
+        expect(layout.row[1]).toBe(64);
+        expect(layout.slot).toEqual([42, 32]);
+        expect(layout.avatar).toEqual([32, 32]);
+        expect(layout.nameFont).toBe("14px");
+        expect(layout.metaFont).toBe("11px");
+        expect(layout.listCount).toBeGreaterThan(0);
+        expect(layout.listRolesValid).toBe(true);
+        expect(layout.itemRolesValid).toBe(true);
+        expect(layout.clipsViewport).toBe(false);
+
+        if (width === 320) {
+          await testInfo.attach("team-320-roster", {
+            body: await page.screenshot({ animations: "disabled" }),
+            contentType: "image/png",
+          });
+        }
+      });
+    }
+  } finally {
+    await page.setViewportSize({ width: 400, height: 900 });
+  }
+});
+
 test("groups More and never strands a sub-screen", async () => {
   const { page } = loaded;
   const primaryNav = page.getByRole("navigation", { name: "Primary" });

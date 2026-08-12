@@ -15,6 +15,11 @@
 
 - `PlayerAvatar`, position/status/tier badges, player rows, score displays, and
   score breakdowns.
+- `SleeperRosterSlot` composes a measured slot tile, resilient 32 px avatar,
+  identity metadata, and trailing value into the shared 64 px roster row.
+- `buildTeamRosterSections` preserves selected-league starter order and
+  separates bench, taxi, and reserve players without duplicates; Best Ball
+  uses one ordered roster section.
 - Draft context, Draft Copilot, recommendation board, recent picks, What-If,
   current-pick status, roster need, position-run alerts, and auction budget
   panels.
