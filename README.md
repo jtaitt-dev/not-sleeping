@@ -27,12 +27,28 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.10](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.10)**.
+The current release is **[v0.8.11](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.11)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.11
+
+- Leagues now opens the selected league as an isolated overview instead of
+  stopping at a selector. It projects teams and draft positions, standings,
+  current-week public transactions, and league settings from that league's
+  validated snapshot.
+- The overview matches authenticated Sleeper League density with 92 px team
+  rows, 60 px standings, 116+ px activity rows, 72 px setting rows, resilient
+  team avatars, and a centered 750 px desktop content column.
+- Cross-league snapshots are rejected before render. FAAB remaining budget and
+  rolling waiver order use format-aware labels, and transaction player IDs are
+  included in snapshot hydration so recently dropped players retain names.
+- Pure projection tests, connected-store tests, and a seven-width production
+  browser matrix verify data isolation, semantics, exact geometry, typography,
+  and overflow from 320 through 1920 px.
 
 ## New in v0.8.10
 

@@ -31,6 +31,8 @@ and options-page stylesheet consumes the same tokens.
 - Player rows: 44 px
 - Statistical player rows: 52 px with 32 px avatars
 - Team roster rows: 64 px with 42×32 px slot tiles and 32 px avatars
+- League overview: at most 750 px wide with 92 px team rows, 60 px standings,
+  116+ px activity rows, 72 px setting rows, and 32/16 px team avatars
 - Draft cells: 132 × 50 px
 - Small, medium, and large icons: 14, 18, and 24 px
 - Modal width: at most 520 px with a 16 px viewport gutter

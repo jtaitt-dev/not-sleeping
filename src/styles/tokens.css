@@ -146,6 +146,13 @@
   --roster-slot-ink: #022047;
   --roster-slot-qb: #ff2a6d;
   --roster-zebra: rgb(163 0 0 / 5%);
+  --league-team-row-height: 92px;
+  --league-standing-row-height: 60px;
+  --league-activity-row-min-height: 116px;
+  --league-setting-row-height: 72px;
+  --league-panel-radius: 16px;
+  --league-panel-fill: rgb(163 187 211 / 5%);
+  --league-panel-border: rgb(58 70 91 / 50%);
   --navigation-height: 40px;
   --button-height-small: 32px;
   --button-height-medium: 40px;

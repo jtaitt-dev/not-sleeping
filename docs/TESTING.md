@@ -13,7 +13,9 @@
 - Playwright launches `dist` as a real MV3 extension and checks navigation,
   interactions, offline use, 320px layout, the two-stage Advanced Research
   gate, truthful Draft Copilot AI states, verified headshots, and a complete
-  48-pick manual-entry mock without implicit autopicks.
+  48-pick manual-entry mock without implicit autopicks. Dedicated Draft,
+  Players, Team, and selected-League matrices cover 320, 375, 390, 768, 1024,
+  1440, and 1920 px with computed geometry and overflow assertions.
 - axe checks loaded extension pages for serious and critical accessibility
   violations.
 - Targeted screenshots cover waiting, on-clock, AI off/working/ready, rookie,

@@ -20,6 +20,9 @@
 - `buildTeamRosterSections` preserves selected-league starter order and
   separates bench, taxi, and reserve players without duplicates; Best Ball
   uses one ordered roster section.
+- `buildLeagueOverview` rejects cross-league snapshots and projects team
+  identity, canonical draft slots, standings, waiver state, public activity,
+  and settings into one presentation-safe selected-league model.
 - Draft context, Draft Copilot, recommendation board, recent picks, What-If,
   current-pick status, roster need, position-run alerts, and auction budget
   panels.

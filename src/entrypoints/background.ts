@@ -340,18 +340,22 @@ async function routeMessage(
         sleeper.getLeagueDrafts(leagueId),
       ]);
       await sleeper.refreshPlayers().catch(() => null);
-      const rosterPlayerIds = [
-        ...new Set(
-          rosters.flatMap((roster) => [
+      const snapshotPlayerIds = [
+        ...new Set([
+          ...rosters.flatMap((roster) => [
             ...(roster.players ?? []),
             ...(roster.starters ?? []),
             ...(roster.reserve ?? []),
             ...(roster.taxi ?? []),
           ]),
-        ),
+          ...transactions.flatMap((transaction) => [
+            ...Object.keys(transaction.adds ?? {}),
+            ...Object.keys(transaction.drops ?? {}),
+          ]),
+        ]),
       ];
       const [players, projections] = await Promise.all([
-        db.players.bulkGet(rosterPlayerIds),
+        db.players.bulkGet(snapshotPlayerIds),
         optionalSleeper(() => sleeper.getNflProjections(league.season)),
       ]);
       const snapshotPlayers = players.filter(

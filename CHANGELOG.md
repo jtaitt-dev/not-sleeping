@@ -5,6 +5,40 @@ semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.11] - 2026-08-12
+
+### Added
+
+- The Leagues workspace now renders selected-league teams, canonical draft
+  positions, standings, current-week public activity, and settings alongside
+  the account league selector.
+- A pure league-overview projector and connected-store tests verify draft
+  selection, standings decimals and order, format-aware waiver labels, safe
+  avatar URLs, semantic sections, and stale-snapshot rejection.
+- A production-extension browser matrix verifies the selected League overview
+  at 320, 375, 390, 768, 1024, 1440, and 1920 px, attaching sanitized captures
+  and asserting measured geometry, typography, semantics, and containment.
+
+### Changed
+
+- League panels now use authenticated Sleeper dimensions: a centered 750 px
+  desktop column, 92 px team rows, 60 px standings, 116+ px activity rows,
+  72 px setting rows, 32/16 px team avatars, and 18/14/10/12 px type roles.
+- League settings, team labels, records, decimal points, waiver values, and
+  activity identities are derived from the selected snapshot rather than
+  placeholder examples or internal IDs.
+- League snapshot hydration includes add/drop player identities as well as
+  current roster players so recent transaction rows remain intelligible.
+
+### Fixed
+
+- Switching leagues cannot render the previous league's overview while the
+  destination snapshot is loading.
+- FAAB leagues show remaining budget while rolling waivers show priority; a
+  non-FAAB league is no longer mislabeled with a dollar balance.
+- When multiple drafts exist, the league's canonical `draft_id` supplies draft
+  positions instead of the first unrelated draft returned by the API.
+
 ## [0.8.10] - 2026-08-11
 
 ### Added
@@ -466,7 +500,8 @@ semantic versioning.
   visual regression tests.
 - Reproducible release ZIP and SHA-256 packaging.
 
-[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.10...HEAD
+[Unreleased]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.11...HEAD
+[0.8.11]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/jtaitt-dev/not-sleeping/compare/v0.8.7...v0.8.8
