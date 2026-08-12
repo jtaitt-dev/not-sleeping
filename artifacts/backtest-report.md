@@ -1,6 +1,6 @@
 # Phase 2 model validation report
 
-Generated: 2026-08-10T17:30:37.775Z
+Generated: 2026-08-12T06:10:09.846Z
 Data: Recorded nflverse weekly player-stats fixture (CC-BY-4.0) · seasons 2023, 2024
 
 ## Start/sit walk-forward

@@ -1,14 +1,14 @@
 # Phase 2 simulation report
 
-Generated: 2026-08-10T17:30:25.067Z
+Generated: 2026-08-12T06:11:00.769Z
 
 - Completed: 80 / 80
 - Complete recommendation-engine replays: 80
 - Invariant failures: 0
 - Recommendation rank stability: 100.0%
 - Roster completion: 100.0%
-- Average recommendation latency: 0.934 ms
-- P95 recommendation latency: 1.511 ms
+- Average recommendation latency: 0.780 ms
+- P95 recommendation latency: 1.305 ms
 
 ## Required overlapping categories
 

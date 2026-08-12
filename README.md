@@ -27,12 +27,32 @@ Because the unified package contains manual-odds research, current releases are
 limited-beta/sideload artifacts and are **not approved for Chrome Web Store
 submission** without a fresh policy and legal review.
 
-The current release is **[v0.8.12](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.12)**.
+The current release is **[v0.8.13](https://github.com/jtaitt-dev/not-sleeping/releases/tag/v0.8.13)**.
 It ships one unified Chrome MV3 archive with a matching SHA-256 checksum.
 
 |                              Local answer with AI off                              |                                          Visible AI activity                                           |
 | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: |
 | ![On-clock Draft Copilot with AI off](docs/screenshots/draft-premium-on-clock.png) | ![On-clock Draft Copilot showing Luna working](docs/screenshots/draft-premium-on-clock-ai-working.png) |
+
+## New in v0.8.13
+
+- The side panel now follows the league visible in its bound authenticated
+  Sleeper tab on every supported league route. Initial connection, later route
+  changes, and account detection all recheck the tab context; an unknown league
+  ID cannot replace an explicit account selection.
+- Today renders only selected-league facts and local checks supported by the
+  current snapshot. Fixed weather, research, taxi, waiver, and draft cards no
+  longer appear when their underlying state is absent.
+- Evidence now separates direct Sleeper public-API claims from local inference,
+  links to the exact public endpoint, reports actual source counts, and removes
+  invented confidence percentages and point uncertainty.
+- Sleeper player status normalization is case-insensitive, preventing a
+  lowercase `active` response from becoming a false inactive alert. The
+  in-page launcher also exposes a retry state if Chrome rejects panel opening.
+
+|                          Snapshot-backed Today                           |                                 Sourced evidence                                  |
+| :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------: |
+| ![Snapshot-backed Today decisions](docs/screenshots/today-decisions.png) | ![Fact and local-inference evidence drawer](docs/screenshots/evidence-drawer.png) |
 
 ## New in v0.8.12
 

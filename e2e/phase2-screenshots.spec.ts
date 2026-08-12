@@ -128,9 +128,27 @@ test("captures every required Phase 2 workspace from the shipped extension", asy
   );
   await page.goto(`chrome-extension://${extensionId}/sidepanel.html#/today`);
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+  await expect(page.getByText("Weather risk", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("Research freshness", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Taxi deadline", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".decision-card")).toHaveCount(3);
+  await expect(page.locator(".decision-meta strong")).toHaveText([
+    "Local check",
+    "Sleeper",
+    "Sleeper",
+  ]);
+  await page.screenshot({
+    path: resolve(screenshotDir, "today-decisions.png"),
+    animations: "disabled",
+  });
   await page.locator(".decision-card").first().click();
   const evidenceDrawer = page.locator(".evidence-drawer");
   await expect(evidenceDrawer).toBeVisible();
+  await expect(evidenceDrawer.getByText("What we know")).toBeVisible();
+  await expect(evidenceDrawer.getByText("What we worked out")).toBeVisible();
+  await expect(evidenceDrawer.getByText(/points either way/i)).toHaveCount(0);
   await evidenceDrawer.scrollIntoViewIfNeeded();
   await page.screenshot({
     path: resolve(screenshotDir, "evidence-drawer.png"),

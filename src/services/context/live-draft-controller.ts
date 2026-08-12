@@ -55,8 +55,7 @@ export class LiveDraftController {
         if (priorTab !== null && priorTab !== tabId) this.reconcile(priorTab);
         void this.loadContext(tabId)
           .then((context) => {
-            if (!this.contexts.has(tabId)) this.updateContext(tabId, context);
-            else this.reconcile(tabId);
+            this.updateContext(tabId, context);
           })
           .catch(() => this.reconcile(tabId));
         return;
@@ -79,6 +78,12 @@ export class LiveDraftController {
     const prior = this.contexts.get(tabId);
     const draftChanged = prior?.draftId !== context.draftId;
     this.contexts.set(tabId, context);
+    this.broadcast(tabId, {
+      type: "SLEEPER_CONTEXT_UPDATE",
+      tabId,
+      ...(context.leagueId ? { leagueId: context.leagueId } : {}),
+      ...(context.draftId ? { draftId: context.draftId } : {}),
+    });
     this.reconcile(tabId);
     if (draftChanged && context.draftId) void this.refreshNow(tabId);
   }

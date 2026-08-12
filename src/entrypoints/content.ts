@@ -103,9 +103,32 @@ function createLauncher(
     padding: "0 13px",
   });
   button.addEventListener("click", () => {
-    void sendRuntimeMessage({ type: "OPEN_SIDE_PANEL", payload: {} });
+    void openSidePanel(button);
   });
   return button;
+}
+
+async function openSidePanel(button: HTMLButtonElement): Promise<void> {
+  const idleLabel = "Open Not Sleeping";
+  button.disabled = true;
+  button.textContent = "Opening…";
+  try {
+    const response = await sendRuntimeMessage({
+      type: "OPEN_SIDE_PANEL",
+      payload: {},
+    });
+    if (!isSuccessfulResponse(response)) {
+      throw new Error("The side panel did not open.");
+    }
+    button.textContent = idleLabel;
+    button.removeAttribute("title");
+  } catch {
+    button.textContent = "Retry Not Sleeping";
+    button.title =
+      "Chrome could not open the side panel. Reload this Sleeper tab and retry.";
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function extractData(value: unknown): Record<string, unknown> {

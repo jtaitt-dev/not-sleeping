@@ -590,12 +590,19 @@ export function normalizeSleeperPlayer(
     record.fantasy_positions,
   );
   if (!fullName || !position) return null;
+  const reportedStatus = record.status?.trim().toLowerCase() ?? "";
   const status =
-    record.injury_status || record.status === "Injured Reserve"
+    record.injury_status ||
+    [
+      "injured",
+      "injured reserve",
+      "ir",
+      "physically unable to perform",
+    ].includes(reportedStatus)
       ? "injured"
-      : record.status === "Active"
+      : reportedStatus === "active"
         ? "active"
-        : record.status
+        : reportedStatus
           ? "inactive"
           : "unknown";
   return {
